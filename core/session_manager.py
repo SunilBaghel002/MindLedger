@@ -155,10 +155,14 @@ class SessionManager:
             )
             if self.repo and self.current_session.id:
                 try:
-                    self.repo.update_duration(
+                    updated = self.repo.update_duration(
                         self.current_session.id, self.current_session.duration_seconds
                     )
-                except Exception as e:
+                    if not updated:
+                        logger.warning(
+                            f"Session duration update returned False for session_id={self.current_session.id}"
+                        )
+                except sqlite3.Error as e:
                     logger.error(f"Failed to update active app session duration in DB: {e}")
             return self.current_session
 

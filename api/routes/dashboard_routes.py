@@ -21,6 +21,7 @@ from api.schemas import (
     HealthData,
 )
 from config.constants import APP_NAME, APP_VERSION
+from config.settings import settings
 from database.connection import db_manager
 from database.repositories.app_session_repo import AppSessionRepository
 from utils.logger import get_logger
@@ -107,7 +108,7 @@ async def get_dashboard_landing_page() -> str:
     <div class="card">
         <div class="badge">API Engine Active</div>
         <h1>{APP_NAME} v{APP_VERSION}</h1>
-        <p>Your personal digital wellbeing tracking service and local API server are running silently in the background on <strong>127.0.0.1:8787</strong>.</p>
+        <p>Your personal digital wellbeing tracking service and local API server are running silently in the background on <strong>{settings.app_host}:{settings.app_port}</strong>.</p>
         <div class="links">
             <a class="link-btn" href="/api/v1/dashboard/today" target="_blank">📊 View Today's Overview JSON (/api/v1/dashboard/today)</a>
             <a class="link-btn" href="/api/v1/apps/today" target="_blank">💻 View App Usage Details JSON (/api/v1/apps/today)</a>

@@ -29,6 +29,7 @@ event_processor: Optional[EventProcessor] = None
 tray_app: Optional[SystemTrayApp] = None
 api_thread: Optional[threading.Thread] = None
 stop_event = threading.Event()
+pause_event = threading.Event()
 
 
 def initialize_database() -> None:
@@ -50,16 +51,17 @@ def tracking_loop() -> None:
         event_processor.start()
 
         while not stop_event.is_set():
-            try:
-                res = event_processor.tick()
-                if res and tray_app:
-                    if res.get("status") == "active":
-                        app_title = res.get("app_name", "Active")
-                        tray_app.update_status_text(f"Tracking ({app_title})")
-                    elif res.get("status") == "idle":
-                        tray_app.update_status_text("Idle")
-            except Exception as e:
-                logger.error(f"Error in tracking loop tick: {e}", exc_info=True)
+            if not pause_event.is_set():
+                try:
+                    res = event_processor.tick()
+                    if res and tray_app:
+                        if res.get("status") == "active":
+                            app_title = res.get("app_name", "Active")
+                            tray_app.update_status_text(f"Tracking ({app_title})")
+                        elif res.get("status") == "idle":
+                            tray_app.update_status_text("Idle")
+                except Exception as e:
+                    logger.error(f"Error in tracking loop tick: {e}", exc_info=True)
 
             # Sleep poll interval or until stop signal
             stop_event.wait(timeout=settings.poll_interval_seconds)
@@ -72,7 +74,7 @@ def tracking_loop() -> None:
 
 
 def shutdown(signum: Optional[int] = None, frame: Optional[object] = None) -> None:
-    """Gracefully stop tracking thread, save active session, and detach system tray."""
+    """Gracefully signal stop_event and stop system tray without forcing sys.exit from worker thread."""
     if stop_event.is_set():
         return
 
@@ -81,9 +83,6 @@ def shutdown(signum: Optional[int] = None, frame: Optional[object] = None) -> No
 
     if tray_app:
         tray_app.stop()
-
-    logger.info("Graceful shutdown completed successfully.")
-    sys.exit(0)
 
 
 def main() -> None:
@@ -122,7 +121,7 @@ def main() -> None:
     tray_app = SystemTrayApp(
         on_quit_callback=shutdown,
         on_toggle_pause_callback=lambda paused: (
-            stop_event.set() if paused else stop_event.clear()
+            pause_event.set() if paused else pause_event.clear()
         ),
     )
     tray_app.run_detached()
@@ -132,7 +131,13 @@ def main() -> None:
         while not stop_event.is_set():
             time.sleep(0.5)
     except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt received on main thread.")
         shutdown()
+
+    # Final cleanup on main thread
+    shutdown()
+    logger.info("Graceful shutdown completed successfully.")
+    sys.exit(0)
 
 
 if __name__ == "__main__":
