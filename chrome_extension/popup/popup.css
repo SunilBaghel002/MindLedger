@@ -199,6 +199,10 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+.stat-card-full {
+  grid-column: span 2;
+}
+
 .stat-value {
   font-size: 18px;
   font-weight: 700;
