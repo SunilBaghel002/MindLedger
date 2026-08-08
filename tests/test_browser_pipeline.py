@@ -1,6 +1,6 @@
 """
-MindLedger - Test Suite for Browser & YouTube Tracking Pipeline (Phase 2C)
-Tests repositories (BrowserSessionRepository, YouTubeRepository) and FastAPI API endpoints.
+MindLedger - Test Suite for Browser & YouTube Tracking Pipeline (Phase 2C & 2D)
+Tests repositories (BrowserSessionRepository, YouTubeRepository) and FastAPI API endpoints (POST & GET).
 
 Author: MindLedger Team
 Created: 2026-08-08
@@ -97,6 +97,10 @@ def test_browser_session_repository(temp_db):
         assert top_domains[0]["domain"] == "github.com"
         assert top_domains[0]["total_seconds"] == 300
 
+        # Total duration & count
+        assert repo.get_total_duration(date_str) == 300
+        assert repo.get_unique_domain_count(date_str) == 1
+
 
 def test_youtube_repository(temp_db):
     """Test YouTubeRepository insert, retrieval, and top channels aggregation."""
@@ -136,22 +140,27 @@ def test_youtube_repository(temp_db):
         assert top_channels[0]["channel_name"] == "Programming with Mosh"
         assert top_channels[0]["total_seconds"] == 600
 
+        assert repo.get_total_watch_time(date_str) == 600
+        assert repo.get_video_count(date_str) == 1
+
 
 def test_browser_api_endpoints(temp_db, monkeypatch):
     """Test POST /api/v1/events/browser and POST /api/v1/events/youtube endpoints."""
-    # Monkeypatch settings.db_path to use temp_db path
     import api.routes.browser_routes as br
     monkeypatch.setattr(br, "db_manager", temp_db)
 
     client = TestClient(app)
 
     # 1. Test POST /api/v1/events/browser
+    now_iso = datetime.now().isoformat()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
     browser_payload = {
         "url": "https://github.com/SunilBaghel002/MindLedger",
         "domain": "github.com",
         "title": "MindLedger GitHub",
-        "started_at": datetime.now().isoformat(),
-        "ended_at": datetime.now().isoformat(),
+        "started_at": now_iso,
+        "ended_at": now_iso,
         "duration_seconds": 45,
         "tab_id": 10,
     }
@@ -174,7 +183,7 @@ def test_browser_api_endpoints(temp_db, monkeypatch):
         "is_short": False,
         "watch_duration_seconds": 180,
         "video_duration_seconds": 3600,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": now_iso,
     }
 
     res_yt = client.post("/api/v1/events/youtube", json=youtube_payload)
@@ -182,4 +191,35 @@ def test_browser_api_endpoints(temp_db, monkeypatch):
     data_yt = res_yt.json()
     assert data_yt["success"] is True
     assert "id" in data_yt["data"]
-    assert data_yt["data"]["id"] > 0
+
+    # 3. Test GET /api/v1/browser/today
+    res_b_today = client.get(f"/api/v1/browser/today?date={today_str}")
+    assert res_b_today.status_code == 200
+    b_data = res_b_today.json()["data"]
+    assert b_data["date"] == today_str
+    assert b_data["total_browsing_seconds"] == 45
+    assert b_data["total_unique_domains"] == 1
+    assert len(b_data["top_domains"]) == 1
+
+    # 4. Test GET /api/v1/browser/domains
+    res_b_domains = client.get(f"/api/v1/browser/domains?date={today_str}")
+    assert res_b_domains.status_code == 200
+    d_data = res_b_domains.json()["data"]
+    assert d_data["count"] == 1
+    assert d_data["domains"][0]["domain"] == "github.com"
+
+    # 5. Test GET /api/v1/youtube/today
+    res_y_today = client.get(f"/api/v1/youtube/today?date={today_str}")
+    assert res_y_today.status_code == 200
+    y_data = res_y_today.json()["data"]
+    assert y_data["date"] == today_str
+    assert y_data["total_watch_seconds"] == 180
+    assert y_data["total_videos_count"] == 1
+    assert len(y_data["top_channels"]) == 1
+
+    # 6. Test GET /api/v1/youtube/channels
+    res_y_channels = client.get(f"/api/v1/youtube/channels?date={today_str}")
+    assert res_y_channels.status_code == 200
+    c_data = res_y_channels.json()["data"]
+    assert c_data["count"] == 1
+    assert c_data["channels"][0]["channel_name"] == "FreeCodeCamp"

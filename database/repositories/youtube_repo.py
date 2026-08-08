@@ -92,6 +92,38 @@ class YouTubeRepository:
         rows = cursor.fetchall()
         return [YouTubeActivity.from_row(row) for row in rows]
 
+    def get_total_watch_time(self, date_str: str) -> int:
+        """Calculate total YouTube watch time in seconds for a given date.
+
+        Args:
+            date_str: Date string in YYYY-MM-DD format.
+
+        Returns:
+            Total watch time in seconds.
+        """
+        cursor = self.conn.execute(
+            "SELECT SUM(watch_duration_seconds) FROM youtube_activity WHERE date = ?",
+            (date_str,),
+        )
+        result = cursor.fetchone()[0]
+        return int(result) if result else 0
+
+    def get_video_count(self, date_str: str) -> int:
+        """Count total YouTube videos watched on a given date.
+
+        Args:
+            date_str: Date string in YYYY-MM-DD format.
+
+        Returns:
+            Number of recorded YouTube videos.
+        """
+        cursor = self.conn.execute(
+            "SELECT COUNT(*) FROM youtube_activity WHERE date = ?",
+            (date_str,),
+        )
+        result = cursor.fetchone()[0]
+        return int(result) if result else 0
+
     def get_top_channels(self, date_str: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Calculate top channels watched on a given date by watch duration.
 

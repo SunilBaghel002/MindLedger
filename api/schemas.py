@@ -1,6 +1,6 @@
 """
 MindLedger - API Request/Response Schemas
-Pydantic v2 data models for API response envelopes, dashboard data, health check, browser events, and app usage details.
+Pydantic v2 data models for API response envelopes, dashboard data, health check, browser events, YouTube events, and data retrieval payloads.
 
 Author: MindLedger Team
 Created: 2026-08-08
@@ -105,3 +105,70 @@ class EventRecordedData(BaseModel):
     """Payload response confirming an event was saved."""
 
     id: int
+
+
+class DomainSummaryItem(BaseModel):
+    """Summary representation of domain duration and classification."""
+
+    domain: str
+    category: str
+    productivity: str
+    total_seconds: int
+
+
+class BrowserTodayData(BaseModel):
+    """Payload for today's browser tracking analytics."""
+
+    date: str
+    total_browsing_seconds: int = 0
+    total_unique_domains: int = 0
+    total_sessions_count: int = 0
+    top_domains: List[DomainSummaryItem] = Field(default_factory=list)
+
+
+class BrowserDomainsData(BaseModel):
+    """Payload for domain breakdown list."""
+
+    date: str
+    count: int = 0
+    domains: List[DomainSummaryItem] = Field(default_factory=list)
+
+
+class ChannelSummaryItem(BaseModel):
+    """Summary representation of channel watch duration."""
+
+    channel_name: str
+    channel_url: Optional[str] = None
+    total_videos: int = 0
+    total_seconds: int = 0
+
+
+class YouTubeActivityDTO(BaseModel):
+    """DTO for individual YouTube watch activity."""
+
+    id: Optional[int] = None
+    video_id: Optional[str] = None
+    video_title: Optional[str] = None
+    channel_name: Optional[str] = None
+    watch_duration_seconds: int = 0
+    video_category: str = "uncategorized"
+    is_productive: Optional[bool] = None
+    started_at: str
+
+
+class YouTubeTodayData(BaseModel):
+    """Payload for today's YouTube watch analytics."""
+
+    date: str
+    total_watch_seconds: int = 0
+    total_videos_count: int = 0
+    top_channels: List[ChannelSummaryItem] = Field(default_factory=list)
+    recent_videos: List[YouTubeActivityDTO] = Field(default_factory=list)
+
+
+class YouTubeChannelsData(BaseModel):
+    """Payload for YouTube channels breakdown list."""
+
+    date: str
+    count: int = 0
+    channels: List[ChannelSummaryItem] = Field(default_factory=list)

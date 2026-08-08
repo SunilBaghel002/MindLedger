@@ -1,16 +1,28 @@
 """
-MindLedger - Browser & YouTube Event API Routes
-FastAPI router for receiving tracking events sent by the Chrome extension.
+MindLedger - Browser & YouTube API Routes
+FastAPI router for receiving tracking events and querying browser/YouTube analytics data.
 
 Author: MindLedger Team
 Created: 2026-08-08
 """
 
-from datetime import datetime
-from typing import Dict
-from fastapi import APIRouter, HTTPException
+from datetime import date as dt_date, datetime
+from typing import Dict, Optional
+from fastapi import APIRouter, HTTPException, Query
 
-from api.schemas import APIResponse, BrowserEventSchema, EventRecordedData, YouTubeEventSchema
+from api.schemas import (
+    APIResponse,
+    BrowserDomainsData,
+    BrowserEventSchema,
+    BrowserTodayData,
+    ChannelSummaryItem,
+    DomainSummaryItem,
+    EventRecordedData,
+    YouTubeActivityDTO,
+    YouTubeChannelsData,
+    YouTubeEventSchema,
+    YouTubeTodayData,
+)
 from config.constants import (
     CATEGORY_BROWSING,
     CATEGORY_CODING,
@@ -31,7 +43,7 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/api/v1/events", tags=["browser"])
+router = APIRouter(prefix="/api/v1", tags=["browser"])
 db_manager = DatabaseManager(settings.database_path)
 
 
@@ -76,7 +88,8 @@ def classify_youtube_video(title: str, is_short: bool) -> tuple[str, bool | None
     return category, None
 
 
-@router.post("/browser", response_model=APIResponse[EventRecordedData])
+# POST EVENT ENDPOINTS
+@router.post("/events/browser", response_model=APIResponse[EventRecordedData])
 async def receive_browser_event(event: BrowserEventSchema) -> Dict:
     """Receive a browser tab session event from the Chrome extension.
 
@@ -89,7 +102,6 @@ async def receive_browser_event(event: BrowserEventSchema) -> Dict:
     logger.debug(f"Received browser event: url={event.url}, domain={event.domain}, duration={event.duration_seconds}s")
 
     try:
-        # Parse timestamps
         try:
             started_dt = datetime.fromisoformat(event.started_at)
         except Exception:
@@ -134,7 +146,7 @@ async def receive_browser_event(event: BrowserEventSchema) -> Dict:
         raise HTTPException(status_code=500, detail=f"Failed to record browser event: {str(e)}")
 
 
-@router.post("/youtube", response_model=APIResponse[EventRecordedData])
+@router.post("/events/youtube", response_model=APIResponse[EventRecordedData])
 async def receive_youtube_event(event: YouTubeEventSchema) -> Dict:
     """Receive a YouTube video watch event from the Chrome extension.
 
@@ -185,3 +197,157 @@ async def receive_youtube_event(event: YouTubeEventSchema) -> Dict:
     except Exception as e:
         logger.error(f"Failed to record YouTube event: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to record YouTube event: {str(e)}")
+
+
+# GET ANALYTICS ENDPOINTS
+@router.get("/browser/today", response_model=APIResponse[BrowserTodayData])
+async def get_browser_today(date: Optional[str] = Query(None, description="Date in YYYY-MM-DD format")) -> Dict:
+    """Get today's browser usage summary and top domains.
+
+    Args:
+        date: Optional date filter string. Defaults to today.
+
+    Returns:
+        BrowserTodayData payload wrapped in APIResponse.
+    """
+    try:
+        date_str = date or dt_date.today().isoformat()
+        with db_manager.get_connection() as conn:
+            repo = BrowserSessionRepository(conn)
+            total_duration = repo.get_total_duration(date_str)
+            unique_domains = repo.get_unique_domain_count(date_str)
+            top_domains_raw = repo.get_top_domains(date_str, limit=10)
+            all_sessions = repo.get_by_date(date_str)
+
+        top_domains = [DomainSummaryItem(**item) for item in top_domains_raw]
+
+        return {
+            "success": True,
+            "data": {
+                "date": date_str,
+                "total_browsing_seconds": total_duration,
+                "total_unique_domains": unique_domains,
+                "total_sessions_count": len(all_sessions),
+                "top_domains": top_domains,
+            },
+            "error": None,
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch today's browser summary: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/browser/domains", response_model=APIResponse[BrowserDomainsData])
+async def get_browser_domains(date: Optional[str] = Query(None, description="Date in YYYY-MM-DD format"), limit: int = Query(20, ge=1, le=100)) -> Dict:
+    """Get domain usage breakdown for a given date.
+
+    Args:
+        date: Optional date filter.
+        limit: Max domains to return.
+
+    Returns:
+        BrowserDomainsData payload.
+    """
+    try:
+        date_str = date or dt_date.today().isoformat()
+        with db_manager.get_connection() as conn:
+            repo = BrowserSessionRepository(conn)
+            domains_raw = repo.get_top_domains(date_str, limit=limit)
+
+        domain_items = [DomainSummaryItem(**item) for item in domains_raw]
+
+        return {
+            "success": True,
+            "data": {
+                "date": date_str,
+                "count": len(domain_items),
+                "domains": domain_items,
+            },
+            "error": None,
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch browser domains: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/youtube/today", response_model=APIResponse[YouTubeTodayData])
+async def get_youtube_today(date: Optional[str] = Query(None, description="Date in YYYY-MM-DD format")) -> Dict:
+    """Get today's YouTube watch activity summary and top channels.
+
+    Args:
+        date: Optional date filter.
+
+    Returns:
+        YouTubeTodayData payload.
+    """
+    try:
+        date_str = date or dt_date.today().isoformat()
+        with db_manager.get_connection() as conn:
+            repo = YouTubeRepository(conn)
+            total_watch = repo.get_total_watch_time(date_str)
+            video_count = repo.get_video_count(date_str)
+            top_channels_raw = repo.get_top_channels(date_str, limit=10)
+            all_activities = repo.get_by_date(date_str)
+
+        top_channels = [ChannelSummaryItem(**item) for item in top_channels_raw]
+        recent_videos = [
+            YouTubeActivityDTO(
+                id=act.id,
+                video_id=act.video_id,
+                video_title=act.video_title,
+                channel_name=act.channel_name,
+                watch_duration_seconds=act.watch_duration_seconds,
+                video_category=act.video_category,
+                is_productive=act.is_productive,
+                started_at=act.started_at.isoformat(),
+            )
+            for act in all_activities[-10:]
+        ]
+
+        return {
+            "success": True,
+            "data": {
+                "date": date_str,
+                "total_watch_seconds": total_watch,
+                "total_videos_count": video_count,
+                "top_channels": top_channels,
+                "recent_videos": recent_videos,
+            },
+            "error": None,
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch today's YouTube summary: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/youtube/channels", response_model=APIResponse[YouTubeChannelsData])
+async def get_youtube_channels(date: Optional[str] = Query(None, description="Date in YYYY-MM-DD format"), limit: int = Query(20, ge=1, le=100)) -> Dict:
+    """Get top YouTube channels by watch time for a given date.
+
+    Args:
+        date: Optional date filter.
+        limit: Max channels to return.
+
+    Returns:
+        YouTubeChannelsData payload.
+    """
+    try:
+        date_str = date or dt_date.today().isoformat()
+        with db_manager.get_connection() as conn:
+            repo = YouTubeRepository(conn)
+            channels_raw = repo.get_top_channels(date_str, limit=limit)
+
+        channel_items = [ChannelSummaryItem(**item) for item in channels_raw]
+
+        return {
+            "success": True,
+            "data": {
+                "date": date_str,
+                "count": len(channel_items),
+                "channels": channel_items,
+            },
+            "error": None,
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch YouTube channels: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

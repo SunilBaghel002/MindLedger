@@ -92,6 +92,38 @@ class BrowserSessionRepository:
         rows = cursor.fetchall()
         return [BrowserSession.from_row(row) for row in rows]
 
+    def get_total_duration(self, date_str: str) -> int:
+        """Calculate total browsing duration in seconds for a given date.
+
+        Args:
+            date_str: Date string in YYYY-MM-DD format.
+
+        Returns:
+            Total duration in seconds.
+        """
+        cursor = self.conn.execute(
+            "SELECT SUM(duration_seconds) FROM browser_sessions WHERE date = ?",
+            (date_str,),
+        )
+        result = cursor.fetchone()[0]
+        return int(result) if result else 0
+
+    def get_unique_domain_count(self, date_str: str) -> int:
+        """Count unique domains visited on a given date.
+
+        Args:
+            date_str: Date string in YYYY-MM-DD format.
+
+        Returns:
+            Number of distinct domains.
+        """
+        cursor = self.conn.execute(
+            "SELECT COUNT(DISTINCT domain) FROM browser_sessions WHERE date = ?",
+            (date_str,),
+        )
+        result = cursor.fetchone()[0]
+        return int(result) if result else 0
+
     def get_top_domains(self, date_str: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Calculate top domains visited on a given date by duration.
 
