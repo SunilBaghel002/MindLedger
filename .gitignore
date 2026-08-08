@@ -1,0 +1,52 @@
+# MindLedger Git Ignore Rules
+
+# Explicit Exclusions (User Requirement)
+AGENTS.md
+context/
+
+# Environment and Secrets
+.env
+.env.local
+.env.*.local
+
+# Python Caches & Compiled Files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Packaging & Build Directories
+build/
+dist/
+*.egg-info/
+.eggs/
+*.spec
+
+# IDE & Editor Files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test & Coverage Reports
+.pytest_cache/
+.coverage
+htmlcov/

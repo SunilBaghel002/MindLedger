@@ -1,0 +1,23 @@
+# MindLedger Core Dependencies
+
+# Web API & Server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+
+# OS & Window Monitoring
+pywin32>=306; sys_platform == 'win32'
+psutil>=5.9.0
+pynput>=1.7.6
+
+# System Tray & UI Icons
+pystray>=0.19.5
+Pillow>=10.0.0
+
+# Task Scheduling & Templating
+apscheduler>=3.10.0
+jinja2>=3.1.0
+
+# Testing
+pytest>=7.4.0
