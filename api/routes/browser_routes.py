@@ -131,7 +131,7 @@ async def receive_browser_event(event: BrowserEventSchema) -> Dict:
             date=date_str,
         )
 
-        with db_manager.get_connection() as conn:
+        with db_manager.connection() as conn:
             repo = BrowserSessionRepository(conn)
             session_id = repo.save(session)
             conn.commit()
@@ -184,7 +184,7 @@ async def receive_youtube_event(event: YouTubeEventSchema) -> Dict:
             date=date_str,
         )
 
-        with db_manager.get_connection() as conn:
+        with db_manager.connection() as conn:
             repo = YouTubeRepository(conn)
             activity_id = repo.save(activity)
             conn.commit()
@@ -212,7 +212,7 @@ async def get_browser_today(date: Optional[str] = Query(None, description="Date 
     """
     try:
         date_str = date or dt_date.today().isoformat()
-        with db_manager.get_connection() as conn:
+        with db_manager.connection() as conn:
             repo = BrowserSessionRepository(conn)
             total_duration = repo.get_total_duration(date_str)
             unique_domains = repo.get_unique_domain_count(date_str)
@@ -250,7 +250,7 @@ async def get_browser_domains(date: Optional[str] = Query(None, description="Dat
     """
     try:
         date_str = date or dt_date.today().isoformat()
-        with db_manager.get_connection() as conn:
+        with db_manager.connection() as conn:
             repo = BrowserSessionRepository(conn)
             domains_raw = repo.get_top_domains(date_str, limit=limit)
 
@@ -282,7 +282,7 @@ async def get_youtube_today(date: Optional[str] = Query(None, description="Date 
     """
     try:
         date_str = date or dt_date.today().isoformat()
-        with db_manager.get_connection() as conn:
+        with db_manager.connection() as conn:
             repo = YouTubeRepository(conn)
             total_watch = repo.get_total_watch_time(date_str)
             video_count = repo.get_video_count(date_str)
@@ -333,7 +333,7 @@ async def get_youtube_channels(date: Optional[str] = Query(None, description="Da
     """
     try:
         date_str = date or dt_date.today().isoformat()
-        with db_manager.get_connection() as conn:
+        with db_manager.connection() as conn:
             repo = YouTubeRepository(conn)
             channels_raw = repo.get_top_channels(date_str, limit=limit)
 

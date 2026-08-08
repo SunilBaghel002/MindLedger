@@ -79,6 +79,8 @@ class SessionManager:
             try:
                 session_id = self.repo.save(session)
                 session.id = session_id
+                if self.db_conn:
+                    self.db_conn.commit()
             except Exception as e:
                 logger.error(f"Failed to persist initial app session: {e}")
 
@@ -109,6 +111,8 @@ class SessionManager:
                     now,
                     self.current_session.duration_seconds,
                 )
+                if self.db_conn:
+                    self.db_conn.commit()
             except Exception as e:
                 logger.error(f"Failed to update ended app session id={self.current_session.id}: {e}")
 
