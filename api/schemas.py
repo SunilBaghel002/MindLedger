@@ -1,6 +1,6 @@
 """
 MindLedger - API Request/Response Schemas
-Pydantic v2 data models for API response envelopes, dashboard data, health check, and app usage details.
+Pydantic v2 data models for API response envelopes, dashboard data, health check, browser events, and app usage details.
 
 Author: MindLedger Team
 Created: 2026-08-08
@@ -72,3 +72,36 @@ class AppsTodayData(BaseModel):
     total_screen_time_seconds: int = 0
     top_apps: List[AppUsageSummaryItem] = Field(default_factory=list)
     recent_sessions: List[AppSessionDTO] = Field(default_factory=list)
+
+
+class BrowserEventSchema(BaseModel):
+    """Payload sent by Chrome extension for browser tab tracking events."""
+
+    url: str
+    domain: str
+    title: Optional[str] = None
+    started_at: str
+    ended_at: Optional[str] = None
+    duration_seconds: int = 0
+    tab_id: Optional[int] = None
+
+
+class YouTubeEventSchema(BaseModel):
+    """Payload sent by Chrome extension for YouTube video watch events."""
+
+    type: Optional[str] = "YOUTUBE_EVENT"
+    video_id: str
+    video_title: Optional[str] = None
+    channel_name: Optional[str] = None
+    channel_url: Optional[str] = None
+    video_url: Optional[str] = None
+    is_short: bool = False
+    watch_duration_seconds: int = 0
+    video_duration_seconds: int = 0
+    timestamp: Optional[str] = None
+
+
+class EventRecordedData(BaseModel):
+    """Payload response confirming an event was saved."""
+
+    id: int
