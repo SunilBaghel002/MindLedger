@@ -139,6 +139,9 @@ class SystemTrayApp:
         if self._stop_requested:
             logger.info("Stop was requested before tray startup completed. Stopping now.")
             icon.stop()
+            return
+
+        icon.visible = True
 
     def run(self) -> None:
         """Create and run the system tray icon loop."""

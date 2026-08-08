@@ -136,6 +136,7 @@ def main() -> None:
 
     # Final cleanup on main thread
     shutdown()
+    tracking_thread.join()
     logger.info("Graceful shutdown completed successfully.")
     sys.exit(0)
 
