@@ -71,13 +71,18 @@ def seed_database(conn: sqlite3.Connection) -> None:
     for rule in DEFAULT_CATEGORY_RULES:
         rule_type, pattern, category, subcategory, productivity, priority = rule
         cursor.execute(
-            """
-            INSERT OR IGNORE INTO category_rules
-                (rule_type, pattern, category, subcategory, productivity, priority)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (rule_type, pattern, category, subcategory, productivity, priority),
+            "SELECT 1 FROM category_rules WHERE rule_type = ? AND pattern = ?",
+            (rule_type, pattern),
         )
+        if not cursor.fetchone():
+            cursor.execute(
+                """
+                INSERT INTO category_rules
+                    (rule_type, pattern, category, subcategory, productivity, priority)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (rule_type, pattern, category, subcategory, productivity, priority),
+            )
 
     # Seed Default Settings
     for setting in DEFAULT_SETTINGS:

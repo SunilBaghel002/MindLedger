@@ -205,6 +205,7 @@ def up(conn: sqlite3.Connection) -> None:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_youtube_channel ON youtube_activity(channel_name);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_date ON daily_summaries(date);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_rules_type ON category_rules(rule_type);")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_rules_type_pattern ON category_rules(rule_type, pattern);")
 
     logger.info("Database migration v001_initial completed successfully.")
 

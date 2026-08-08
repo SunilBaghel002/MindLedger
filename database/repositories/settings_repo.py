@@ -6,6 +6,7 @@ Author: MindLedger Team
 Created: 2026-08-08
 """
 
+import json
 import sqlite3
 from typing import Any, Dict, Optional
 
@@ -54,7 +55,11 @@ class SettingsRepository:
         Returns:
             True if setting saved successfully.
         """
-        val_str = str(value)
+        if data_type == "json" and not isinstance(value, str):
+            val_str = json.dumps(value)
+        else:
+            val_str = str(value)
+
         cursor = self.conn.execute(
             """
             INSERT INTO settings (key, value, data_type, updated_at)

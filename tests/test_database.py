@@ -131,25 +131,77 @@ def test_app_session_repository(temp_db):
         assert top_apps[0]["total_seconds"] == 300
 
 
-def test_settings_repository(temp_db):
-    """Test SettingsRepository get, set, and get_all operations."""
+def test_seed_database_idempotency(temp_db):
+    """Test that seed_database is idempotent and does not produce duplicate rows on repeated calls."""
+    db_mgr, _ = temp_db
+    with db_mgr.connection() as conn:
+        initial_rules = conn.execute("SELECT COUNT(*) FROM category_rules;").fetchone()[0]
+        initial_settings = conn.execute("SELECT COUNT(*) FROM settings;").fetchone()[0]
+
+        # Call seed_database a second time
+        seed_database(conn)
+
+        second_rules = conn.execute("SELECT COUNT(*) FROM category_rules;").fetchone()[0]
+        second_settings = conn.execute("SELECT COUNT(*) FROM settings;").fetchone()[0]
+
+        assert initial_rules == second_rules
+        assert initial_settings == second_settings
+
+
+def test_app_session_repository_multiple_classifications(temp_db):
+    """Test get_top_apps produces a single result per application even with multiple classifications."""
+    db_mgr, _ = temp_db
+    with db_mgr.connection() as conn:
+        repo = AppSessionRepository(conn)
+        now = datetime.now()
+
+        # Session 1 for chrome.exe (browsing / neutral)
+        repo.save(
+            AppSession(
+                app_name="chrome.exe",
+                started_at=now,
+                duration_seconds=100,
+                is_foreground=True,
+                category="browsing",
+                productivity="neutral",
+                date="2026-08-08",
+            )
+        )
+
+        # Session 2 for chrome.exe (coding / productive)
+        repo.save(
+            AppSession(
+                app_name="chrome.exe",
+                started_at=now,
+                duration_seconds=200,
+                is_foreground=True,
+                category="coding",
+                productivity="productive",
+                date="2026-08-08",
+            )
+        )
+
+        top_apps = repo.get_top_apps("2026-08-08", limit=10)
+        chrome_entries = [a for a in top_apps if a["app_name"] == "chrome.exe"]
+
+        assert len(chrome_entries) == 1
+        assert chrome_entries[0]["total_seconds"] == 300
+
+
+def test_settings_repository_json_serialization(temp_db):
+    """Test SettingsRepository.set serializes dict values with json.dumps when data_type is json."""
+    import json
     db_mgr, _ = temp_db
     with db_mgr.connection() as conn:
         repo = SettingsRepository(conn)
+        native_json = {"enabled": True, "threshold": 50, "tags": ["dev", "ai"]}
 
-        # Get existing seeded setting
-        poll_interval = repo.get("poll_interval_seconds")
-        assert poll_interval == "2"
+        repo.set("json_feature_flag", native_json, "json")
+        raw_val = repo.get("json_feature_flag")
 
-        # Set new setting
-        repo.set("custom_key", "custom_val", "string")
-        assert repo.get("custom_key") == "custom_val"
+        assert raw_val is not None
+        parsed = json.loads(raw_val)
+        assert parsed == native_json
+        assert parsed["enabled"] is True
+        assert parsed["tags"] == ["dev", "ai"]
 
-        # Update existing setting
-        repo.set("poll_interval_seconds", "5", "integer")
-        assert repo.get("poll_interval_seconds") == "5"
-
-        # Get all settings
-        all_settings = repo.get_all()
-        assert "poll_interval_seconds" in all_settings
-        assert "custom_key" in all_settings

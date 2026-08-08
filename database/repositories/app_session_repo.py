@@ -125,10 +125,10 @@ class AppSessionRepository:
         """
         cursor = self.conn.execute(
             """
-            SELECT app_name, category, productivity, SUM(duration_seconds) as total_seconds
+            SELECT app_name, MAX(category) as category, MAX(productivity) as productivity, SUM(duration_seconds) as total_seconds
             FROM app_sessions
             WHERE date = ? AND is_foreground = 1
-            GROUP BY app_name, category, productivity
+            GROUP BY app_name
             ORDER BY total_seconds DESC
             LIMIT ?
             """,
