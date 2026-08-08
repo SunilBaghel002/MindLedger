@@ -1,0 +1,161 @@
+"""
+MindLedger - System Tray Manager
+System tray application built with pystray and Pillow for silent background monitoring and status controls.
+
+Author: MindLedger Team
+Created: 2026-08-08
+"""
+
+import threading
+import webbrowser
+from typing import Callable, Optional
+
+from PIL import Image, ImageDraw
+import pystray
+
+from config.constants import APP_NAME, APP_VERSION
+from config.settings import settings
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+def create_default_tray_image(width: int = 64, height: int = 64) -> Image.Image:
+    """Generate a clean 64x64 RGBA icon image for system tray.
+
+    Args:
+        width: Icon pixel width.
+        height: Icon pixel height.
+
+    Returns:
+        PIL Image object.
+    """
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    dc = ImageDraw.Draw(image)
+
+    # Draw rounded dark blue circle background
+    margin = 4
+    dc.ellipse(
+        [margin, margin, width - margin, height - margin],
+        fill=(43, 108, 176, 255),
+        outline=(74, 144, 217, 255),
+        width=2,
+    )
+
+    # Draw white inner 'M' letter symbol
+    dc.polygon(
+        [
+            (18, 44),
+            (18, 20),
+            (32, 34),
+            (46, 20),
+            (46, 44),
+            (40, 44),
+            (40, 28),
+            (32, 38),
+            (24, 28),
+            (24, 44),
+        ],
+        fill=(255, 255, 255, 255),
+    )
+
+    return image
+
+
+class SystemTrayApp:
+    """Manages the pystray system tray icon and context menu.
+
+    Attributes:
+        on_quit_callback: Function triggered when user selects Quit.
+        on_toggle_pause_callback: Function triggered to pause/resume tracking.
+        is_paused: Boolean state flag.
+    """
+
+    def __init__(
+        self,
+        on_quit_callback: Optional[Callable[[], None]] = None,
+        on_toggle_pause_callback: Optional[Callable[[bool], None]] = None,
+    ) -> None:
+        """Initialize SystemTrayApp.
+
+        Args:
+            on_quit_callback: Callback when Quit menu item is clicked.
+            on_toggle_pause_callback: Callback when Pause/Resume is toggled.
+        """
+        self.on_quit_callback = on_quit_callback
+        self.on_toggle_pause_callback = on_toggle_pause_callback
+        self.is_paused: bool = False
+        self.icon: Optional[pystray.Icon] = None
+        self._current_status: str = "Tracking Active"
+
+    def update_status_text(self, status: str) -> None:
+        """Update the status text shown in the tray tooltip and menu.
+
+        Args:
+            status: Short status text string.
+        """
+        self._current_status = status
+        if self.icon:
+            self.icon.title = f"{APP_NAME} - {self._current_status}"
+
+    def _get_status_menu_title(self, item) -> str:
+        """Dynamic title for status menu item."""
+        return f"Status: {self._current_status}"
+
+    def _get_pause_menu_title(self, item) -> str:
+        """Dynamic title for pause/resume menu item."""
+        return "Resume Tracking" if self.is_paused else "Pause Tracking"
+
+    def _on_toggle_pause(self, icon: pystray.Icon, item) -> None:
+        """Handle Pause/Resume menu toggle click."""
+        self.is_paused = not self.is_paused
+        status_msg = "Paused" if self.is_paused else "Tracking Active"
+        self.update_status_text(status_msg)
+
+        if self.on_toggle_pause_callback:
+            self.on_toggle_pause_callback(self.is_paused)
+
+        logger.info(f"System tray tracking toggled: paused={self.is_paused}")
+
+    def _on_open_dashboard(self, icon: pystray.Icon, item) -> None:
+        """Open the local web dashboard URL in the default browser."""
+        dashboard_url = f"http://{settings.app_host}:{settings.app_port}/dashboard"
+        logger.info(f"Opening dashboard at: {dashboard_url}")
+        webbrowser.open(dashboard_url)
+
+    def _on_quit(self, icon: pystray.Icon, item) -> None:
+        """Handle Quit menu item click."""
+        logger.info("Quit requested via system tray menu.")
+        if self.icon:
+            self.icon.stop()
+        if self.on_quit_callback:
+            self.on_quit_callback()
+
+    def run(self) -> None:
+        """Create and run the system tray icon loop."""
+        image = create_default_tray_image()
+
+        menu = pystray.Menu(
+            pystray.MenuItem(self._get_status_menu_title, None, enabled=False),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem(self._get_pause_menu_title, self._on_toggle_pause),
+            pystray.MenuItem("Open Dashboard", self._on_open_dashboard),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Quit MindLedger", self._on_quit),
+        )
+
+        self.icon = pystray.Icon(
+            name=APP_NAME.lower(),
+            icon=image,
+            title=f"{APP_NAME} v{APP_VERSION} - {self._current_status}",
+            menu=menu,
+        )
+
+        logger.info("Starting SystemTrayApp icon loop...")
+        self.icon.run()
+
+    def stop(self) -> None:
+        """Detach and stop the system tray icon."""
+        if self.icon:
+            self.icon.stop()
+            logger.info("SystemTrayApp stopped.")
