@@ -1,6 +1,6 @@
 """
 MindLedger - Main Entry Point & Thread Orchestrator
-Main entry point starting background window tracking thread, system tray app, and signal shutdown handlers.
+Main entry point starting background window tracking thread, API server thread, system tray app, and signal handlers.
 
 Author: MindLedger Team
 Created: 2026-08-08
@@ -12,6 +12,7 @@ import threading
 import time
 from typing import Optional
 
+from api.server import run_api_server_in_thread
 from config.constants import APP_NAME, APP_VERSION
 from config.settings import settings
 from core.event_processor import EventProcessor
@@ -26,6 +27,7 @@ logger = get_logger(__name__)
 # Global runtime handles
 event_processor: Optional[EventProcessor] = None
 tray_app: Optional[SystemTrayApp] = None
+api_thread: Optional[threading.Thread] = None
 stop_event = threading.Event()
 
 
@@ -85,8 +87,8 @@ def shutdown(signum: Optional[int] = None, frame: Optional[object] = None) -> No
 
 
 def main() -> None:
-    """Initialize services, start tracking thread, and launch system tray app."""
-    global tray_app
+    """Initialize services, start background threads, and launch system tray app."""
+    global tray_app, api_thread
 
     logger.info(f"Starting {APP_NAME} v{APP_VERSION}")
     logger.info(f"Host: {settings.app_host}:{settings.app_port}")
@@ -111,7 +113,12 @@ def main() -> None:
     )
     tracking_thread.start()
 
-    # 4. Start System Tray App on Main Thread
+    # 4. Start Background API Server Thread (FastAPI + Uvicorn)
+    api_thread = run_api_server_in_thread(
+        host=settings.app_host, port=settings.app_port
+    )
+
+    # 5. Start System Tray App on Main Thread
     tray_app = SystemTrayApp(
         on_quit_callback=shutdown,
         on_toggle_pause_callback=lambda paused: (
