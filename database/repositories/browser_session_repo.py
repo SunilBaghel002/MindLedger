@@ -58,6 +58,7 @@ class BrowserSessionRepository:
                 session.date,
             ),
         )
+        self.conn.commit()
         return cursor.lastrowid
 
     def get_by_id(self, session_id: int) -> Optional[BrowserSession]:

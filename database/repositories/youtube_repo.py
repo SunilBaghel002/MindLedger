@@ -58,6 +58,7 @@ class YouTubeRepository:
                 activity.date,
             ),
         )
+        self.conn.commit()
         return cursor.lastrowid
 
     def get_by_id(self, activity_id: int) -> Optional[YouTubeActivity]:

@@ -58,6 +58,7 @@ class AppSessionRepository:
                 session.date,
             ),
         )
+        self.conn.commit()
         return cursor.lastrowid
 
     def update_ended_at(self, session_id: int, ended_at: datetime, duration_seconds: int) -> bool:
@@ -79,6 +80,7 @@ class AppSessionRepository:
             """,
             (ended_at.isoformat(), duration_seconds, session_id),
         )
+        self.conn.commit()
         return cursor.rowcount > 0
 
     def update_duration(self, session_id: int, duration_seconds: int) -> bool:
@@ -99,6 +101,7 @@ class AppSessionRepository:
             """,
             (duration_seconds, session_id),
         )
+        self.conn.commit()
         return cursor.rowcount > 0
 
     def get_by_id(self, session_id: int) -> Optional[AppSession]:
