@@ -35,6 +35,7 @@ function updateUI(data) {
   const titleEl = document.getElementById('active-title');
   const timerEl = document.getElementById('active-timer');
   const switchesEl = document.getElementById('stat-switches');
+  const youtubeEl = document.getElementById('stat-youtube');
   const bufferedEl = document.getElementById('stat-buffered');
   const syncBtn = document.getElementById('btn-sync');
 
@@ -69,6 +70,7 @@ function updateUI(data) {
 
   // Stats
   switchesEl.textContent = data.tabSwitchesToday || 0;
+  if (youtubeEl) youtubeEl.textContent = data.youtubeVideosToday || 0;
   bufferedEl.textContent = data.bufferedEventsCount || 0;
 
   // Sync button state

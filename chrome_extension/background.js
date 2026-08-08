@@ -1,10 +1,11 @@
 /**
  * MindLedger Chrome Extension - Background Service Worker (Manifest V3)
- * Tracks active tab URLs, titles, and duration spent.
+ * Tracks active tab URLs, titles, duration spent, and YouTube video events.
  * Buffers tracking data when local backend server is offline.
  */
 
 const API_ENDPOINT = 'http://127.0.0.1:8787/api/v1/events/browser';
+const YOUTUBE_API_ENDPOINT = 'http://127.0.0.1:8787/api/v1/events/youtube';
 const FLUSH_INTERVAL_MS = 30000; // 30 seconds
 
 // In-memory active tab tracking state
@@ -18,6 +19,7 @@ let activeState = {
 };
 
 let tabSwitchCountToday = 0;
+let youtubeVideosTrackedToday = 0;
 let lastResetDate = new Date().toISOString().split('T')[0];
 
 /**
@@ -45,24 +47,26 @@ function extractDomain(url) {
 }
 
 /**
- * Reset daily switch counter if date changes
+ * Reset daily switch & YouTube counter if date changes
  */
 function checkDateReset() {
   const today = new Date().toISOString().split('T')[0];
   if (today !== lastResetDate) {
     lastResetDate = today;
     tabSwitchCountToday = 0;
+    youtubeVideosTrackedToday = 0;
   }
 }
 
 /**
  * Buffer event in chrome.storage.local for resilient offline storage
+ * @param {string} bufferKey - 'eventBuffer' or 'youtubeEventBuffer'
  * @param {Object} eventData
  */
-async function bufferEvent(eventData) {
+async function bufferEvent(bufferKey, eventData) {
   try {
-    const result = await chrome.storage.local.get(['eventBuffer']);
-    const buffer = result.eventBuffer || [];
+    const result = await chrome.storage.local.get([bufferKey]);
+    const buffer = result[bufferKey] || [];
     buffer.push({ ...eventData, buffered_at: new Date().toISOString() });
 
     // Limit buffer to maximum 500 events
@@ -70,47 +74,55 @@ async function bufferEvent(eventData) {
       buffer.splice(0, buffer.length - 500);
     }
 
-    await chrome.storage.local.set({ eventBuffer: buffer });
-    console.log(`[MindLedger] Event buffered locally. Total buffered: ${buffer.length}`);
+    await chrome.storage.local.set({ [bufferKey]: buffer });
+    console.log(`[MindLedger] Event buffered locally in ${bufferKey}. Total: ${buffer.length}`);
   } catch (err) {
-    console.error('[MindLedger] Error buffering event:', err);
+    console.error(`[MindLedger] Error buffering event in ${bufferKey}:`, err);
   }
 }
 
 /**
- * Flush buffered events to backend server
+ * Flush all buffered events (browser & YouTube) to backend server
  */
 async function flushBuffer() {
+  // Flush Browser Events
   try {
-    const result = await chrome.storage.local.get(['eventBuffer']);
-    const buffer = result.eventBuffer || [];
+    const result = await chrome.storage.local.get(['eventBuffer', 'youtubeEventBuffer']);
+    const browserBuffer = result.eventBuffer || [];
+    const youtubeBuffer = result.youtubeEventBuffer || [];
 
-    if (buffer.length === 0) return;
-
-    console.log(`[MindLedger] Attempting to flush ${buffer.length} buffered events...`);
-
-    const remaining = [];
-    for (let i = 0; i < buffer.length; i++) {
-      const event = buffer[i];
-      const success = await sendEventToBackend(event, false);
-      if (!success) {
-        // Backend unavailable, keep remaining events in buffer
-        remaining.push(...buffer.slice(i));
-        break;
+    if (browserBuffer.length > 0) {
+      console.log(`[MindLedger] Attempting to flush ${browserBuffer.length} browser events...`);
+      const remainingBrowser = [];
+      for (let i = 0; i < browserBuffer.length; i++) {
+        const success = await sendEventToBackend(browserBuffer[i], false);
+        if (!success) {
+          remainingBrowser.push(...browserBuffer.slice(i));
+          break;
+        }
       }
+      await chrome.storage.local.set({ eventBuffer: remainingBrowser });
     }
 
-    await chrome.storage.local.set({ eventBuffer: remaining });
-    if (remaining.length < buffer.length) {
-      console.log(`[MindLedger] Flushed ${buffer.length - remaining.length} events successfully.`);
+    if (youtubeBuffer.length > 0) {
+      console.log(`[MindLedger] Attempting to flush ${youtubeBuffer.length} YouTube events...`);
+      const remainingYoutube = [];
+      for (let i = 0; i < youtubeBuffer.length; i++) {
+        const success = await sendYouTubeEventToBackend(youtubeBuffer[i], false);
+        if (!success) {
+          remainingYoutube.push(...youtubeBuffer.slice(i));
+          break;
+        }
+      }
+      await chrome.storage.local.set({ youtubeEventBuffer: remainingYoutube });
     }
   } catch (err) {
-    console.error('[MindLedger] Error flushing event buffer:', err);
+    console.error('[MindLedger] Error flushing event buffers:', err);
   }
 }
 
 /**
- * Send event payload to MindLedger FastAPI backend
+ * Send browser event payload to MindLedger FastAPI backend
  * @param {Object} eventData
  * @param {boolean} allowBuffer
  * @returns {Promise<boolean>}
@@ -126,13 +138,37 @@ async function sendEventToBackend(eventData, allowBuffer = true) {
     if (response.ok) {
       return true;
     } else {
-      console.warn(`[MindLedger] Backend returned status ${response.status}`);
-      if (allowBuffer) await bufferEvent(eventData);
+      if (allowBuffer) await bufferEvent('eventBuffer', eventData);
       return false;
     }
   } catch (err) {
-    // Backend offline / network error
-    if (allowBuffer) await bufferEvent(eventData);
+    if (allowBuffer) await bufferEvent('eventBuffer', eventData);
+    return false;
+  }
+}
+
+/**
+ * Send YouTube event payload to MindLedger FastAPI backend
+ * @param {Object} youtubeData
+ * @param {boolean} allowBuffer
+ * @returns {Promise<boolean>}
+ */
+async function sendYouTubeEventToBackend(youtubeData, allowBuffer = true) {
+  try {
+    const response = await fetch(YOUTUBE_API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(youtubeData),
+    });
+
+    if (response.ok) {
+      return true;
+    } else {
+      if (allowBuffer) await bufferEvent('youtubeEventBuffer', youtubeData);
+      return false;
+    }
+  } catch (err) {
+    if (allowBuffer) await bufferEvent('youtubeEventBuffer', youtubeData);
     return false;
   }
 }
@@ -263,12 +299,25 @@ chrome.windows.onFocusChanged.addListener(handleWindowFocusChanged);
 // Periodically attempt to flush buffered events
 setInterval(flushBuffer, FLUSH_INTERVAL_MS);
 
-// Message Handler for Popup UI
+// Message Handler for Popup UI and Content Scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // Handle YouTube watch events from content_scripts/youtube.js
+  if (request.type === 'YOUTUBE_EVENT') {
+    checkDateReset();
+    youtubeVideosTrackedToday++;
+    console.log('[MindLedger Background] Received YouTube watch event:', request);
+    sendYouTubeEventToBackend(request);
+    sendResponse({ success: true });
+    return true;
+  }
+
+  // Handle Popup status requests
   if (request.action === 'GET_STATUS') {
     (async () => {
-      const result = await chrome.storage.local.get(['eventBuffer']);
-      const buffer = result.eventBuffer || [];
+      const result = await chrome.storage.local.get(['eventBuffer', 'youtubeEventBuffer']);
+      const browserBuffer = result.eventBuffer || [];
+      const youtubeBuffer = result.youtubeEventBuffer || [];
+      const totalBuffered = browserBuffer.length + youtubeBuffer.length;
 
       // Check backend ping status
       let backendOnline = false;
@@ -289,8 +338,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             durationSeconds: activeState.startTime ? Math.round((Date.now() - activeState.startTime) / 1000) : 0,
           },
           backendOnline: backendOnline,
-          bufferedEventsCount: buffer.length,
+          bufferedEventsCount: totalBuffered,
           tabSwitchesToday: tabSwitchCountToday,
+          youtubeVideosToday: youtubeVideosTrackedToday,
           apiEndpoint: API_ENDPOINT,
         },
       });
@@ -301,9 +351,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'FLUSH_BUFFER') {
     (async () => {
       await flushBuffer();
-      const result = await chrome.storage.local.get(['eventBuffer']);
-      const buffer = result.eventBuffer || [];
-      sendResponse({ success: true, remainingBufferCount: buffer.length });
+      const result = await chrome.storage.local.get(['eventBuffer', 'youtubeEventBuffer']);
+      const browserBuffer = result.eventBuffer || [];
+      const youtubeBuffer = result.youtubeEventBuffer || [];
+      sendResponse({ success: true, remainingBufferCount: browserBuffer.length + youtubeBuffer.length });
     })();
     return true;
   }
@@ -316,4 +367,4 @@ chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
   }
 });
 
-console.log('[MindLedger] Background service worker initialized.');
+console.log('[MindLedger] Background service worker initialized with YouTube support.');
