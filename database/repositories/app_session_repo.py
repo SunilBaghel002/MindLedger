@@ -81,6 +81,26 @@ class AppSessionRepository:
         )
         return cursor.rowcount > 0
 
+    def update_duration(self, session_id: int, duration_seconds: int) -> bool:
+        """Update an active session's current duration in real-time.
+
+        Args:
+            session_id: Row ID of the session.
+            duration_seconds: Calculated duration in seconds.
+
+        Returns:
+            True if row updated, False otherwise.
+        """
+        cursor = self.conn.execute(
+            """
+            UPDATE app_sessions
+            SET duration_seconds = ?
+            WHERE id = ?
+            """,
+            (duration_seconds, session_id),
+        )
+        return cursor.rowcount > 0
+
     def get_by_id(self, session_id: int) -> Optional[AppSession]:
         """Fetch an application session by its ID.
 

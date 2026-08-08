@@ -133,6 +133,18 @@ class SystemTrayApp:
 
     def run(self) -> None:
         """Create and run the system tray icon loop."""
+        self._init_icon()
+        logger.info("Starting SystemTrayApp icon loop...")
+        self.icon.run()
+
+    def run_detached(self) -> None:
+        """Create and run the system tray icon detached in background."""
+        self._init_icon()
+        logger.info("Starting SystemTrayApp icon (detached)...")
+        self.icon.run_detached()
+
+    def _init_icon(self) -> None:
+        """Initialize pystray Icon instance with menu and image."""
         image = create_default_tray_image()
 
         menu = pystray.Menu(
@@ -150,9 +162,6 @@ class SystemTrayApp:
             title=f"{APP_NAME} v{APP_VERSION} - {self._current_status}",
             menu=menu,
         )
-
-        logger.info("Starting SystemTrayApp icon loop...")
-        self.icon.run()
 
     def stop(self) -> None:
         """Detach and stop the system tray icon."""

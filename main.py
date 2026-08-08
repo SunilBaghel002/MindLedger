@@ -118,16 +118,19 @@ def main() -> None:
         host=settings.app_host, port=settings.app_port
     )
 
-    # 5. Start System Tray App on Main Thread
+    # 5. Start System Tray App (Detached)
     tray_app = SystemTrayApp(
         on_quit_callback=shutdown,
         on_toggle_pause_callback=lambda paused: (
             stop_event.set() if paused else stop_event.clear()
         ),
     )
+    tray_app.run_detached()
 
+    # 6. Main Thread Sleep Loop (Responsive to SIGINT / Ctrl+C)
     try:
-        tray_app.run()
+        while not stop_event.is_set():
+            time.sleep(0.5)
     except KeyboardInterrupt:
         shutdown()
 
