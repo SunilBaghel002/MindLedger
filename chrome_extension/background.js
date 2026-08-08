@@ -272,21 +272,27 @@ async function handleTabRemoved(tabId) {
  * Handle window focus switch
  */
 async function handleWindowFocusChanged(windowId) {
-  await finalizeCurrentSession();
-
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
     // Focus left Chrome completely
+    await finalizeCurrentSession();
     activeState = { tabId: null, windowId: null, url: null, title: null, domain: null, startTime: null };
-  } else {
-    // Focused on a Chrome window, find active tab
-    try {
-      const tabs = await chrome.tabs.query({ active: true, windowId: windowId });
-      if (tabs && tabs.length > 0) {
-        startTrackingTab(tabs[0]);
-      }
-    } catch (err) {
-      console.warn('[MindLedger] Error querying tab on window focus:', err);
+    return;
+  }
+
+  try {
+    const win = await chrome.windows.get(windowId);
+    // Only switch tracking for normal browser windows (ignore popup frames, devtools, etc.)
+    if (win && win.type !== 'normal') {
+      return;
     }
+
+    await finalizeCurrentSession();
+    const tabs = await chrome.tabs.query({ active: true, windowId: windowId });
+    if (tabs && tabs.length > 0) {
+      startTrackingTab(tabs[0]);
+    }
+  } catch (err) {
+    console.warn('[MindLedger] Error querying tab on window focus:', err);
   }
 }
 
@@ -314,6 +320,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Handle Popup status requests
   if (request.action === 'GET_STATUS') {
     (async () => {
+      // If activeState is uninitialized or null, recover active tab from last focused window
+      if (!activeState.url) {
+        try {
+          const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+          if (tabs && tabs.length > 0 && isValidTrackableUrl(tabs[0].url)) {
+            startTrackingTab(tabs[0]);
+          }
+        } catch (e) {
+          console.warn('[MindLedger] Error recovering active tab for status:', e);
+        }
+      }
+
       const result = await chrome.storage.local.get(['eventBuffer', 'youtubeEventBuffer']);
       const browserBuffer = result.eventBuffer || [];
       const youtubeBuffer = result.youtubeEventBuffer || [];
