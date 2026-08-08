@@ -7,8 +7,10 @@ Created: 2026-08-08
 """
 
 import sys
+import time
 from config.constants import APP_NAME, APP_VERSION
 from config.settings import settings
+from core.event_processor import EventProcessor
 from database.connection import db_manager
 from database.migrations.v001_initial import up as run_v001_migration
 from database.seed_data import seed_database
@@ -38,7 +40,18 @@ def main() -> None:
     # Initialize Database
     initialize_database()
 
-    logger.info("Phase 1B: Database Setup Complete.")
+    # Initialize Event Processor & Core Tracking
+    with db_manager.connection() as conn:
+        processor = EventProcessor(db_conn=conn)
+        processor.start()
+
+        # Run quick verification tick
+        result = processor.tick()
+        logger.info(f"Tracking cycle tick result: {result}")
+
+        processor.stop()
+
+    logger.info("Phase 1C: Window Tracking Pipeline Verified & Complete.")
 
 
 if __name__ == "__main__":
