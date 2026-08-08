@@ -6,6 +6,7 @@ Author: MindLedger Team
 Created: 2026-08-08
 """
 
+import sys
 import threading
 import webbrowser
 from typing import Callable, Optional
@@ -87,6 +88,8 @@ class SystemTrayApp:
         self.is_paused: bool = False
         self.icon: Optional[pystray.Icon] = None
         self._current_status: str = "Tracking Active"
+        self._is_ready: bool = False
+        self._stop_requested: bool = False
 
     def update_status_text(self, status: str) -> None:
         """Update the status text shown in the tray tooltip and menu.
@@ -126,13 +129,37 @@ class SystemTrayApp:
     def _on_quit(self, icon: pystray.Icon, item) -> None:
         """Handle Quit menu item click."""
         logger.info("Quit requested via system tray menu.")
-        if self.icon:
-            self.icon.stop()
+        self.stop()
         if self.on_quit_callback:
             self.on_quit_callback()
 
+    def _on_ready(self, icon: pystray.Icon) -> None:
+        """Callback invoked when pystray icon setup completes."""
+        self._is_ready = True
+        if self._stop_requested:
+            logger.info("Stop was requested before tray startup completed. Stopping now.")
+            icon.stop()
+            return
+
+        icon.visible = True
+
     def run(self) -> None:
         """Create and run the system tray icon loop."""
+        self._init_icon()
+        logger.info("Starting SystemTrayApp icon loop...")
+        self.icon.run(setup=self._on_ready)
+
+    def run_detached(self) -> None:
+        """Create and run the system tray icon detached in background."""
+        self._init_icon()
+        logger.info("Starting SystemTrayApp icon (detached)...")
+        if sys.platform == "darwin":
+            self.icon.run_detached(setup=self._on_ready)
+        else:
+            self.icon.run_detached(setup=self._on_ready)
+
+    def _init_icon(self) -> None:
+        """Initialize pystray Icon instance with menu and image."""
         image = create_default_tray_image()
 
         menu = pystray.Menu(
@@ -151,11 +178,12 @@ class SystemTrayApp:
             menu=menu,
         )
 
-        logger.info("Starting SystemTrayApp icon loop...")
-        self.icon.run()
-
     def stop(self) -> None:
         """Detach and stop the system tray icon."""
+        self._stop_requested = True
         if self.icon:
-            self.icon.stop()
+            try:
+                self.icon.stop()
+            except Exception as e:
+                logger.warning(f"Error stopping system tray icon: {e}")
             logger.info("SystemTrayApp stopped.")

@@ -13,7 +13,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes.dashboard_routes import router as dashboard_router
+from api.routes.dashboard_routes import page_router, router as dashboard_router
 from config.constants import APP_NAME, APP_VERSION
 from config.settings import settings
 from utils.logger import get_logger
@@ -54,6 +54,7 @@ def create_app() -> FastAPI:
 
     # Mount Route Modules
     app.include_router(dashboard_router)
+    app.include_router(page_router)
 
     return app
 

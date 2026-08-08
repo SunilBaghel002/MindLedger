@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindLedger Tracker</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="logo-icon"></div>
+        <div class="brand-text">
+          <h1>MindLedger</h1>
+          <span class="sub-text">Browser Tracker</span>
+        </div>
+      </div>
+      <div id="status-badge" class="badge badge-offline">
+        <span class="badge-dot"></span>
+        <span id="status-text">Checking...</span>
+      </div>
+    </header>
+
+    <!-- Active Tab Card -->
+    <section class="card active-card">
+      <div class="card-label">CURRENT ACTIVE TAB</div>
+      <div id="active-domain" class="active-domain">No Active Tab</div>
+      <div id="active-title" class="active-title">Open an HTTP/HTTPS webpage to start tracking</div>
+      <div class="timer-container">
+        <span class="timer-icon">⏱️</span>
+        <span id="active-timer" class="timer-text">00m 00s</span>
+      </div>
+    </section>
+
+    <!-- Stats Grid -->
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div id="stat-switches" class="stat-value">0</div>
+        <div class="stat-label">Tab Switches Today</div>
+      </div>
+      <div class="stat-card">
+        <div id="stat-buffered" class="stat-value">0</div>
+        <div class="stat-label">Buffered Offline</div>
+      </div>
+    </section>
+
+    <!-- Action Section -->
+    <div class="action-container">
+      <button id="btn-sync" class="btn btn-primary" disabled>
+        <span class="btn-icon">🔄</span> Sync Offline Events
+      </button>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>v0.1.0 • MindLedger Local-First</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
