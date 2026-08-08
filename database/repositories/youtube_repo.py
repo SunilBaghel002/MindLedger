@@ -155,3 +155,46 @@ class YouTubeRepository:
             }
             for row in cursor.fetchall()
         ]
+
+    def find_recent_by_video_id(self, video_id: str, date_str: str) -> Optional[YouTubeActivity]:
+        """Find the most recent YouTube activity record for a specific video ID today.
+
+        Args:
+            video_id: YouTube video ID string.
+            date_str: Date string in YYYY-MM-DD format.
+
+        Returns:
+            YouTubeActivity model instance or None.
+        """
+        cursor = self.conn.execute(
+            """
+            SELECT * FROM youtube_activity
+            WHERE video_id = ? AND date = ?
+            ORDER BY id DESC LIMIT 1
+            """,
+            (video_id, date_str),
+        )
+        row = cursor.fetchone()
+        return self._map_row_to_model(row) if row else None
+
+    def update_watch_duration(self, activity_id: int, added_seconds: int, ended_at: datetime) -> bool:
+        """Add watched seconds to an existing video record.
+
+        Args:
+            activity_id: Primary key of YouTube activity record.
+            added_seconds: Additional seconds to accumulate.
+            ended_at: Updated end timestamp.
+
+        Returns:
+            True if row updated, False otherwise.
+        """
+        cursor = self.conn.execute(
+            """
+            UPDATE youtube_activity
+            SET watch_duration_seconds = watch_duration_seconds + ?, ended_at = ?
+            WHERE id = ?
+            """,
+            (added_seconds, ended_at.isoformat(), activity_id),
+        )
+        self.conn.commit()
+        return cursor.rowcount > 0

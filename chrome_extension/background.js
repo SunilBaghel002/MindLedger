@@ -20,7 +20,10 @@ let activeState = {
 
 let tabSwitchCountToday = 0;
 let youtubeVideosTrackedToday = 0;
+let youtubeVideoIdsToday = new Set();
 let lastResetDate = new Date().toISOString().split('T')[0];
+
+let windowBlurTimer = null;
 
 /**
  * Check if a URL should be tracked (HTTP/HTTPS only)
@@ -54,6 +57,7 @@ function checkDateReset() {
   if (today !== lastResetDate) {
     lastResetDate = today;
     tabSwitchCountToday = 0;
+    youtubeVideoIdsToday.clear();
     youtubeVideosTrackedToday = 0;
   }
 }
@@ -85,7 +89,6 @@ async function bufferEvent(bufferKey, eventData) {
  * Flush all buffered events (browser & YouTube) to backend server
  */
 async function flushBuffer() {
-  // Flush Browser Events
   try {
     const result = await chrome.storage.local.get(['eventBuffer', 'youtubeEventBuffer']);
     const browserBuffer = result.eventBuffer || [];
@@ -232,6 +235,11 @@ function startTrackingTab(tab) {
  * Handle tab activation switch
  */
 async function handleTabActivated(activeInfo) {
+  if (windowBlurTimer) {
+    clearTimeout(windowBlurTimer);
+    windowBlurTimer = null;
+  }
+
   await finalizeCurrentSession();
   tabSwitchCountToday++;
 
@@ -269,26 +277,41 @@ async function handleTabRemoved(tabId) {
 }
 
 /**
- * Handle window focus switch
+ * Handle window focus switch (handles screenshot tool overlays & popups gracefully)
  */
 async function handleWindowFocusChanged(windowId) {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    // Focus left Chrome completely
-    await finalizeCurrentSession();
-    activeState = { tabId: null, windowId: null, url: null, title: null, domain: null, startTime: null };
+    // Focus left Chrome (e.g. screenshot tool overlay, Alt-Tab)
+    // Delay finalizing by 15 seconds so short OS focus blurs (screenshots) don't clear state or reset timer
+    if (windowBlurTimer) clearTimeout(windowBlurTimer);
+    windowBlurTimer = setTimeout(async () => {
+      await finalizeCurrentSession();
+      activeState = { tabId: null, windowId: null, url: null, title: null, domain: null, startTime: null };
+    }, 15000);
     return;
+  }
+
+  // Focus returned to a window -> cancel pending blur timeout
+  if (windowBlurTimer) {
+    clearTimeout(windowBlurTimer);
+    windowBlurTimer = null;
   }
 
   try {
     const win = await chrome.windows.get(windowId);
-    // Only switch tracking for normal browser windows (ignore popup frames, devtools, etc.)
+    // Ignore non-normal windows (extension popup, devtools frame)
     if (win && win.type !== 'normal') {
       return;
     }
 
-    await finalizeCurrentSession();
     const tabs = await chrome.tabs.query({ active: true, windowId: windowId });
     if (tabs && tabs.length > 0) {
+      // If returning to the same active tab, keep tracking continuously
+      if (activeState.tabId === tabs[0].id && activeState.startTime) {
+        return;
+      }
+
+      await finalizeCurrentSession();
       startTrackingTab(tabs[0]);
     }
   } catch (err) {
@@ -310,7 +333,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Handle YouTube watch events from content_scripts/youtube.js
   if (request.type === 'YOUTUBE_EVENT') {
     checkDateReset();
-    youtubeVideosTrackedToday++;
+    if (request.video_id) {
+      youtubeVideoIdsToday.add(request.video_id);
+      youtubeVideosTrackedToday = youtubeVideoIdsToday.size;
+    }
     console.log('[MindLedger Background] Received YouTube watch event:', request);
     sendYouTubeEventToBackend(request);
     sendResponse({ success: true });
@@ -320,7 +346,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Handle Popup status requests
   if (request.action === 'GET_STATUS') {
     (async () => {
-      // If activeState is uninitialized or null, recover active tab from last focused window
+      if (windowBlurTimer) {
+        clearTimeout(windowBlurTimer);
+        windowBlurTimer = null;
+      }
+
+      // Recover active tab if activeState is missing or uninitialized
       if (!activeState.url) {
         try {
           const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -379,10 +410,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // Initialize tracking on service worker startup
-chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+chrome.tabs.query({ active: true, lastFocusedWindow: true }).then((tabs) => {
   if (tabs && tabs.length > 0) {
     startTrackingTab(tabs[0]);
   }
 });
 
-console.log('[MindLedger] Background service worker initialized with YouTube support.');
+console.log('[MindLedger] Background service worker initialized with screenshot protection and unique YouTube tracking.');

@@ -1,7 +1,7 @@
 /**
  * MindLedger Chrome Extension - YouTube Content Script
  * Tracks video watch duration, video title, channel name, channel URL, and YouTube Shorts.
- * Handles YouTube Single Page Application (SPA) navigation seamlessly.
+ * Compatible with third-party extensions like "Enhancer for YouTube" (Cinema Mode, Mini Player, etc.).
  */
 
 let currentTrackingState = {
@@ -18,7 +18,6 @@ let currentTrackingState = {
 };
 
 let videoElement = null;
-let pollInterval = null;
 let lastKnownUrl = window.location.href;
 
 /**
@@ -47,7 +46,6 @@ function parseYouTubeUrl(urlStr) {
  * @returns {{ name: string|null, url: string|null }}
  */
 function extractChannelInfo() {
-  // Selector priority list for YouTube's evolving layout
   const channelSelectors = [
     '#owner #channel-name a',
     '#text.ytd-channel-name a',
@@ -65,7 +63,6 @@ function extractChannelInfo() {
     }
   }
 
-  // Fallback to meta tags
   const metaAuthor = document.querySelector('meta[name="author"]') || document.querySelector('link[itemprop="name"]');
   if (metaAuthor) {
     const name = metaAuthor.getAttribute('content') || metaAuthor.getAttribute('href');
@@ -95,12 +92,27 @@ function extractVideoTitle() {
     }
   }
 
-  // Fallback: document title minus " - YouTube"
   if (document.title) {
     return document.title.replace(/\s*-\s*YouTube\s*$/, '').trim();
   }
 
   return 'Untitled YouTube Video';
+}
+
+/**
+ * Get currently attached HTML5 video element (handles DOM re-parenting by Enhancer for YouTube)
+ * @returns {HTMLVideoElement|null}
+ */
+function getActiveVideoElement() {
+  if (videoElement && document.contains(videoElement)) {
+    return videoElement;
+  }
+  const newVid = document.querySelector('video');
+  if (newVid) {
+    videoElement = newVid;
+    attachVideoListeners(videoElement);
+  }
+  return videoElement;
 }
 
 /**
@@ -129,14 +141,14 @@ function flushYouTubeSession() {
   try {
     chrome.runtime.sendMessage(payload);
   } catch (err) {
-    console.warn('[MindLedger YouTube] Could not send message to extension background:', err);
+    console.warn('[MindLedger YouTube] Could not send message to background worker:', err);
   }
 
   resetState();
 }
 
 /**
- * Reset local state
+ * Reset local tracking state
  */
 function resetState() {
   currentTrackingState = {
@@ -157,25 +169,21 @@ function resetState() {
  * Update playing time counter
  */
 function tickPlayer() {
-  if (!videoElement) {
-    videoElement = document.querySelector('video');
-    if (videoElement) attachVideoListeners(videoElement);
-  }
+  const vid = getActiveVideoElement();
 
-  if (videoElement && !videoElement.paused && !videoElement.ended && videoElement.readyState >= 2) {
+  if (vid && !vid.paused && !vid.ended && vid.readyState >= 2) {
     const now = Date.now();
     if (currentTrackingState.lastPlayingTimestamp) {
       const deltaSeconds = (now - currentTrackingState.lastPlayingTimestamp) / 1000;
-      // Cap max delta at 3 seconds to avoid massive jumps during tab sleeping
+      // Cap max delta at 3 seconds to handle tab throttling smoothly
       if (deltaSeconds > 0 && deltaSeconds < 3) {
         currentTrackingState.accumulatedSeconds += deltaSeconds;
       }
     }
     currentTrackingState.lastPlayingTimestamp = now;
 
-    // Refresh duration if available
-    if (videoElement.duration && !isNaN(videoElement.duration)) {
-      currentTrackingState.videoDurationSeconds = videoElement.duration;
+    if (vid.duration && !isNaN(vid.duration)) {
+      currentTrackingState.videoDurationSeconds = vid.duration;
     }
   } else {
     currentTrackingState.lastPlayingTimestamp = null;
@@ -187,6 +195,7 @@ function tickPlayer() {
  * @param {HTMLVideoElement} video
  */
 function attachVideoListeners(video) {
+  if (!video) return;
   video.addEventListener('play', () => {
     currentTrackingState.lastPlayingTimestamp = Date.now();
   });
@@ -201,26 +210,26 @@ function attachVideoListeners(video) {
 }
 
 /**
- * Initialize tracking session for new video URL
+ * Initialize tracking session for video URL
  */
 function setupVideoTracking() {
   const urlInfo = parseYouTubeUrl(window.location.href);
 
-  // If not a watch page or shorts page, flush existing session and exit
+  // If not a watch or shorts page, flush existing session
   if (!urlInfo.isWatch && !urlInfo.isShort) {
     flushYouTubeSession();
     return;
   }
 
-  // If same video is already being tracked, do not reset
+  // If same video is already being tracked (e.g. Cinema Mode toggle / Enhancer DOM changes), DO NOT RESET
   if (currentTrackingState.videoId === urlInfo.videoId) {
+    getActiveVideoElement();
     return;
   }
 
-  // Flush previous video session if changing to a new video
+  // Flush previous session ONLY when changing to a different video ID
   flushYouTubeSession();
 
-  // Retry extracting metadata until YouTube DOM updates
   let attempts = 0;
   const metadataTimer = setInterval(() => {
     attempts++;
@@ -243,10 +252,7 @@ function setupVideoTracking() {
     }
   }, 500);
 
-  videoElement = document.querySelector('video');
-  if (videoElement) {
-    attachVideoListeners(videoElement);
-  }
+  getActiveVideoElement();
 }
 
 // Listen to YouTube SPA navigation events
@@ -254,7 +260,7 @@ window.addEventListener('yt-navigate-finish', () => {
   setupVideoTracking();
 });
 
-// Periodic URL check fallback for SPA transitions
+// Periodic URL & player tick loop (compatible with Enhancer for YouTube mode changes)
 setInterval(() => {
   if (window.location.href !== lastKnownUrl) {
     lastKnownUrl = window.location.href;
@@ -263,7 +269,7 @@ setInterval(() => {
   tickPlayer();
 }, 1000);
 
-// Periodically flush tracking data every 30 seconds if watch duration is accumulating
+// Periodically flush watch time every 30 seconds
 setInterval(() => {
   if (currentTrackingState.videoId && currentTrackingState.accumulatedSeconds >= 10) {
     const channelInfo = extractChannelInfo();
@@ -284,7 +290,7 @@ setInterval(() => {
     try {
       chrome.runtime.sendMessage(payload);
     } catch (e) {
-      // Ignore background disconnect errors
+      // Ignore worker disconnect errors
     }
     // Reset watch counter after periodic sync
     currentTrackingState.accumulatedSeconds = 0;
@@ -296,6 +302,6 @@ window.addEventListener('beforeunload', () => {
   flushYouTubeSession();
 });
 
-// Initial tracking setup on load
+// Initial setup on script load
 setupVideoTracking();
-console.log('[MindLedger YouTube] Content script loaded and active.');
+console.log('[MindLedger YouTube] Enhancer-compatible content script loaded and active.');
