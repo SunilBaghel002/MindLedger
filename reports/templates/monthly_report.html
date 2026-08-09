@@ -4,6 +4,15 @@
 {% block subtitle %}Monthly Overview ({{ summary.period_start }} to {{ summary.period_end }}){% endblock %}
 
 {% block content %}
+{% set score = summary.avg_productivity_score %}
+{% if score >= 70 %}
+  {% set score_color = "#10b981" %}
+{% elif score >= 40 %}
+  {% set score_color = "#f59e0b" %}
+{% else %}
+  {% set score_color = "#ef4444" %}
+{% endif %}
+
 <h2 style="font-size: 18px; margin-top: 0; margin-bottom: 16px; color: #0f172a;">
   Monthly Digital Wellbeing Report
 </h2>
@@ -23,8 +32,8 @@
 <div class="stat-grid" style="margin-bottom: 24px;">
   <div class="stat-card" style="margin-right: 8px;">
     <div class="stat-label">Avg Productivity Score</div>
-    <div class="stat-value" style="color: {% if summary.avg_productivity_score >= 70 %}#10b981{% elif summary.avg_productivity_score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};">
-      {{ "%.1f" | format(summary.avg_productivity_score) }}
+    <div class="stat-value" style="color: {{ score_color }};">
+      {{ "%.1f" | format(score) }}
     </div>
   </div>
   <div class="stat-card">

@@ -4,6 +4,15 @@
 {% block subtitle %}Daily Activity Report for {{ summary.date }}{% endblock %}
 
 {% block content %}
+{% set score = summary.productivity_score %}
+{% if score >= 70 %}
+  {% set score_color = "#10b981" %}
+{% elif score >= 40 %}
+  {% set score_color = "#f59e0b" %}
+{% else %}
+  {% set score_color = "#ef4444" %}
+{% endif %}
+
 <h2 style="font-size: 18px; margin-top: 0; margin-bottom: 16px; color: #0f172a;">
   Daily Summary Overview
 </h2>
@@ -16,8 +25,8 @@
   </div>
   <div class="stat-card">
     <div class="stat-label">Productivity Score</div>
-    <div class="stat-value" style="color: {% if summary.productivity_score >= 70 %}#10b981{% elif summary.productivity_score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};">
-      {{ "%.1f" | format(summary.productivity_score) }}
+    <div class="stat-value" style="color: {{ score_color }};">
+      {{ "%.1f" | format(score) }}
     </div>
   </div>
 </div>
@@ -36,7 +45,7 @@
 <!-- Inline Chart: Productivity Donut -->
 {% if has_charts %}
 <div class="chart-section">
-  <img src="cid:chart_productivity" alt="Productivity Donut Chart" class="chart-img" />
+  <img src="cid:chart_productivity" alt="Productivity Donut Chart" class="chart-img">
 </div>
 {% endif %}
 
@@ -68,7 +77,7 @@
 <!-- Inline Chart: App Usage -->
 {% if has_charts and top_apps %}
 <div class="chart-section">
-  <img src="cid:chart_apps" alt="Top Apps Bar Chart" class="chart-img" />
+  <img src="cid:chart_apps" alt="Top Apps Bar Chart" class="chart-img">
 </div>
 {% endif %}
 
