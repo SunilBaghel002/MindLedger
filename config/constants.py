@@ -45,6 +45,8 @@ CATEGORY_ENTERTAINMENT: Final[str] = "entertainment"
 CATEGORY_MUSIC: Final[str] = "music"
 CATEGORY_SOCIAL_MEDIA: Final[str] = "social_media"
 CATEGORY_YOUTUBE: Final[str] = "youtube"
+CATEGORY_JOB_SEARCH: Final[str] = "job_search"
+CATEGORY_SYSTEM: Final[str] = "system"
 CATEGORY_UNCATEGORIZED: Final[str] = "uncategorized"
 
 VALID_CATEGORIES: Final[List[str]] = [
@@ -56,5 +58,7 @@ VALID_CATEGORIES: Final[List[str]] = [
     CATEGORY_MUSIC,
     CATEGORY_SOCIAL_MEDIA,
     CATEGORY_YOUTUBE,
+    CATEGORY_JOB_SEARCH,
+    CATEGORY_SYSTEM,
     CATEGORY_UNCATEGORIZED,
 ]

@@ -9,6 +9,7 @@ Created: 2026-08-08
 import sqlite3
 from typing import Optional
 
+from ai.rules_engine import RulesEngine
 from config.constants import CATEGORY_UNCATEGORIZED, PRODUCTIVITY_NEUTRAL
 from core.idle_detector import IdleDetector
 from core.session_manager import SessionManager
@@ -25,6 +26,7 @@ class EventProcessor:
         window_tracker: WindowTracker instance.
         idle_detector: IdleDetector instance.
         session_manager: SessionManager instance.
+        rules_engine: RulesEngine instance.
         is_idle_state: Current boolean idle state.
     """
 
@@ -44,6 +46,7 @@ class EventProcessor:
         self.window_tracker = WindowTracker(poll_interval=poll_interval)
         self.idle_detector = IdleDetector(threshold_seconds=idle_threshold)
         self.session_manager = SessionManager(db_conn=db_conn)
+        self.rules_engine = RulesEngine(db_conn=db_conn)
         self.is_idle_state: bool = False
 
     def start(self) -> None:
@@ -83,13 +86,19 @@ class EventProcessor:
         if not window_info:
             return {"status": "no_window", "idle_seconds": 0}
 
-        # 3. Transition or Continue Session
+        # 3. Classify with RulesEngine
+        category, subcategory, productivity = self.rules_engine.classify_app(
+            app_name=window_info["app_name"],
+            window_title=window_info.get("window_title"),
+        )
+
+        # 4. Transition or Continue Session
         active_session = self.session_manager.handle_window_change(
             app_name=window_info["app_name"],
             app_path=window_info.get("app_path"),
             window_title=window_info.get("window_title"),
-            category=CATEGORY_UNCATEGORIZED,
-            productivity=PRODUCTIVITY_NEUTRAL,
+            category=category,
+            productivity=productivity,
         )
 
         return {

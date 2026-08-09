@@ -17,53 +17,7 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def calculate_productivity_score(
-    productive_seconds: int,
-    learning_seconds: int,
-    neutral_seconds: int,
-    unproductive_seconds: int,
-    coding_seconds: int = 0,
-    youtube_productive_seconds: int = 0,
-    youtube_entertainment_seconds: int = 0,
-) -> float:
-    """Calculate daily productivity score (0.0 to 100.0).
-
-    Args:
-        productive_seconds: Seconds in productive activities.
-        learning_seconds: Seconds in learning activities.
-        neutral_seconds: Seconds in neutral activities.
-        unproductive_seconds: Seconds in unproductive activities.
-        coding_seconds: Seconds spent coding.
-        youtube_productive_seconds: Seconds on educational YouTube content.
-        youtube_entertainment_seconds: Seconds on entertainment YouTube content.
-
-    Returns:
-        Productivity score between 0.0 and 100.0 rounded to 1 decimal place.
-    """
-    total = productive_seconds + learning_seconds + neutral_seconds + unproductive_seconds
-    if total == 0:
-        return 0.0
-
-    raw_score = (
-        (productive_seconds * 1.0)
-        + (learning_seconds * 0.85)
-        + (neutral_seconds * 0.3)
-        + (unproductive_seconds * 0.0)
-    ) / total
-
-    score = raw_score * 100.0
-
-    # Apply bonuses
-    if coding_seconds >= 14400:  # 4+ hours of coding
-        score += 5.0
-    if youtube_productive_seconds > youtube_entertainment_seconds and youtube_productive_seconds > 0:
-        score += 3.0
-
-    # Apply penalties
-    if unproductive_seconds >= 10800:  # 3+ hours unproductive
-        score -= 5.0
-
-    return max(0.0, min(100.0, round(score, 1)))
+from ai.productivity_scorer import calculate_productivity_score, ProductivityScorer
 
 
 class SummaryRepository:

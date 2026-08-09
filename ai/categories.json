@@ -1,0 +1,67 @@
+{
+  "categories": {
+    "coding": {
+      "label": "Coding & Development",
+      "productivity": "productive",
+      "color": "#4CAF50",
+      "icon": "💻",
+      "subcategories": ["ide", "terminal", "git", "code_review", "debugging", "practice", "api_testing", "ai_assist", "repository"]
+    },
+    "learning": {
+      "label": "Learning & Tutorials",
+      "productivity": "productive",
+      "color": "#2196F3",
+      "icon": "📚",
+      "subcategories": ["tutorial", "documentation", "course", "reading", "qa"]
+    },
+    "job_search": {
+      "label": "Job Search",
+      "productivity": "productive",
+      "color": "#9C27B0",
+      "icon": "💼",
+      "subcategories": ["portal", "application", "resume", "interview_prep", "jobs"]
+    },
+    "communication": {
+      "label": "Communication",
+      "productivity": "neutral",
+      "color": "#FF9800",
+      "icon": "💬",
+      "subcategories": ["chat", "email", "video_call", "social"]
+    },
+    "browsing": {
+      "label": "General Browsing",
+      "productivity": "neutral",
+      "color": "#607D8B",
+      "icon": "🌐",
+      "subcategories": ["search", "news", "reference", "shopping", "video"]
+    },
+    "entertainment": {
+      "label": "Entertainment",
+      "productivity": "unproductive",
+      "color": "#F44336",
+      "icon": "🎬",
+      "subcategories": ["anime", "movies", "gaming", "social_media", "media", "social"]
+    },
+    "music": {
+      "label": "Music",
+      "productivity": "neutral",
+      "color": "#E91E63",
+      "icon": "🎵",
+      "subcategories": ["listening", "lofi", "playlist", "music"]
+    },
+    "system": {
+      "label": "System & Utilities",
+      "productivity": "neutral",
+      "color": "#795548",
+      "icon": "⚙️",
+      "subcategories": ["file_manager", "settings", "installer", "other"]
+    },
+    "uncategorized": {
+      "label": "Uncategorized",
+      "productivity": "neutral",
+      "color": "#9E9E9E",
+      "icon": "❓",
+      "subcategories": ["other"]
+    }
+  }
+}
