@@ -9,9 +9,12 @@ Created: 2026-08-08
 import threading
 from typing import Optional
 
+from pathlib import Path
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from api.routes.browser_routes import router as browser_router
 from api.routes.category_routes import router as category_router
@@ -59,6 +62,13 @@ def create_app() -> FastAPI:
     app.include_router(browser_router)
     app.include_router(category_router)
     app.include_router(page_router)
+
+    # Mount Static Files for Dashboard UI
+    static_dir = Path(__file__).resolve().parent.parent / "dashboard" / "static"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    else:
+        logger.warning(f"Static directory not found at {static_dir}")
 
     return app
 

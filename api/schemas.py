@@ -51,6 +51,17 @@ class DashboardTodayData(BaseModel):
     top_apps: List[AppUsageSummaryItem] = Field(default_factory=list)
 
 
+class LiveTrackingStatusData(BaseModel):
+    """Payload for live active window tracking status query."""
+
+    is_tracking: bool = True
+    current_app: Optional[str] = None
+    window_title: Optional[str] = None
+    started_at: Optional[str] = None
+    duration_seconds: int = 0
+    is_idle: bool = False
+
+
 class AppSessionDTO(BaseModel):
     """Data transfer object for individual application tracking session."""
 
