@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Weekly Summary Report - {{ summary.period_label }}{% endblock %}
+{% block subtitle %}Weekly Overview ({{ summary.period_start }} to {{ summary.period_end }}){% endblock %}
+
+{% block content %}
+{% set score = summary.avg_productivity_score %}
+{% if score >= 70 %}
+  {% set score_color = "#10b981" %}
+{% elif score >= 40 %}
+  {% set score_color = "#f59e0b" %}
+{% else %}
+  {% set score_color = "#ef4444" %}
+{% endif %}
+
+<h2 style="font-size: 18px; margin-top: 0; margin-bottom: 16px; color: #0f172a;">
+  Weekly Productivity Summary
+</h2>
+
+<!-- Top Key Stats Grid -->
+<div class="stat-grid">
+  <div class="stat-card" style="margin-right: 8px;">
+    <div class="stat-label">Total Screen Time</div>
+    <div class="stat-value">{{ summary.total_screen_time_seconds | format_duration }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Daily Average</div>
+    <div class="stat-value">{{ summary.avg_daily_seconds | format_duration }}</div>
+  </div>
+</div>
+
+<div class="stat-grid" style="margin-bottom: 24px;">
+  <div class="stat-card" style="margin-right: 8px;">
+    <div class="stat-label">Avg Productivity Score</div>
+    <div class="stat-value" style="color: {{ score_color }};">
+      {{ "%.1f" | format(score) }}
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Best Day</div>
+    <div class="stat-value" style="font-size: 16px;">{{ summary.best_day or 'N/A' }}</div>
+  </div>
+</div>
+
+<!-- Inline Chart: Productivity Donut -->
+{% if has_charts %}
+<div class="chart-section">
+  <img src="cid:chart_productivity" alt="Weekly Productivity Chart" class="chart-img">
+</div>
+{% endif %}
+
+<!-- Top Applications Table -->
+<h3 style="font-size: 15px; margin-bottom: 12px; color: #0f172a;">Top Weekly Applications</h3>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Application</th>
+      <th>Total Duration</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for app in top_apps %}
+    <tr>
+      <td><strong>{{ app.app_name }}</strong></td>
+      <td>{{ app.duration_seconds | format_duration }}</td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="2" style="text-align: center; color: #64748b;">No application data.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Top Websites Table -->
+<h3 style="font-size: 15px; margin-bottom: 12px; color: #0f172a;">Top Weekly Websites</h3>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Domain</th>
+      <th>Total Duration</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for dom in top_domains %}
+    <tr>
+      <td><strong>{{ dom.domain }}</strong></td>
+      <td>{{ dom.duration_seconds | format_duration }}</td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="2" style="text-align: center; color: #64748b;">No website data.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}
