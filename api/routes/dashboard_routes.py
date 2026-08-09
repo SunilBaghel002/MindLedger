@@ -6,17 +6,19 @@ Author: MindLedger Team
 Created: 2026-08-08
 """
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 
 from api.schemas import (
     APIResponse,
+    AppAnalyticsData,
     AppSessionDTO,
     AppsTodayData,
+    AppTrendItem,
     AppUsageSummaryItem,
     DashboardTodayData,
     DomainSummaryItem,
@@ -271,4 +273,73 @@ async def get_today_apps() -> APIResponse[AppsTodayData]:
 
     except Exception as e:
         logger.error(f"Failed to fetch today's app usage details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/apps/analytics", response_model=APIResponse[AppAnalyticsData])
+async def get_apps_analytics(
+    range_preset: str = "today",
+    category: Optional[str] = None,
+) -> APIResponse[AppAnalyticsData]:
+    """Get application usage analytics over date range (today, yesterday, 7d, 30d) with optional category filtering."""
+    try:
+        today = date.today()
+        if range_preset == "yesterday":
+            start_d = today - timedelta(days=1)
+            end_d = start_d
+        elif range_preset == "7d":
+            start_d = today - timedelta(days=6)
+            end_d = today
+        elif range_preset == "30d":
+            start_d = today - timedelta(days=29)
+            end_d = today
+        else:
+            start_d = today
+            end_d = today
+
+        start_str = start_d.isoformat()
+        end_str = end_d.isoformat()
+
+        with db_manager.connection() as conn:
+            repo = AppSessionRepository(conn)
+            top_apps_raw = repo.get_top_apps_range(start_str, end_str, category=category, limit=100)
+            trend_raw = repo.get_daily_app_trend(start_str, end_str)
+            all_sessions = repo.get_by_date_range(start_str, end_str)
+
+        total_seconds = sum(item["total_seconds"] for item in top_apps_raw)
+
+        # Compute category breakdown
+        cat_breakdown: Dict[str, int] = {}
+        for s in all_sessions:
+            cat_key = s.productivity or s.category or "neutral"
+            cat_breakdown[cat_key] = cat_breakdown.get(cat_key, 0) + s.duration_seconds
+
+        top_apps = [
+            AppUsageSummaryItem(
+                app_name=item["app_name"],
+                category=item["category"],
+                productivity=item["productivity"],
+                total_seconds=item["total_seconds"],
+            )
+            for item in top_apps_raw
+        ]
+
+        trend = [
+            AppTrendItem(date=item["date"], total_seconds=item["total_seconds"])
+            for item in trend_raw
+        ]
+
+        data = AppAnalyticsData(
+            date_range=range_preset,
+            total_screen_time_seconds=total_seconds,
+            total_apps_count=len(top_apps),
+            top_apps=top_apps,
+            category_breakdown=cat_breakdown,
+            trend=trend,
+        )
+
+        return APIResponse(success=True, data=data, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch app analytics: {e}")
         raise HTTPException(status_code=500, detail=str(e))

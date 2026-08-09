@@ -47,3 +47,16 @@ def test_live_tracking_status_endpoint():
     assert json_data["success"] is True
     assert "is_tracking" in json_data["data"]
     assert "current_app" in json_data["data"]
+
+
+def test_apps_analytics_endpoint():
+    """Verify GET /api/v1/apps/analytics returns valid JSON schema with range_preset and category."""
+    client = TestClient(app)
+    response = client.get("/api/v1/apps/analytics?range_preset=7d&category=productive")
+    assert response.status_code == 200
+    json_data = response.json()
+    assert json_data["success"] is True
+    assert json_data["data"]["date_range"] == "7d"
+    assert "top_apps" in json_data["data"]
+    assert "category_breakdown" in json_data["data"]
+    assert "trend" in json_data["data"]

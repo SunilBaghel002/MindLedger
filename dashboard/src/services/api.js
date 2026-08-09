@@ -50,6 +50,14 @@ class MindLedgerAPI {
         return this._request('/apps/today');
     }
 
+    async getAppAnalytics(rangePreset = 'today', category = '') {
+        const queryParams = new URLSearchParams();
+        if (rangePreset) queryParams.append('range_preset', rangePreset);
+        if (category && category !== 'all') queryParams.append('category', category);
+        const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
+        return this._request(`/apps/analytics${queryStr}`);
+    }
+
     async getTodayBrowser() {
         return this._request('/browser/today');
     }

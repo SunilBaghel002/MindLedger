@@ -114,6 +114,24 @@ class AppsTodayData(BaseModel):
     recent_sessions: List[AppSessionDTO] = Field(default_factory=list)
 
 
+class AppTrendItem(BaseModel):
+    """Daily trend data point for application usage."""
+
+    date: str
+    total_seconds: int = 0
+
+
+class AppAnalyticsData(BaseModel):
+    """Payload for application usage analytics and history."""
+
+    date_range: str
+    total_screen_time_seconds: int = 0
+    total_apps_count: int = 0
+    top_apps: List[AppUsageSummaryItem] = Field(default_factory=list)
+    category_breakdown: Dict[str, int] = Field(default_factory=dict)
+    trend: List[AppTrendItem] = Field(default_factory=list)
+
+
 class BrowserEventSchema(BaseModel):
     """Payload sent by Chrome extension for browser tab tracking events."""
 
