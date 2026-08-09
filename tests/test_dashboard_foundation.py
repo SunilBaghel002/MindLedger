@@ -153,3 +153,41 @@ def test_reports_endpoints():
     dl_res = client.get(f"/api/v1/reports/download/html?report_type=daily&date_str={today_str}")
     assert dl_res.status_code == 200
     assert "MindLedger" in dl_res.text or "<html" in dl_res.text
+
+
+def test_settings_and_rules_endpoints():
+    """Verify GET/POST /api/v1/settings, Category Rules CRUD, and Data Export endpoints."""
+    client = TestClient(app)
+
+    # Fetch settings
+    s_res = client.get("/api/v1/settings")
+    assert s_res.status_code == 200
+    s_json = s_res.json()
+    assert s_json["success"] is True
+    assert "tracking_enabled" in s_json["data"]
+
+    # Update settings
+    up_res = client.post("/api/v1/settings", json={"idle_threshold_seconds": 600, "recipient_email": "test@example.com"})
+    assert up_res.status_code == 200
+    up_json = up_res.json()
+    assert up_json["success"] is True
+    assert up_json["data"]["idle_threshold_seconds"] == 600
+
+    # Category Rules CRUD
+    create_res = client.post("/api/v1/settings/rules", json={"rule_type": "app", "pattern": "test_vscode", "category": "Development", "productivity": "productive"})
+    assert create_res.status_code == 200
+    create_json = create_res.json()
+    assert create_json["success"] is True
+    rule_id = create_json["data"]["id"]
+
+    rules_res = client.get("/api/v1/settings/rules")
+    assert rules_res.status_code == 200
+    assert any(r["pattern"] == "test_vscode" for r in rules_res.json()["data"])
+
+    del_res = client.delete(f"/api/v1/settings/rules/{rule_id}")
+    assert del_res.status_code == 200
+
+    # Export Data
+    exp_res = client.get("/api/v1/settings/export")
+    assert exp_res.status_code == 200
+    assert "app_sessions" in exp_res.text

@@ -6,6 +6,7 @@ Author: MindLedger Team
 Created: 2026-08-08
 """
 
+import json
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
@@ -22,6 +23,8 @@ from api.schemas import (
     AppUsageSummaryItem,
     BrowserAnalyticsData,
     BrowserDomainSummaryItem,
+    CategoryRuleCreateRequest,
+    CategoryRuleItem,
     DashboardTodayData,
     DomainSummaryItem,
     HealthData,
@@ -31,6 +34,8 @@ from api.schemas import (
     ReportGenerateRequest,
     ReportHistoryData,
     ReportSummaryItem,
+    SettingsData,
+    SettingsUpdateRequest,
     URLDetailItem,
     YouTubeAnalyticsData,
     YouTubeChannelSummaryItem,
@@ -40,10 +45,14 @@ from config.constants import APP_NAME, APP_VERSION
 from config.settings import settings
 from core.idle_detector import IdleDetector
 from database.connection import db_manager
+from database.models import CategoryRule
 from database.repositories.app_session_repo import AppSessionRepository
 from database.repositories.browser_session_repo import BrowserSessionRepository
+from database.repositories.category_rule_repo import CategoryRuleRepository
+from database.repositories.settings_repo import SettingsRepository
 from database.repositories.summary_repo import SummaryRepository
 from database.repositories.youtube_repo import YouTubeRepository
+from reports.email_sender import EmailSender
 from reports.report_generator import ReportGenerator
 from reports.template_renderer import TemplateRenderer
 from utils.logger import get_logger
@@ -734,3 +743,221 @@ async def download_report_pdf(report_type: str = "daily", date_str: str = ""):
     except Exception as e:
         logger.error(f"Failed to download PDF report: {e}")
         raise HTTPException(status_code=500, detail="Failed to download PDF report") from e
+
+
+@router.get("/settings", response_model=APIResponse[SettingsData])
+async def get_settings() -> APIResponse[SettingsData]:
+    """Get application settings configuration."""
+    try:
+        with db_manager.connection() as conn:
+            repo = SettingsRepository(conn)
+            all_s = repo.get_all()
+
+        data = SettingsData(
+            smtp_host=all_s["smtp_host"].value if "smtp_host" in all_s and all_s["smtp_host"].value is not None else getattr(settings, "smtp_host", ""),
+            smtp_port=int(all_s["smtp_port"].value) if "smtp_port" in all_s and all_s["smtp_port"].value is not None else getattr(settings, "smtp_port", 587),
+            smtp_username=all_s["smtp_username"].value if "smtp_username" in all_s and all_s["smtp_username"].value is not None else getattr(settings, "smtp_username", ""),
+            smtp_password=all_s["smtp_password"].value if "smtp_password" in all_s and all_s["smtp_password"].value is not None else getattr(settings, "smtp_password", None),
+            recipient_email=all_s["recipient_email"].value if "recipient_email" in all_s and all_s["recipient_email"].value is not None else getattr(settings, "report_recipient_email", ""),
+            tracking_enabled=all_s["tracking_enabled"].value.lower() == "true" if "tracking_enabled" in all_s and all_s["tracking_enabled"].value is not None else True,
+            idle_threshold_seconds=int(all_s["idle_threshold_seconds"].value) if "idle_threshold_seconds" in all_s and all_s["idle_threshold_seconds"].value is not None else getattr(settings, "idle_threshold_seconds", 300),
+            theme=all_s["theme"].value if "theme" in all_s and all_s["theme"].value is not None else "light",
+        )
+
+        return APIResponse(success=True, data=data, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch settings: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch settings") from e
+
+
+@router.post("/settings", response_model=APIResponse[SettingsData])
+async def update_settings(req: SettingsUpdateRequest) -> APIResponse[SettingsData]:
+    """Update application settings configuration."""
+    try:
+        with db_manager.connection() as conn:
+            repo = SettingsRepository(conn)
+            if req.smtp_host is not None:
+                repo.set("smtp_host", req.smtp_host)
+            if req.smtp_port is not None:
+                repo.set("smtp_port", req.smtp_port, "integer")
+            if req.smtp_username is not None:
+                repo.set("smtp_username", req.smtp_username)
+            if req.smtp_password is not None:
+                repo.set("smtp_password", req.smtp_password)
+            if req.recipient_email is not None:
+                repo.set("recipient_email", req.recipient_email)
+            if req.tracking_enabled is not None:
+                repo.set("tracking_enabled", str(req.tracking_enabled).lower(), "boolean")
+            if req.idle_threshold_seconds is not None:
+                repo.set("idle_threshold_seconds", req.idle_threshold_seconds, "integer")
+            if req.theme is not None:
+                repo.set("theme", req.theme)
+
+        return await get_settings()
+
+    except Exception as e:
+        logger.error(f"Failed to update settings: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update settings") from e
+
+
+@router.post("/settings/test-email", response_model=APIResponse[Dict[str, Any]])
+async def test_email_settings(req: Optional[SettingsUpdateRequest] = None) -> APIResponse[Dict[str, Any]]:
+    """Test SMTP email credentials by dispatching a test email."""
+    try:
+        with db_manager.connection() as conn:
+            repo = SettingsRepository(conn)
+            all_s = repo.get_all()
+
+        recipient = (
+            (req.recipient_email if req and req.recipient_email else None)
+            or (all_s.get("recipient_email").value if all_s.get("recipient_email") else "")
+            or getattr(settings, "report_recipient_email", "")
+        )
+
+        sender = EmailSender()
+        success = sender.send_test_email(recipient=recipient)
+
+        return APIResponse(
+            success=success,
+            data={"message": f"Test email {'sent successfully' if success else 'failed to send'}", "sent": success},
+            error=None if success else "Failed to send test email via SMTP",
+        )
+
+    except Exception as e:
+        logger.error(f"Test email dispatch failed: {e}")
+        raise HTTPException(status_code=500, detail="Test email dispatch failed") from e
+
+
+@router.get("/settings/rules", response_model=APIResponse[List[CategoryRuleItem]])
+async def get_category_rules() -> APIResponse[List[CategoryRuleItem]]:
+    """Get list of all custom category mapping rules."""
+    try:
+        with db_manager.connection() as conn:
+            repo = CategoryRuleRepository(conn)
+            rules = repo.get_all()
+
+        items = [
+            CategoryRuleItem(
+                id=r.id,
+                rule_type=r.rule_type,
+                pattern=r.pattern,
+                category=r.category,
+                productivity=r.productivity,
+                priority=r.priority,
+                is_active=r.is_active,
+            )
+            for r in rules
+        ]
+
+        return APIResponse(success=True, data=items, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch category rules: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch category rules") from e
+
+
+@router.post("/settings/rules", response_model=APIResponse[CategoryRuleItem])
+async def create_category_rule(req: CategoryRuleCreateRequest) -> APIResponse[CategoryRuleItem]:
+    """Create a new custom category rule."""
+    try:
+        rule = CategoryRule(
+            rule_type=req.rule_type,
+            pattern=req.pattern,
+            category=req.category,
+            productivity=req.productivity,
+            priority=req.priority,
+            is_active=True,
+        )
+
+        with db_manager.connection() as conn:
+            repo = CategoryRuleRepository(conn)
+            rule_id = repo.save(rule)
+
+        item = CategoryRuleItem(
+            id=rule_id,
+            rule_type=rule.rule_type,
+            pattern=rule.pattern,
+            category=rule.category,
+            productivity=rule.productivity,
+            priority=rule.priority,
+            is_active=rule.is_active,
+        )
+
+        return APIResponse(success=True, data=item, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to create category rule: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create category rule") from e
+
+
+@router.delete("/settings/rules/{rule_id}", response_model=APIResponse[Dict[str, Any]])
+async def delete_category_rule(rule_id: int) -> APIResponse[Dict[str, Any]]:
+    """Delete a category rule by ID."""
+    try:
+        with db_manager.connection() as conn:
+            repo = CategoryRuleRepository(conn)
+            success = repo.delete(rule_id)
+
+        return APIResponse(
+            success=success,
+            data={"message": f"Rule {rule_id} {'deleted' if success else 'not found'}"},
+            error=None if success else "Rule not found",
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to delete category rule: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete category rule") from e
+
+
+@router.post("/settings/clear-history", response_model=APIResponse[Dict[str, Any]])
+async def clear_tracking_history() -> APIResponse[Dict[str, Any]]:
+    """Clear all tracking history records from database."""
+    try:
+        with db_manager.connection() as conn:
+            conn.execute("DELETE FROM app_sessions;")
+            conn.execute("DELETE FROM browser_sessions;")
+            conn.execute("DELETE FROM youtube_activity;")
+            conn.execute("DELETE FROM daily_summaries;")
+            conn.execute("DELETE FROM periodic_summaries;")
+
+        return APIResponse(success=True, data={"message": "Tracking history successfully cleared."}, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to clear tracking history: {e}")
+        raise HTTPException(status_code=500, detail="Failed to clear tracking history") from e
+
+
+@router.get("/settings/export")
+async def export_tracking_data(format: str = "json"):
+    """Export complete activity tracking data as a JSON download."""
+    try:
+        with db_manager.connection() as conn:
+            c1 = conn.execute("SELECT * FROM app_sessions ORDER BY id DESC LIMIT 500")
+            apps = [dict(row) for row in c1.fetchall()]
+
+            c2 = conn.execute("SELECT * FROM browser_sessions ORDER BY id DESC LIMIT 500")
+            browsers = [dict(row) for row in c2.fetchall()]
+
+            c3 = conn.execute("SELECT * FROM youtube_activity ORDER BY id DESC LIMIT 500")
+            yt = [dict(row) for row in c3.fetchall()]
+
+        export_payload = {
+            "app_name": APP_NAME,
+            "version": APP_VERSION,
+            "exported_at": date.today().isoformat(),
+            "app_sessions": apps,
+            "browser_sessions": browsers,
+            "youtube_activity": yt,
+        }
+
+        json_str = json.dumps(export_payload, indent=2)
+        filename = f"mindledger_export_{date.today().isoformat()}.json"
+        return HTMLResponse(
+            content=json_str,
+            headers={"Content-Type": "application/json", "Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to export data: {e}")
+        raise HTTPException(status_code=500, detail="Failed to export data") from e

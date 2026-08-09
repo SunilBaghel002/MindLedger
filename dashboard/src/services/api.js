@@ -121,6 +121,51 @@ class MindLedgerAPI {
         const fmt = format === 'pdf' ? 'pdf' : 'html';
         return `${this.baseUrl}/reports/download/${fmt}?report_type=${reportType}&date_str=${dateStr}`;
     }
+
+    async getSettings() {
+        return this._request('/settings');
+    }
+
+    async updateSettings(settingsObj) {
+        return this._request('/settings', {
+            method: 'POST',
+            body: JSON.stringify(settingsObj),
+        });
+    }
+
+    async testEmail(recipient = '') {
+        return this._request('/settings/test-email', {
+            method: 'POST',
+            body: JSON.stringify({ recipient_email: recipient || undefined }),
+        });
+    }
+
+    async getCategoryRules() {
+        return this._request('/settings/rules');
+    }
+
+    async createCategoryRule(ruleObj) {
+        return this._request('/settings/rules', {
+            method: 'POST',
+            body: JSON.stringify(ruleObj),
+        });
+    }
+
+    async deleteCategoryRule(ruleId) {
+        return this._request(`/settings/rules/${ruleId}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async clearHistory() {
+        return this._request('/settings/clear-history', {
+            method: 'POST',
+        });
+    }
+
+    getExportDataUrl(format = 'json') {
+        return `${this.baseUrl}/settings/export?format=${format}`;
+    }
 }
 
 export const api = new MindLedgerAPI();

@@ -314,6 +314,54 @@ class ReportHistoryData(BaseModel):
     reports: List[ReportSummaryItem] = Field(default_factory=list)
 
 
+class SettingsData(BaseModel):
+    """Payload representing application settings configuration."""
+
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: Optional[str] = ""
+    smtp_password: Optional[str] = None
+    recipient_email: Optional[str] = ""
+    tracking_enabled: bool = True
+    idle_threshold_seconds: int = 300
+    theme: str = "light"
+
+
+class SettingsUpdateRequest(BaseModel):
+    """Payload to update application settings."""
+
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    recipient_email: Optional[str] = None
+    tracking_enabled: Optional[bool] = None
+    idle_threshold_seconds: Optional[int] = None
+    theme: Optional[str] = None
+
+
+class CategoryRuleItem(BaseModel):
+    """Summary item representing a category rule."""
+
+    id: Optional[int] = None
+    rule_type: str = "app"
+    pattern: str
+    category: str
+    productivity: str = "productive"
+    priority: int = 10
+    is_active: bool = True
+
+
+class CategoryRuleCreateRequest(BaseModel):
+    """Payload to create a new category mapping rule."""
+
+    rule_type: str = "app"
+    pattern: str
+    category: str
+    productivity: str = "productive"
+    priority: int = 10
+
+
 class YouTubeChannelsData(BaseModel):
     """Payload for YouTube channels breakdown list."""
 
