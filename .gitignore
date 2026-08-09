@@ -34,6 +34,7 @@ logs/
 # Packaging & Build Directories
 build/
 dist/
+node_modules/
 *.egg-info/
 .eggs/
 *.spec

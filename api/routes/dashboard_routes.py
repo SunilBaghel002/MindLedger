@@ -34,25 +34,31 @@ router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 page_router = APIRouter(tags=["dashboard_html"])
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "dashboard" / "templates"
+DIST_DIR = Path(__file__).resolve().parent.parent.parent / "dashboard" / "dist"
 
 
 @page_router.get("/dashboard", response_class=FileResponse, include_in_schema=False)
 @page_router.get("/", response_class=FileResponse, include_in_schema=False)
 async def get_dashboard_index_page():
-    """Serve main dashboard home page HTML template."""
+    """Serve main React dashboard SPA index.html."""
+    dist_index = DIST_DIR / "index.html"
+    if dist_index.exists():
+        return FileResponse(dist_index)
     index_path = TEMPLATES_DIR / "index.html"
     if not index_path.exists():
-        raise HTTPException(status_code=404, detail="Dashboard template index.html not found.")
+        raise HTTPException(status_code=404, detail="Dashboard index.html not found.")
     return FileResponse(index_path)
 
 
 @page_router.get("/dashboard/{page_name}", response_class=FileResponse, include_in_schema=False)
 async def get_dashboard_subpage(page_name: str):
-    """Serve subpage HTML templates (apps.html, browser.html, etc.)."""
+    """Serve subpages or fallback to main SPA index.html."""
+    dist_index = DIST_DIR / "index.html"
+    if dist_index.exists():
+        return FileResponse(dist_index)
     clean_name = page_name.replace(".html", "")
     target_path = TEMPLATES_DIR / f"{clean_name}.html"
     if not target_path.exists():
-        # Fallback to main index.html for SPA page routing
         index_path = TEMPLATES_DIR / "index.html"
         return FileResponse(index_path)
     return FileResponse(target_path)

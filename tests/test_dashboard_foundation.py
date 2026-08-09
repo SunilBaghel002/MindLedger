@@ -18,11 +18,11 @@ def test_dashboard_index_html_route():
 
 
 def test_dashboard_subpage_html_route():
-    """Verify GET /dashboard/apps returns apps.html content."""
+    """Verify GET /dashboard/apps returns dashboard content."""
     client = TestClient(app)
     response = client.get("/dashboard/apps")
     assert response.status_code == 200
-    assert "Application Usage" in response.text
+    assert "MindLedger" in response.text or "<!DOCTYPE html>" in response.text
 
 
 def test_dashboard_static_files_mounting():

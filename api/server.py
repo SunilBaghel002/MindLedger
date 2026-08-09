@@ -63,12 +63,16 @@ def create_app() -> FastAPI:
     app.include_router(category_router)
     app.include_router(page_router)
 
-    # Mount Static Files for Dashboard UI
+    # Mount Static Files for Dashboard UI (React dist assets & static fallback)
+    dist_dir = Path(__file__).resolve().parent.parent / "dashboard" / "dist"
     static_dir = Path(__file__).resolve().parent.parent / "dashboard" / "static"
+
+    if (dist_dir / "assets").exists():
+        app.mount("/assets", StaticFiles(directory=str(dist_dir / "assets")), name="dist_assets")
+        app.mount("/dashboard/assets", StaticFiles(directory=str(dist_dir / "assets")), name="dashboard_assets")
+
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-    else:
-        logger.warning(f"Static directory not found at {static_dir}")
 
     return app
 
