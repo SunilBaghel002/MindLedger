@@ -79,6 +79,93 @@ class MindLedgerAPI {
     async getTodayYoutube() {
         return this._request('/youtube/today');
     }
+
+    async getYoutubeAnalytics(rangePreset = 'today', category = '', search = '') {
+        const queryParams = new URLSearchParams();
+        if (rangePreset) queryParams.append('range_preset', rangePreset);
+        if (category && category !== 'all') queryParams.append('category', category);
+        if (search && search.trim()) queryParams.append('search', search.trim());
+        const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
+        return this._request(`/youtube/analytics${queryStr}`);
+    }
+
+    async getReportHistory() {
+        return this._request('/reports/history');
+    }
+
+    async generateReport(reportType = 'daily', dateStr = '', sendEmail = false, recipient = '') {
+        return this._request('/reports/generate', {
+            method: 'POST',
+            body: JSON.stringify({
+                report_type: reportType,
+                date: dateStr,
+                send_email: sendEmail,
+                recipient: recipient || undefined,
+            }),
+        });
+    }
+
+    async sendReportEmail(reportType = 'daily', dateStr = '', recipient = '') {
+        return this._request('/reports/send-email', {
+            method: 'POST',
+            body: JSON.stringify({
+                report_type: reportType,
+                date: dateStr,
+                send_email: true,
+                recipient: recipient || undefined,
+            }),
+        });
+    }
+
+    getReportDownloadUrl(reportType = 'daily', dateStr = '', format = 'html') {
+        const fmt = format === 'pdf' ? 'pdf' : 'html';
+        return `${this.baseUrl}/reports/download/${fmt}?report_type=${reportType}&date_str=${dateStr}`;
+    }
+
+    async getSettings() {
+        return this._request('/settings');
+    }
+
+    async updateSettings(settingsObj) {
+        return this._request('/settings', {
+            method: 'POST',
+            body: JSON.stringify(settingsObj),
+        });
+    }
+
+    async testEmail(recipient = '') {
+        return this._request('/settings/test-email', {
+            method: 'POST',
+            body: JSON.stringify({ recipient_email: recipient || undefined }),
+        });
+    }
+
+    async getCategoryRules() {
+        return this._request('/settings/rules');
+    }
+
+    async createCategoryRule(ruleObj) {
+        return this._request('/settings/rules', {
+            method: 'POST',
+            body: JSON.stringify(ruleObj),
+        });
+    }
+
+    async deleteCategoryRule(ruleId) {
+        return this._request(`/settings/rules/${ruleId}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async clearHistory() {
+        return this._request('/settings/clear-history', {
+            method: 'POST',
+        });
+    }
+
+    getExportDataUrl(format = 'json') {
+        return `${this.baseUrl}/settings/export?format=${format}`;
+    }
 }
 
 export const api = new MindLedgerAPI();

@@ -244,6 +244,124 @@ class YouTubeTodayData(BaseModel):
     recent_videos: List[YouTubeActivityDTO] = Field(default_factory=list)
 
 
+class YouTubeChannelSummaryItem(BaseModel):
+    """Summary representation of channel watch duration and category."""
+
+    channel_name: str
+    channel_url: Optional[str] = None
+    video_category: Optional[str] = "uncategorized"
+    total_videos: int = 0
+    total_seconds: int = 0
+
+
+class YouTubeVideoHistoryItem(BaseModel):
+    """Detailed item for searchable YouTube video watch history."""
+
+    id: int
+    video_id: Optional[str] = None
+    video_url: Optional[str] = None
+    video_title: Optional[str] = None
+    channel_name: Optional[str] = None
+    watch_duration_seconds: int = 0
+    video_category: str = "uncategorized"
+    is_productive: Optional[bool] = None
+    is_short: bool = False
+    date: str
+    started_at: str
+
+
+class YouTubeAnalyticsData(BaseModel):
+    """Payload for YouTube watch analytics and video history."""
+
+    date_range: str
+    total_watch_seconds: int = 0
+    productive_watch_seconds: int = 0
+    entertainment_watch_seconds: int = 0
+    shorts_watch_seconds: int = 0
+    longform_watch_seconds: int = 0
+    shorts_ratio_pct: float = 0.0
+    channels_count: int = 0
+    top_channels: List[YouTubeChannelSummaryItem] = Field(default_factory=list)
+    category_breakdown: Dict[str, int] = Field(default_factory=dict)
+    history: List[YouTubeVideoHistoryItem] = Field(default_factory=list)
+
+
+class ReportGenerateRequest(BaseModel):
+    """Payload to trigger report generation and optional email delivery."""
+
+    report_type: str = "daily"
+    date: str
+    send_email: bool = False
+    recipient: Optional[str] = None
+
+
+class ReportSummaryItem(BaseModel):
+    """Summary record item for reports history and archive."""
+
+    id: Optional[int] = None
+    report_type: str
+    period_label: str
+    date: str
+    total_screen_time_seconds: int = 0
+    productivity_score: float = 0.0
+    email_sent: bool = False
+    most_used_app: Optional[str] = None
+
+
+class ReportHistoryData(BaseModel):
+    """Payload containing list of all generated reports."""
+
+    reports: List[ReportSummaryItem] = Field(default_factory=list)
+
+
+class SettingsData(BaseModel):
+    """Payload representing application settings configuration."""
+
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: Optional[str] = ""
+    smtp_password: Optional[str] = None
+    recipient_email: Optional[str] = ""
+    tracking_enabled: bool = True
+    idle_threshold_seconds: int = 300
+    theme: str = "light"
+
+
+class SettingsUpdateRequest(BaseModel):
+    """Payload to update application settings."""
+
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    recipient_email: Optional[str] = None
+    tracking_enabled: Optional[bool] = None
+    idle_threshold_seconds: Optional[int] = None
+    theme: Optional[str] = None
+
+
+class CategoryRuleItem(BaseModel):
+    """Summary item representing a category rule."""
+
+    id: Optional[int] = None
+    rule_type: str = "app"
+    pattern: str
+    category: str
+    productivity: str = "productive"
+    priority: int = 10
+    is_active: bool = True
+
+
+class CategoryRuleCreateRequest(BaseModel):
+    """Payload to create a new category mapping rule."""
+
+    rule_type: str = "app"
+    pattern: str
+    category: str
+    productivity: str = "productive"
+    priority: int = 10
+
+
 class YouTubeChannelsData(BaseModel):
     """Payload for YouTube channels breakdown list."""
 

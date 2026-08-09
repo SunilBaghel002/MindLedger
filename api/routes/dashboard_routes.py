@@ -6,6 +6,7 @@ Author: MindLedger Team
 Created: 2026-08-08
 """
 
+import json
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
@@ -22,20 +23,38 @@ from api.schemas import (
     AppUsageSummaryItem,
     BrowserAnalyticsData,
     BrowserDomainSummaryItem,
+    CategoryRuleCreateRequest,
+    CategoryRuleItem,
     DashboardTodayData,
     DomainSummaryItem,
     HealthData,
     HourlyActivityTimelineDTO,
     LiveTrackingStatusData,
     QuickStatsDTO,
+    ReportGenerateRequest,
+    ReportHistoryData,
+    ReportSummaryItem,
+    SettingsData,
+    SettingsUpdateRequest,
     URLDetailItem,
+    YouTubeAnalyticsData,
+    YouTubeChannelSummaryItem,
+    YouTubeVideoHistoryItem,
 )
 from config.constants import APP_NAME, APP_VERSION
 from config.settings import settings
 from core.idle_detector import IdleDetector
 from database.connection import db_manager
+from database.models import CategoryRule
 from database.repositories.app_session_repo import AppSessionRepository
 from database.repositories.browser_session_repo import BrowserSessionRepository
+from database.repositories.category_rule_repo import CategoryRuleRepository
+from database.repositories.settings_repo import SettingsRepository
+from database.repositories.summary_repo import SummaryRepository
+from database.repositories.youtube_repo import YouTubeRepository
+from reports.email_sender import EmailSender
+from reports.report_generator import ReportGenerator
+from reports.template_renderer import TemplateRenderer
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -441,3 +460,504 @@ async def get_domain_url_details(
     except Exception as e:
         logger.error(f"Failed to fetch domain URL details: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch domain URL details") from e
+
+
+@router.get("/youtube/analytics", response_model=APIResponse[YouTubeAnalyticsData])
+async def get_youtube_analytics(
+    range_preset: RangePreset = "today",
+    category: Optional[str] = None,
+    search: Optional[str] = None,
+) -> APIResponse[YouTubeAnalyticsData]:
+    """Get YouTube watch analytics over date range with category and title search filters."""
+    try:
+        start_str, end_str = _resolve_range(range_preset)
+
+        with db_manager.connection() as conn:
+            repo = YouTubeRepository(conn)
+            top_channels_raw = repo.get_top_channels_range(start_str, end_str, category=category, limit=100)
+            history_models = repo.get_video_history_range(start_str, end_str, category=category, search=search, limit=100)
+            all_sessions = repo.get_by_date_range(start_str, end_str)
+
+        total_seconds = sum(s.watch_duration_seconds for s in all_sessions)
+        prod_seconds = sum(s.watch_duration_seconds for s in all_sessions if s.is_productive is True)
+        ent_seconds = sum(s.watch_duration_seconds for s in all_sessions if s.is_productive is False)
+
+        # Calculate Shorts vs Longform watch time
+        shorts_seconds = sum(
+            s.watch_duration_seconds for s in all_sessions
+            if (s.video_url and "/shorts/" in s.video_url) or (s.video_category and s.video_category.lower() == "shorts")
+        )
+        longform_seconds = max(0, total_seconds - shorts_seconds)
+        shorts_pct = round((shorts_seconds / total_seconds) * 100.0, 1) if total_seconds > 0 else 0.0
+
+        # Compute category breakdown
+        cat_breakdown: Dict[str, int] = {}
+        for s in all_sessions:
+            c_name = (s.video_category or "uncategorized").lower()
+            if category and category.lower() != "all" and c_name != category.lower():
+                continue
+            cat_breakdown[c_name] = cat_breakdown.get(c_name, 0) + s.watch_duration_seconds
+
+        top_channels = [
+            YouTubeChannelSummaryItem(
+                channel_name=item["channel_name"],
+                channel_url=item["channel_url"],
+                video_category=item.get("video_category", "uncategorized"),
+                total_videos=item["total_videos"],
+                total_seconds=item["total_seconds"],
+            )
+            for item in top_channels_raw
+        ]
+
+        history_items = [
+            YouTubeVideoHistoryItem(
+                id=h.id or 0,
+                video_id=h.video_id,
+                video_url=h.video_url,
+                video_title=h.video_title,
+                channel_name=h.channel_name,
+                watch_duration_seconds=h.watch_duration_seconds,
+                video_category=h.video_category,
+                is_productive=h.is_productive,
+                is_short=bool((h.video_url and "/shorts/" in h.video_url) or (h.video_category and h.video_category.lower() == "shorts")),
+                date=h.date,
+                started_at=h.started_at.isoformat(),
+            )
+            for h in history_models
+        ]
+
+        data = YouTubeAnalyticsData(
+            date_range=range_preset,
+            total_watch_seconds=total_seconds,
+            productive_watch_seconds=prod_seconds,
+            entertainment_watch_seconds=ent_seconds,
+            shorts_watch_seconds=shorts_seconds,
+            longform_watch_seconds=longform_seconds,
+            shorts_ratio_pct=shorts_pct,
+            channels_count=len(top_channels),
+            top_channels=top_channels,
+            category_breakdown=cat_breakdown,
+            history=history_items,
+        )
+
+        return APIResponse(success=True, data=data, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch YouTube analytics: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch YouTube analytics") from e
+
+
+@router.get("/reports/history", response_model=APIResponse[ReportHistoryData])
+async def get_reports_history() -> APIResponse[ReportHistoryData]:
+    """Get list of all generated daily and periodic report summaries."""
+    try:
+        reports: List[ReportSummaryItem] = []
+        with db_manager.connection() as conn:
+            summary_repo = SummaryRepository(conn)
+
+            # Fetch daily summaries
+            cursor1 = conn.execute(
+                "SELECT * FROM daily_summaries ORDER BY date DESC LIMIT 50"
+            )
+            for row in cursor1.fetchall():
+                reports.append(
+                    ReportSummaryItem(
+                        id=row["id"],
+                        report_type="daily",
+                        period_label=f"Daily Summary - {row['date']}",
+                        date=row["date"],
+                        total_screen_time_seconds=row["total_screen_time_seconds"],
+                        productivity_score=float(row["productivity_score"]),
+                        email_sent=bool(row["email_sent"]),
+                        most_used_app=row["most_used_app"],
+                    )
+                )
+
+            # Fetch periodic summaries
+            cursor2 = conn.execute(
+                "SELECT * FROM periodic_summaries ORDER BY period_end DESC LIMIT 50"
+            )
+            for row in cursor2.fetchall():
+                reports.append(
+                    ReportSummaryItem(
+                        id=row["id"],
+                        report_type=row["period_type"],
+                        period_label=row["period_label"],
+                        date=row["period_end"],
+                        total_screen_time_seconds=row["total_screen_time_seconds"],
+                        productivity_score=float(row["avg_productivity_score"]),
+                        email_sent=bool(row["email_sent"]),
+                        most_used_app=None,
+                    )
+                )
+
+        return APIResponse(success=True, data=ReportHistoryData(reports=reports), error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch reports history: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch reports history") from e
+
+
+@router.post("/reports/generate", response_model=APIResponse[ReportSummaryItem])
+async def generate_report(req: ReportGenerateRequest) -> APIResponse[ReportSummaryItem]:
+    """Trigger report generation pipeline for a specific date and report type."""
+    try:
+        with db_manager.connection() as conn:
+            generator = ReportGenerator(conn)
+            summary_repo = SummaryRepository(conn)
+
+            if req.report_type == "weekly":
+                summary = summary_repo.aggregate_weekly_summary(req.date)
+                if req.send_email:
+                    generator.generate_and_send_weekly_report(req.date, recipient=req.recipient)
+                result_item = ReportSummaryItem(
+                    id=summary.id,
+                    report_type="weekly",
+                    period_label=summary.period_label,
+                    date=summary.period_end,
+                    total_screen_time_seconds=summary.total_screen_time_seconds,
+                    productivity_score=summary.avg_productivity_score,
+                    email_sent=summary.email_sent,
+                )
+            elif req.report_type == "monthly":
+                dt = datetime.strptime(req.date, "%Y-%m-%d")
+                summary = summary_repo.aggregate_monthly_summary(dt.year, dt.month)
+                if req.send_email:
+                    generator.generate_and_send_monthly_report(dt.year, dt.month, recipient=req.recipient)
+                result_item = ReportSummaryItem(
+                    id=summary.id,
+                    report_type="monthly",
+                    period_label=summary.period_label,
+                    date=summary.period_end,
+                    total_screen_time_seconds=summary.total_screen_time_seconds,
+                    productivity_score=summary.avg_productivity_score,
+                    email_sent=summary.email_sent,
+                )
+            else:
+                if req.send_email:
+                    daily = generator.generate_and_send_daily_report(req.date, recipient=req.recipient)
+                else:
+                    daily = summary_repo.aggregate_daily_summary(req.date)
+                    summary_repo.save_daily_summary(daily)
+                result_item = ReportSummaryItem(
+                    id=daily.id,
+                    report_type="daily",
+                    period_label=f"Daily Summary - {daily.date}",
+                    date=daily.date,
+                    total_screen_time_seconds=daily.total_screen_time_seconds,
+                    productivity_score=daily.productivity_score,
+                    email_sent=daily.email_sent,
+                    most_used_app=daily.most_used_app,
+                )
+
+        return APIResponse(success=True, data=result_item, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to generate report: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate report") from e
+
+
+@router.post("/reports/send-email", response_model=APIResponse[Dict[str, Any]])
+async def send_report_email(req: ReportGenerateRequest) -> APIResponse[Dict[str, Any]]:
+    """Trigger SMTP report email delivery for a given date and report type."""
+    try:
+        with db_manager.connection() as conn:
+            generator = ReportGenerator(conn)
+            if req.report_type == "weekly":
+                summary = generator.generate_and_send_weekly_report(req.date, recipient=req.recipient)
+            elif req.report_type == "monthly":
+                dt = datetime.strptime(req.date, "%Y-%m-%d")
+                summary = generator.generate_and_send_monthly_report(dt.year, dt.month, recipient=req.recipient)
+            else:
+                summary = generator.generate_and_send_daily_report(req.date, recipient=req.recipient)
+
+        success = summary.email_sent
+        return APIResponse(
+            success=success,
+            data={"message": f"Email {'sent successfully' if success else 'dispatch failed'}", "sent": success},
+            error=None if success else "SMTP email delivery failed",
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to send report email: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send report email") from e
+
+
+@router.get("/reports/download/html", response_class=HTMLResponse)
+async def download_report_html(report_type: str = "daily", date_str: str = ""):
+    """Download Jinja2 HTML report attachment."""
+    try:
+        target_date = date_str or date.today().isoformat()
+        renderer = TemplateRenderer()
+
+        with db_manager.connection() as conn:
+            summary_repo = SummaryRepository(conn)
+            if report_type == "weekly":
+                summary = summary_repo.aggregate_weekly_summary(target_date)
+                html_str = renderer.render_weekly_report(summary)
+            elif report_type == "monthly":
+                dt = datetime.strptime(target_date, "%Y-%m-%d")
+                summary = summary_repo.aggregate_monthly_summary(dt.year, dt.month)
+                html_str = renderer.render_monthly_report(summary)
+            else:
+                summary = summary_repo.aggregate_daily_summary(target_date)
+                html_str = renderer.render_daily_report(summary)
+
+        filename = f"mindledger_{report_type}_report_{target_date}.html"
+        return HTMLResponse(
+            content=html_str,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to download HTML report: {e}")
+        raise HTTPException(status_code=500, detail="Failed to download HTML report") from e
+
+
+@router.get("/reports/download/pdf", response_class=HTMLResponse)
+async def download_report_pdf(report_type: str = "daily", date_str: str = ""):
+    """Download PDF report attachment (serves formatted HTML printable template)."""
+    try:
+        target_date = date_str or date.today().isoformat()
+        renderer = TemplateRenderer()
+
+        with db_manager.connection() as conn:
+            summary_repo = SummaryRepository(conn)
+            if report_type == "weekly":
+                summary = summary_repo.aggregate_weekly_summary(target_date)
+                html_str = renderer.render_weekly_report(summary)
+            elif report_type == "monthly":
+                dt = datetime.strptime(target_date, "%Y-%m-%d")
+                summary = summary_repo.aggregate_monthly_summary(dt.year, dt.month)
+                html_str = renderer.render_monthly_report(summary)
+            else:
+                summary = summary_repo.aggregate_daily_summary(target_date)
+                html_str = renderer.render_daily_report(summary)
+
+        filename = f"mindledger_{report_type}_report_{target_date}.pdf.html"
+        return HTMLResponse(
+            content=html_str,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to download PDF report: {e}")
+        raise HTTPException(status_code=500, detail="Failed to download PDF report") from e
+
+
+@router.get("/settings", response_model=APIResponse[SettingsData])
+async def get_settings() -> APIResponse[SettingsData]:
+    """Get application settings configuration."""
+    try:
+        with db_manager.connection() as conn:
+            repo = SettingsRepository(conn)
+            all_s = repo.get_all()
+
+        data = SettingsData(
+            smtp_host=all_s["smtp_host"].value if "smtp_host" in all_s and all_s["smtp_host"].value is not None else getattr(settings, "smtp_host", ""),
+            smtp_port=int(all_s["smtp_port"].value) if "smtp_port" in all_s and all_s["smtp_port"].value is not None else getattr(settings, "smtp_port", 587),
+            smtp_username=all_s["smtp_username"].value if "smtp_username" in all_s and all_s["smtp_username"].value is not None else getattr(settings, "smtp_username", ""),
+            smtp_password=all_s["smtp_password"].value if "smtp_password" in all_s and all_s["smtp_password"].value is not None else getattr(settings, "smtp_password", None),
+            recipient_email=all_s["recipient_email"].value if "recipient_email" in all_s and all_s["recipient_email"].value is not None else getattr(settings, "report_recipient_email", ""),
+            tracking_enabled=all_s["tracking_enabled"].value.lower() == "true" if "tracking_enabled" in all_s and all_s["tracking_enabled"].value is not None else True,
+            idle_threshold_seconds=int(all_s["idle_threshold_seconds"].value) if "idle_threshold_seconds" in all_s and all_s["idle_threshold_seconds"].value is not None else getattr(settings, "idle_threshold_seconds", 300),
+            theme=all_s["theme"].value if "theme" in all_s and all_s["theme"].value is not None else "light",
+        )
+
+        return APIResponse(success=True, data=data, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch settings: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch settings") from e
+
+
+@router.post("/settings", response_model=APIResponse[SettingsData])
+async def update_settings(req: SettingsUpdateRequest) -> APIResponse[SettingsData]:
+    """Update application settings configuration."""
+    try:
+        with db_manager.connection() as conn:
+            repo = SettingsRepository(conn)
+            if req.smtp_host is not None:
+                repo.set("smtp_host", req.smtp_host)
+            if req.smtp_port is not None:
+                repo.set("smtp_port", req.smtp_port, "integer")
+            if req.smtp_username is not None:
+                repo.set("smtp_username", req.smtp_username)
+            if req.smtp_password is not None:
+                repo.set("smtp_password", req.smtp_password)
+            if req.recipient_email is not None:
+                repo.set("recipient_email", req.recipient_email)
+            if req.tracking_enabled is not None:
+                repo.set("tracking_enabled", str(req.tracking_enabled).lower(), "boolean")
+            if req.idle_threshold_seconds is not None:
+                repo.set("idle_threshold_seconds", req.idle_threshold_seconds, "integer")
+            if req.theme is not None:
+                repo.set("theme", req.theme)
+
+        return await get_settings()
+
+    except Exception as e:
+        logger.error(f"Failed to update settings: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update settings") from e
+
+
+@router.post("/settings/test-email", response_model=APIResponse[Dict[str, Any]])
+async def test_email_settings(req: Optional[SettingsUpdateRequest] = None) -> APIResponse[Dict[str, Any]]:
+    """Test SMTP email credentials by dispatching a test email."""
+    try:
+        with db_manager.connection() as conn:
+            repo = SettingsRepository(conn)
+            all_s = repo.get_all()
+
+        recipient = (
+            (req.recipient_email if req and req.recipient_email else None)
+            or (all_s.get("recipient_email").value if all_s.get("recipient_email") else "")
+            or getattr(settings, "report_recipient_email", "")
+        )
+
+        sender = EmailSender()
+        success = sender.send_test_email(recipient=recipient)
+
+        return APIResponse(
+            success=success,
+            data={"message": f"Test email {'sent successfully' if success else 'failed to send'}", "sent": success},
+            error=None if success else "Failed to send test email via SMTP",
+        )
+
+    except Exception as e:
+        logger.error(f"Test email dispatch failed: {e}")
+        raise HTTPException(status_code=500, detail="Test email dispatch failed") from e
+
+
+@router.get("/settings/rules", response_model=APIResponse[List[CategoryRuleItem]])
+async def get_category_rules() -> APIResponse[List[CategoryRuleItem]]:
+    """Get list of all custom category mapping rules."""
+    try:
+        with db_manager.connection() as conn:
+            repo = CategoryRuleRepository(conn)
+            rules = repo.get_all()
+
+        items = [
+            CategoryRuleItem(
+                id=r.id,
+                rule_type=r.rule_type,
+                pattern=r.pattern,
+                category=r.category,
+                productivity=r.productivity,
+                priority=r.priority,
+                is_active=r.is_active,
+            )
+            for r in rules
+        ]
+
+        return APIResponse(success=True, data=items, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch category rules: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch category rules") from e
+
+
+@router.post("/settings/rules", response_model=APIResponse[CategoryRuleItem])
+async def create_category_rule(req: CategoryRuleCreateRequest) -> APIResponse[CategoryRuleItem]:
+    """Create a new custom category rule."""
+    try:
+        rule = CategoryRule(
+            rule_type=req.rule_type,
+            pattern=req.pattern,
+            category=req.category,
+            productivity=req.productivity,
+            priority=req.priority,
+            is_active=True,
+        )
+
+        with db_manager.connection() as conn:
+            repo = CategoryRuleRepository(conn)
+            rule_id = repo.save(rule)
+
+        item = CategoryRuleItem(
+            id=rule_id,
+            rule_type=rule.rule_type,
+            pattern=rule.pattern,
+            category=rule.category,
+            productivity=rule.productivity,
+            priority=rule.priority,
+            is_active=rule.is_active,
+        )
+
+        return APIResponse(success=True, data=item, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to create category rule: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create category rule") from e
+
+
+@router.delete("/settings/rules/{rule_id}", response_model=APIResponse[Dict[str, Any]])
+async def delete_category_rule(rule_id: int) -> APIResponse[Dict[str, Any]]:
+    """Delete a category rule by ID."""
+    try:
+        with db_manager.connection() as conn:
+            repo = CategoryRuleRepository(conn)
+            success = repo.delete(rule_id)
+
+        return APIResponse(
+            success=success,
+            data={"message": f"Rule {rule_id} {'deleted' if success else 'not found'}"},
+            error=None if success else "Rule not found",
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to delete category rule: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete category rule") from e
+
+
+@router.post("/settings/clear-history", response_model=APIResponse[Dict[str, Any]])
+async def clear_tracking_history() -> APIResponse[Dict[str, Any]]:
+    """Clear all tracking history records from database."""
+    try:
+        with db_manager.connection() as conn:
+            conn.execute("DELETE FROM app_sessions;")
+            conn.execute("DELETE FROM browser_sessions;")
+            conn.execute("DELETE FROM youtube_activity;")
+            conn.execute("DELETE FROM daily_summaries;")
+            conn.execute("DELETE FROM periodic_summaries;")
+
+        return APIResponse(success=True, data={"message": "Tracking history successfully cleared."}, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to clear tracking history: {e}")
+        raise HTTPException(status_code=500, detail="Failed to clear tracking history") from e
+
+
+@router.get("/settings/export")
+async def export_tracking_data(format: str = "json"):
+    """Export complete activity tracking data as a JSON download."""
+    try:
+        with db_manager.connection() as conn:
+            c1 = conn.execute("SELECT * FROM app_sessions ORDER BY id DESC LIMIT 500")
+            apps = [dict(row) for row in c1.fetchall()]
+
+            c2 = conn.execute("SELECT * FROM browser_sessions ORDER BY id DESC LIMIT 500")
+            browsers = [dict(row) for row in c2.fetchall()]
+
+            c3 = conn.execute("SELECT * FROM youtube_activity ORDER BY id DESC LIMIT 500")
+            yt = [dict(row) for row in c3.fetchall()]
+
+        export_payload = {
+            "app_name": APP_NAME,
+            "version": APP_VERSION,
+            "exported_at": date.today().isoformat(),
+            "app_sessions": apps,
+            "browser_sessions": browsers,
+            "youtube_activity": yt,
+        }
+
+        json_str = json.dumps(export_payload, indent=2)
+        filename = f"mindledger_export_{date.today().isoformat()}.json"
+        return HTMLResponse(
+            content=json_str,
+            headers={"Content-Type": "application/json", "Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to export data: {e}")
+        raise HTTPException(status_code=500, detail="Failed to export data") from e

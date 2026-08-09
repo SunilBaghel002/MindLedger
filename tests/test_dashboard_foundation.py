@@ -3,9 +3,10 @@ from fastapi.testclient import TestClient
 
 from api.server import app
 from database.connection import db_manager
-from database.models import AppSession, BrowserSession
+from database.models import AppSession, BrowserSession, YouTubeActivity
 from database.repositories.app_session_repo import AppSessionRepository
 from database.repositories.browser_session_repo import BrowserSessionRepository
+from database.repositories.youtube_repo import YouTubeRepository
 
 
 def test_dashboard_index_html_route():
@@ -94,3 +95,99 @@ def test_browser_analytics_endpoints():
     assert isinstance(j2["data"], list)
     assert len(j2["data"]) >= 1
     assert j2["data"][0]["url"] == "https://github.com/test"
+
+
+def test_youtube_analytics_endpoint():
+    """Verify GET /api/v1/youtube/analytics returns YouTube metrics, channels, and video history."""
+    now = datetime.now()
+    today_str = now.date().isoformat()
+    with db_manager.connection() as conn:
+        repo = YouTubeRepository(conn)
+        repo.save(
+            YouTubeActivity(
+                video_url="https://youtube.com/watch?v=12345",
+                video_id="12345",
+                video_title="FastAPI Python Tutorial",
+                channel_name="Tech Channel",
+                watch_duration_seconds=500,
+                video_category="Educational",
+                is_productive=True,
+                started_at=now,
+                date=today_str,
+            )
+        )
+
+    client = TestClient(app)
+    response = client.get("/api/v1/youtube/analytics?range_preset=today&search=FastAPI")
+    assert response.status_code == 200
+    json_data = response.json()
+    assert json_data["success"] is True
+    assert json_data["data"]["date_range"] == "today"
+    assert json_data["data"]["total_watch_seconds"] >= 500
+    assert len(json_data["data"]["top_channels"]) >= 1
+    assert json_data["data"]["top_channels"][0]["channel_name"] == "Tech Channel"
+    assert len(json_data["data"]["history"]) >= 1
+    assert "FastAPI" in json_data["data"]["history"][0]["video_title"]
+
+
+def test_reports_endpoints():
+    """Verify GET /api/v1/reports/history, POST /reports/generate, and HTML download endpoints."""
+    client = TestClient(app)
+    today_str = date.today().isoformat()
+
+    # Generate Report
+    gen_res = client.post("/api/v1/reports/generate", json={"report_type": "daily", "date": today_str, "send_email": False})
+    assert gen_res.status_code == 200
+    gen_json = gen_res.json()
+    assert gen_json["success"] is True
+    assert gen_json["data"]["report_type"] == "daily"
+
+    # History List
+    hist_res = client.get("/api/v1/reports/history")
+    assert hist_res.status_code == 200
+    hist_json = hist_res.json()
+    assert hist_json["success"] is True
+    assert "reports" in hist_json["data"]
+
+    # HTML Download
+    dl_res = client.get(f"/api/v1/reports/download/html?report_type=daily&date_str={today_str}")
+    assert dl_res.status_code == 200
+    assert "MindLedger" in dl_res.text or "<html" in dl_res.text
+
+
+def test_settings_and_rules_endpoints():
+    """Verify GET/POST /api/v1/settings, Category Rules CRUD, and Data Export endpoints."""
+    client = TestClient(app)
+
+    # Fetch settings
+    s_res = client.get("/api/v1/settings")
+    assert s_res.status_code == 200
+    s_json = s_res.json()
+    assert s_json["success"] is True
+    assert "tracking_enabled" in s_json["data"]
+
+    # Update settings
+    up_res = client.post("/api/v1/settings", json={"idle_threshold_seconds": 600, "recipient_email": "test@example.com"})
+    assert up_res.status_code == 200
+    up_json = up_res.json()
+    assert up_json["success"] is True
+    assert up_json["data"]["idle_threshold_seconds"] == 600
+
+    # Category Rules CRUD
+    create_res = client.post("/api/v1/settings/rules", json={"rule_type": "app", "pattern": "test_vscode", "category": "Development", "productivity": "productive"})
+    assert create_res.status_code == 200
+    create_json = create_res.json()
+    assert create_json["success"] is True
+    rule_id = create_json["data"]["id"]
+
+    rules_res = client.get("/api/v1/settings/rules")
+    assert rules_res.status_code == 200
+    assert any(r["pattern"] == "test_vscode" for r in rules_res.json()["data"])
+
+    del_res = client.delete(f"/api/v1/settings/rules/{rule_id}")
+    assert del_res.status_code == 200
+
+    # Export Data
+    exp_res = client.get("/api/v1/settings/export")
+    assert exp_res.status_code == 200
+    assert "app_sessions" in exp_res.text
