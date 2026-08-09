@@ -172,3 +172,64 @@ class YouTubeChannelsData(BaseModel):
     date: str
     count: int = 0
     channels: List[ChannelSummaryItem] = Field(default_factory=list)
+
+
+class CategoryRuleDTO(BaseModel):
+    """Data transfer object representing a classification rule."""
+
+    id: Optional[int] = None
+    rule_type: str
+    pattern: str
+    category: str
+    subcategory: Optional[str] = None
+    productivity: str
+    priority: int = 0
+    is_active: bool = True
+
+
+class CategoryRuleCreate(BaseModel):
+    """Payload schema for adding a new classification rule."""
+
+    rule_type: str  # 'app', 'domain', 'url_pattern', 'title_pattern', 'youtube_channel'
+    pattern: str
+    category: str
+    subcategory: Optional[str] = None
+    productivity: str  # 'productive', 'neutral', 'unproductive'
+    priority: int = 0
+    is_active: bool = True
+
+
+class CategoryRuleUpdate(BaseModel):
+    """Payload schema for updating an existing classification rule."""
+
+    rule_type: Optional[str] = None
+    pattern: Optional[str] = None
+    category: Optional[str] = None
+    subcategory: Optional[str] = None
+    productivity: Optional[str] = None
+    priority: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class CategoryRulesListData(BaseModel):
+    """Payload for listing category rules."""
+
+    count: int = 0
+    rules: List[CategoryRuleDTO] = Field(default_factory=list)
+
+
+class ReclassifyRequest(BaseModel):
+    """Payload schema for requesting historical data re-classification."""
+
+    from_date: Optional[str] = None  # YYYY-MM-DD
+    to_date: Optional[str] = None    # YYYY-MM-DD
+
+
+class ReclassifyResultData(BaseModel):
+    """Payload schema summarizing historical re-classification results."""
+
+    reclassified_app_sessions: int = 0
+    reclassified_browser_sessions: int = 0
+    reclassified_youtube_activities: int = 0
+    updated_daily_summaries: int = 0
+

@@ -14,6 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes.browser_routes import router as browser_router
+from api.routes.category_routes import router as category_router
 from api.routes.dashboard_routes import page_router, router as dashboard_router
 from config.constants import APP_NAME, APP_VERSION
 from config.settings import settings
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
     # Mount Route Modules
     app.include_router(dashboard_router)
     app.include_router(browser_router)
+    app.include_router(category_router)
     app.include_router(page_router)
 
     return app
