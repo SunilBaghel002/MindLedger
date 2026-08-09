@@ -20,12 +20,15 @@ from api.schemas import (
     AppsTodayData,
     AppTrendItem,
     AppUsageSummaryItem,
+    BrowserAnalyticsData,
+    BrowserDomainSummaryItem,
     DashboardTodayData,
     DomainSummaryItem,
     HealthData,
     HourlyActivityTimelineDTO,
     LiveTrackingStatusData,
     QuickStatsDTO,
+    URLDetailItem,
 )
 from config.constants import APP_NAME, APP_VERSION
 from config.settings import settings
@@ -342,4 +345,112 @@ async def get_apps_analytics(
 
     except Exception as e:
         logger.error(f"Failed to fetch app analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/browser/analytics", response_model=APIResponse[BrowserAnalyticsData])
+async def get_browser_analytics(
+    range_preset: str = "today",
+    category: Optional[str] = None,
+) -> APIResponse[BrowserAnalyticsData]:
+    """Get browser usage analytics over date range (today, yesterday, 7d, 30d) with optional category filtering."""
+    try:
+        today = date.today()
+        if range_preset == "yesterday":
+            start_d = today - timedelta(days=1)
+            end_d = start_d
+        elif range_preset == "7d":
+            start_d = today - timedelta(days=6)
+            end_d = today
+        elif range_preset == "30d":
+            start_d = today - timedelta(days=29)
+            end_d = today
+        else:
+            start_d = today
+            end_d = today
+
+        start_str = start_d.isoformat()
+        end_str = end_d.isoformat()
+
+        with db_manager.connection() as conn:
+            repo = BrowserSessionRepository(conn)
+            top_domains_raw = repo.get_top_domains_range(start_str, end_str, category=category, limit=100)
+            all_sessions = repo.get_by_date_range(start_str, end_str)
+
+        total_seconds = sum(item["total_seconds"] for item in top_domains_raw)
+
+        # Compute category breakdown
+        cat_breakdown: Dict[str, int] = {}
+        for s in all_sessions:
+            cat_key = s.productivity or s.category or "neutral"
+            cat_breakdown[cat_key] = cat_breakdown.get(cat_key, 0) + s.duration_seconds
+
+        top_domains = [
+            BrowserDomainSummaryItem(
+                domain=item["domain"],
+                category=item["category"],
+                productivity=item["productivity"],
+                total_seconds=item["total_seconds"],
+                visit_count=item.get("visit_count", 1),
+            )
+            for item in top_domains_raw
+        ]
+
+        data = BrowserAnalyticsData(
+            date_range=range_preset,
+            total_browsing_seconds=total_seconds,
+            unique_domains_count=len(top_domains),
+            top_domains=top_domains,
+            category_breakdown=cat_breakdown,
+        )
+
+        return APIResponse(success=True, data=data, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch browser analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/browser/domain-details", response_model=APIResponse[List[URLDetailItem]])
+async def get_domain_url_details(
+    domain: str,
+    range_preset: str = "today",
+) -> APIResponse[List[URLDetailItem]]:
+    """Get detailed URL breakdown for a specific domain within a date range."""
+    try:
+        today = date.today()
+        if range_preset == "yesterday":
+            start_d = today - timedelta(days=1)
+            end_d = start_d
+        elif range_preset == "7d":
+            start_d = today - timedelta(days=6)
+            end_d = today
+        elif range_preset == "30d":
+            start_d = today - timedelta(days=29)
+            end_d = today
+        else:
+            start_d = today
+            end_d = today
+
+        start_str = start_d.isoformat()
+        end_str = end_d.isoformat()
+
+        with db_manager.connection() as conn:
+            repo = BrowserSessionRepository(conn)
+            urls_raw = repo.get_urls_for_domain(domain, start_str, end_str, limit=50)
+
+        url_items = [
+            URLDetailItem(
+                url=item["url"],
+                page_title=item["page_title"],
+                total_seconds=item["total_seconds"],
+                visit_count=item["visit_count"],
+            )
+            for item in urls_raw
+        ]
+
+        return APIResponse(success=True, data=url_items, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch domain URL details: {e}")
         raise HTTPException(status_code=500, detail=str(e))

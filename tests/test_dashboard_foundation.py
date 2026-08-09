@@ -60,3 +60,20 @@ def test_apps_analytics_endpoint():
     assert "top_apps" in json_data["data"]
     assert "category_breakdown" in json_data["data"]
     assert "trend" in json_data["data"]
+
+
+def test_browser_analytics_endpoints():
+    """Verify GET /api/v1/browser/analytics and /api/v1/browser/domain-details endpoints."""
+    client = TestClient(app)
+    res1 = client.get("/api/v1/browser/analytics?range_preset=30d")
+    assert res1.status_code == 200
+    j1 = res1.json()
+    assert j1["success"] is True
+    assert j1["data"]["date_range"] == "30d"
+    assert "top_domains" in j1["data"]
+
+    res2 = client.get("/api/v1/browser/domain-details?domain=github.com&range_preset=today")
+    assert res2.status_code == 200
+    j2 = res2.json()
+    assert j2["success"] is True
+    assert isinstance(j2["data"], list)

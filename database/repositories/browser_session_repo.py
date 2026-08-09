@@ -155,3 +155,105 @@ class BrowserSessionRepository:
             }
             for row in cursor.fetchall()
         ]
+
+    def get_by_date_range(self, start_date: str, end_date: str) -> List[BrowserSession]:
+        """Fetch all browser sessions between start_date and end_date inclusive.
+
+        Args:
+            start_date: Start date string (YYYY-MM-DD).
+            end_date: End date string (YYYY-MM-DD).
+
+        Returns:
+            List of BrowserSession models.
+        """
+        cursor = self.conn.execute(
+            "SELECT * FROM browser_sessions WHERE date >= ? AND date <= ? ORDER BY started_at ASC",
+            (start_date, end_date),
+        )
+        rows = cursor.fetchall()
+        return [BrowserSession.from_row(row) for row in rows]
+
+    def get_top_domains_range(
+        self, start_date: str, end_date: str, category: Optional[str] = None, limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Calculate top domains visited within a date range by total duration and visit count.
+
+        Args:
+            start_date: Start date string (YYYY-MM-DD).
+            end_date: End date string (YYYY-MM-DD).
+            category: Optional productivity or category filter.
+            limit: Maximum number of domains to return.
+
+        Returns:
+            List of dicts with domain, category, productivity, total_seconds, and visit_count.
+        """
+        if category and category.lower() != "all":
+            cursor = self.conn.execute(
+                """
+                SELECT domain, MAX(category) as category, MAX(productivity) as productivity, SUM(duration_seconds) as total_seconds, COUNT(id) as visit_count
+                FROM browser_sessions
+                WHERE date >= ? AND date <= ? AND (LOWER(productivity) = ? OR LOWER(category) = ?)
+                GROUP BY domain
+                ORDER BY total_seconds DESC
+                LIMIT ?
+                """,
+                (start_date, end_date, category.lower(), category.lower(), limit),
+            )
+        else:
+            cursor = self.conn.execute(
+                """
+                SELECT domain, MAX(category) as category, MAX(productivity) as productivity, SUM(duration_seconds) as total_seconds, COUNT(id) as visit_count
+                FROM browser_sessions
+                WHERE date >= ? AND date <= ?
+                GROUP BY domain
+                ORDER BY total_seconds DESC
+                LIMIT ?
+                """,
+                (start_date, end_date, limit),
+            )
+
+        return [
+            {
+                "domain": row["domain"],
+                "category": row["category"],
+                "productivity": row["productivity"],
+                "total_seconds": row["total_seconds"],
+                "visit_count": row["visit_count"],
+            }
+            for row in cursor.fetchall()
+        ]
+
+    def get_urls_for_domain(
+        self, domain: str, start_date: str, end_date: str, limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Fetch URL breakdown and page titles visited under a specific domain within date range.
+
+        Args:
+            domain: Website domain string (e.g. github.com).
+            start_date: Start date string (YYYY-MM-DD).
+            end_date: End date string (YYYY-MM-DD).
+            limit: Maximum number of URL records to return.
+
+        Returns:
+            List of dicts containing url, page_title, total_seconds, and visit_count.
+        """
+        cursor = self.conn.execute(
+            """
+            SELECT url, MAX(page_title) as page_title, SUM(duration_seconds) as total_seconds, COUNT(id) as visit_count
+            FROM browser_sessions
+            WHERE domain = ? AND date >= ? AND date <= ?
+            GROUP BY url
+            ORDER BY total_seconds DESC
+            LIMIT ?
+            """,
+            (domain, start_date, end_date, limit),
+        )
+        return [
+            {
+                "url": row["url"],
+                "page_title": row["page_title"],
+                "total_seconds": row["total_seconds"],
+                "visit_count": row["visit_count"],
+            }
+            for row in cursor.fetchall()
+        ]

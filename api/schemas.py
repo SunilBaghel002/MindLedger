@@ -175,6 +175,35 @@ class BrowserTodayData(BaseModel):
     top_domains: List[DomainSummaryItem] = Field(default_factory=list)
 
 
+class URLDetailItem(BaseModel):
+    """Detailed information for specific URL visited under a domain."""
+
+    url: str
+    page_title: Optional[str] = None
+    total_seconds: int = 0
+    visit_count: int = 0
+
+
+class BrowserDomainSummaryItem(BaseModel):
+    """Summary representation of domain duration, classification, and visit count."""
+
+    domain: str
+    category: str
+    productivity: str
+    total_seconds: int = 0
+    visit_count: int = 0
+
+
+class BrowserAnalyticsData(BaseModel):
+    """Payload for browser usage analytics and history."""
+
+    date_range: str
+    total_browsing_seconds: int = 0
+    unique_domains_count: int = 0
+    top_domains: List[BrowserDomainSummaryItem] = Field(default_factory=list)
+    category_breakdown: Dict[str, int] = Field(default_factory=dict)
+
+
 class BrowserDomainsData(BaseModel):
     """Payload for domain breakdown list."""
 

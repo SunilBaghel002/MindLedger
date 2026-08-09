@@ -62,6 +62,20 @@ class MindLedgerAPI {
         return this._request('/browser/today');
     }
 
+    async getBrowserAnalytics(rangePreset = 'today', category = '') {
+        const queryParams = new URLSearchParams();
+        if (rangePreset) queryParams.append('range_preset', rangePreset);
+        if (category && category !== 'all') queryParams.append('category', category);
+        const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
+        return this._request(`/browser/analytics${queryStr}`);
+    }
+
+    async getDomainDetails(domain, rangePreset = 'today') {
+        const queryParams = new URLSearchParams({ domain });
+        if (rangePreset) queryParams.append('range_preset', rangePreset);
+        return this._request(`/browser/domain-details?${queryParams.toString()}`);
+    }
+
     async getTodayYoutube() {
         return this._request('/youtube/today');
     }
