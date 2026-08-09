@@ -10,6 +10,7 @@ from datetime import date as dt_date, datetime
 from typing import Dict, Optional
 from fastapi import APIRouter, HTTPException, Query
 
+from ai.rules_engine import RulesEngine
 from api.schemas import (
     APIResponse,
     BrowserDomainsData,
@@ -47,47 +48,6 @@ router = APIRouter(prefix="/api/v1", tags=["browser"])
 db_manager = DatabaseManager(settings.database_path)
 
 
-def classify_browser_domain(domain: str) -> tuple[str, str]:
-    """Classify a domain into a category and productivity score.
-
-    Args:
-        domain: Hostname/domain string.
-
-    Returns:
-        Tuple of (category, productivity).
-    """
-    domain_lower = domain.lower()
-    if any(k in domain_lower for k in ["github.com", "gitlab.com", "stackoverflow.com", "dev.to"]):
-        return CATEGORY_CODING, PRODUCTIVITY_PRODUCTIVE
-    if any(k in domain_lower for k in ["youtube.com", "youtu.be"]):
-        return CATEGORY_YOUTUBE, PRODUCTIVITY_NEUTRAL
-    if any(k in domain_lower for k in ["twitter.com", "x.com", "facebook.com", "instagram.com", "reddit.com", "tiktok.com"]):
-        return CATEGORY_SOCIAL_MEDIA, PRODUCTIVITY_UNPRODUCTIVE
-    return CATEGORY_BROWSING, PRODUCTIVITY_NEUTRAL
-
-
-def classify_youtube_video(title: str, is_short: bool) -> tuple[str, bool | None]:
-    """Classify a YouTube video based on its title and format.
-
-    Args:
-        title: Video title string.
-        is_short: Whether the video is a YouTube Short.
-
-    Returns:
-        Tuple of (video_category, is_productive).
-    """
-    title_lower = (title or "").lower()
-
-    if any(k in title_lower for k in ["tutorial", "course", "learn", "python", "javascript", "code", "programming", "lecture", "guide"]):
-        return CATEGORY_LEARNING, True
-
-    if any(k in title_lower for k in ["funny", "vlog", "gaming", "music", "song", "trailer", "movie"]):
-        return "entertainment", False
-
-    category = "youtube_shorts" if is_short else CATEGORY_YOUTUBE
-    return category, None
-
-
 # POST EVENT ENDPOINTS
 @router.post("/events/browser", response_model=APIResponse[EventRecordedData])
 async def receive_browser_event(event: BrowserEventSchema) -> Dict:
@@ -115,23 +75,30 @@ async def receive_browser_event(event: BrowserEventSchema) -> Dict:
                 ended_dt = None
 
         date_str = started_dt.strftime("%Y-%m-%d")
-        category, productivity = classify_browser_domain(event.domain)
-
-        session = BrowserSession(
-            url=event.url,
-            domain=event.domain,
-            page_title=event.title,
-            tab_id=event.tab_id,
-            started_at=started_dt,
-            ended_at=ended_dt,
-            duration_seconds=event.duration_seconds,
-            is_active=True,
-            category=category,
-            productivity=productivity,
-            date=date_str,
-        )
 
         with db_manager.connection() as conn:
+            rules_engine = RulesEngine(db_conn=conn)
+            category, subcategory, productivity = rules_engine.classify_browser(
+                url=event.url,
+                domain=event.domain,
+                page_title=event.title,
+            )
+
+            session = BrowserSession(
+                url=event.url,
+                domain=event.domain,
+                page_title=event.title,
+                tab_id=event.tab_id,
+                started_at=started_dt,
+                ended_at=ended_dt,
+                duration_seconds=event.duration_seconds,
+                is_active=True,
+                category=category,
+                subcategory=subcategory,
+                productivity=productivity,
+                date=date_str,
+            )
+
             repo = BrowserSessionRepository(conn)
             session_id = repo.save(session)
             conn.commit()
@@ -168,23 +135,29 @@ async def receive_youtube_event(event: YouTubeEventSchema) -> Dict:
             started_dt = datetime.now()
 
         date_str = started_dt.strftime("%Y-%m-%d")
-        video_category, is_productive = classify_youtube_video(event.video_title or "", event.is_short)
-
-        activity = YouTubeActivity(
-            video_url=event.video_url or f"https://www.youtube.com/watch?v={event.video_id}",
-            video_id=event.video_id,
-            video_title=event.video_title,
-            channel_name=event.channel_name,
-            channel_url=event.channel_url,
-            started_at=started_dt,
-            ended_at=started_dt,
-            watch_duration_seconds=event.watch_duration_seconds,
-            video_category=video_category,
-            is_productive=is_productive,
-            date=date_str,
-        )
 
         with db_manager.connection() as conn:
+            rules_engine = RulesEngine(db_conn=conn)
+            video_category, subcategory, productivity, is_productive = rules_engine.classify_youtube(
+                video_title=event.video_title,
+                channel_name=event.channel_name,
+                is_short=event.is_short,
+            )
+
+            activity = YouTubeActivity(
+                video_url=event.video_url or f"https://www.youtube.com/watch?v={event.video_id}",
+                video_id=event.video_id,
+                video_title=event.video_title,
+                channel_name=event.channel_name,
+                channel_url=event.channel_url,
+                started_at=started_dt,
+                ended_at=started_dt,
+                watch_duration_seconds=event.watch_duration_seconds,
+                video_category=video_category,
+                is_productive=is_productive,
+                date=date_str,
+            )
+
             repo = YouTubeRepository(conn)
             activity_id = repo.upsert(activity)
 
