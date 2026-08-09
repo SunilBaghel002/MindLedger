@@ -165,6 +165,42 @@ class DailySummary(BaseModel):
         return cls(**data)
 
 
+class PeriodicSummary(BaseModel):
+    """Pydantic model representing a weekly or monthly aggregated activity summary."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: Optional[int] = None
+    period_type: str  # 'weekly' or 'monthly'
+    period_label: str
+    period_start: str
+    period_end: str
+    total_screen_time_seconds: int = 0
+    productive_seconds: int = 0
+    unproductive_seconds: int = 0
+    learning_seconds: int = 0
+    avg_daily_seconds: int = 0
+    avg_productivity_score: float = 0.0
+    best_day: Optional[str] = None
+    worst_day: Optional[str] = None
+    top_apps_json: Optional[str] = None
+    top_domains_json: Optional[str] = None
+    top_channels_json: Optional[str] = None
+    trends_json: Optional[str] = None
+    comparison_json: Optional[str] = None
+    email_sent: bool = False
+    created_at: Optional[datetime] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "PeriodicSummary":
+        """Instantiate PeriodicSummary model from sqlite3.Row."""
+        data = dict(row)
+        if isinstance(data.get("created_at"), str) and data["created_at"]:
+            data["created_at"] = datetime.fromisoformat(data["created_at"])
+        data["email_sent"] = bool(data.get("email_sent", False))
+        return cls(**data)
+
+
 class CategoryRule(BaseModel):
     """Pydantic model representing a classification rule."""
 
