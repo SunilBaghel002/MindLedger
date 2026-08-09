@@ -355,6 +355,31 @@ class SummaryRepository:
             youtube_entertainment_seconds=yt_ent_seconds,
         )
 
+        summary_dict = {
+            "date": date_str,
+            "total_screen_time_seconds": total_screen_time,
+            "active_time_seconds": active_time,
+            "productive_seconds": prod_seconds,
+            "neutral_seconds": neutral_seconds,
+            "unproductive_seconds": unprod_seconds,
+            "learning_seconds": learning_seconds,
+            "coding_seconds": coding_seconds,
+            "youtube_seconds": yt_seconds,
+            "communication_seconds": comm_seconds,
+            "most_used_app": most_used_app,
+            "most_used_app_seconds": most_used_app_sec,
+            "total_apps_used": total_apps,
+            "total_domains_visited": total_domains,
+            "total_youtube_videos": yt_videos,
+            "productivity_score": score,
+            "top_apps_json": json.dumps(top_apps),
+            "top_domains_json": json.dumps(top_domains),
+            "top_channels_json": json.dumps(top_channels),
+        }
+
+        from ai.insights_generator import InsightsGenerator
+        insights_list = InsightsGenerator.generate_daily_insights(summary_dict)
+
         daily_summary = DailySummary(
             date=date_str,
             total_screen_time_seconds=total_screen_time,
@@ -381,7 +406,7 @@ class SummaryRepository:
             top_apps_json=json.dumps(top_apps),
             top_domains_json=json.dumps(top_domains),
             top_channels_json=json.dumps(top_channels),
-            insights_json=json.dumps([]),
+            insights_json=json.dumps(insights_list),
             email_sent=False,
         )
 
