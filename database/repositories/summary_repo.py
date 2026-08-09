@@ -365,6 +365,8 @@ class SummaryRepository:
             "learning_seconds": learning_seconds,
             "coding_seconds": coding_seconds,
             "youtube_seconds": yt_seconds,
+            "youtube_productive_seconds": yt_prod_seconds,
+            "youtube_entertainment_seconds": yt_ent_seconds,
             "communication_seconds": comm_seconds,
             "most_used_app": most_used_app,
             "most_used_app_seconds": most_used_app_sec,
@@ -377,8 +379,26 @@ class SummaryRepository:
             "top_channels_json": json.dumps(top_channels),
         }
 
+        # Query up to 7 past daily summaries dated strictly before date_str
+        cursor_hist = self.conn.execute(
+            """
+            SELECT date, productivity_score FROM daily_summaries
+            WHERE date < ? AND productivity_score IS NOT NULL
+            ORDER BY date DESC
+            LIMIT 7
+            """,
+            (date_str,),
+        )
+        hist_rows = cursor_hist.fetchall()
+        past_summaries = [
+            {"date": r["date"], "productivity_score": r["productivity_score"]}
+            for r in hist_rows
+        ]
+
         from ai.insights_generator import InsightsGenerator
-        insights_list = InsightsGenerator.generate_daily_insights(summary_dict)
+        insights_list = InsightsGenerator.generate_daily_insights(
+            summary_dict, historical_summaries=past_summaries
+        )
 
         daily_summary = DailySummary(
             date=date_str,

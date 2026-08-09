@@ -6,6 +6,7 @@ Author: MindLedger Team
 Created: 2026-08-09
 """
 
+import asyncio
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException, Query
 
@@ -38,12 +39,14 @@ def get_db_manager() -> DatabaseManager:
 
 @router.get("/categories", response_model=APIResponse[CategoryRulesListData])
 async def list_category_rules(
-    rule_type: Optional[str] = Query(None, description="Filter by rule type: app, domain, url_pattern, title_pattern, youtube_channel")
+    rule_type: Optional[str] = Query(None, description="Filter by rule type: app, domain, url_pattern, title_pattern, youtube_channel"),
+    is_active: Optional[bool] = Query(None, description="Filter by rule active status"),
 ) -> Dict:
-    """Retrieve all category rules ordered by priority descending.
+    """Retrieve category rules ordered by priority descending.
 
     Args:
         rule_type: Optional filter string for rule type.
+        is_active: Optional boolean filter for active status.
 
     Returns:
         APIResponse payload containing rule list and count.
@@ -52,9 +55,9 @@ async def list_category_rules(
         with get_db_manager().connection() as conn:
             repo = CategoryRuleRepository(conn)
             if rule_type:
-                rules = repo.get_by_type(rule_type)
+                rules = repo.get_by_type(rule_type, is_active=is_active)
             else:
-                rules = repo.get_all()
+                rules = repo.get_all(is_active=is_active)
 
         dtos = [
             CategoryRuleDTO(
@@ -193,7 +196,7 @@ async def update_category_rule(rule_id: int, payload: CategoryRuleUpdate) -> Dic
 
             if update_data:
                 repo.update(rule_id, update_data)
-            
+
             updated_rule = repo.get_by_id(rule_id)
 
         dto = CategoryRuleDTO(
@@ -250,6 +253,134 @@ async def delete_category_rule(rule_id: int) -> Dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _perform_reclassification_job(
+    from_date: Optional[str] = None, to_date: Optional[str] = None
+) -> Dict[str, int]:
+    """Synchronous worker job executing historical reclassification in bounded batches within a single atomic transaction.
+
+    Args:
+        from_date: Optional start date filter (YYYY-MM-DD).
+        to_date: Optional end date filter (YYYY-MM-DD).
+
+    Returns:
+        Dict summarizing reclassification metrics.
+    """
+    affected_dates = set()
+    app_count = 0
+    browser_count = 0
+    yt_count = 0
+    updated_summaries_count = 0
+    batch_size = 1000
+
+    with get_db_manager().connection() as conn:
+        try:
+            rules_engine = RulesEngine(db_conn=conn)
+
+            # 1. Reclassify app_sessions in bounded batches
+            sql_app = "SELECT id, app_name, window_title, date FROM app_sessions"
+            params_app = []
+            where_clauses = []
+            if from_date:
+                where_clauses.append("date >= ?")
+                params_app.append(from_date)
+            if to_date:
+                where_clauses.append("date <= ?")
+                params_app.append(to_date)
+            if where_clauses:
+                sql_app += " WHERE " + " AND ".join(where_clauses)
+
+            cursor = conn.execute(sql_app, params_app)
+            while True:
+                batch = cursor.fetchmany(batch_size)
+                if not batch:
+                    break
+                for row in batch:
+                    row_id, app_name, window_title, row_date = row[0], row[1], row[2], row[3]
+                    cat, sub, prod = rules_engine.classify_app(app_name, window_title)
+                    conn.execute(
+                        "UPDATE app_sessions SET category = ?, subcategory = ?, productivity = ? WHERE id = ?",
+                        (cat, sub, prod, row_id),
+                    )
+                    affected_dates.add(row_date)
+                    app_count += 1
+
+            # 2. Reclassify browser_sessions in bounded batches
+            sql_browser = "SELECT id, url, domain, page_title, date FROM browser_sessions"
+            params_browser = []
+            where_clauses = []
+            if from_date:
+                where_clauses.append("date >= ?")
+                params_browser.append(from_date)
+            if to_date:
+                where_clauses.append("date <= ?")
+                params_browser.append(to_date)
+            if where_clauses:
+                sql_browser += " WHERE " + " AND ".join(where_clauses)
+
+            cursor = conn.execute(sql_browser, params_browser)
+            while True:
+                batch = cursor.fetchmany(batch_size)
+                if not batch:
+                    break
+                for row in batch:
+                    row_id, url, domain, title, row_date = row[0], row[1], row[2], row[3], row[4]
+                    cat, sub, prod = rules_engine.classify_browser(url, domain, title)
+                    conn.execute(
+                        "UPDATE browser_sessions SET category = ?, subcategory = ?, productivity = ? WHERE id = ?",
+                        (cat, sub, prod, row_id),
+                    )
+                    affected_dates.add(row_date)
+                    browser_count += 1
+
+            # 3. Reclassify youtube_activity in bounded batches
+            sql_yt = "SELECT id, video_title, channel_name, video_category, date FROM youtube_activity"
+            params_yt = []
+            where_clauses = []
+            if from_date:
+                where_clauses.append("date >= ?")
+                params_yt.append(from_date)
+            if to_date:
+                where_clauses.append("date <= ?")
+                params_yt.append(to_date)
+            if where_clauses:
+                sql_yt += " WHERE " + " AND ".join(where_clauses)
+
+            cursor = conn.execute(sql_yt, params_yt)
+            while True:
+                batch = cursor.fetchmany(batch_size)
+                if not batch:
+                    break
+                for row in batch:
+                    row_id, title, channel, existing_cat, row_date = row[0], row[1], row[2], row[3], row[4]
+                    is_short = (existing_cat == "youtube_shorts")
+                    cat, sub, prod, is_p = rules_engine.classify_youtube(title, channel, is_short)
+                    conn.execute(
+                        "UPDATE youtube_activity SET video_category = ?, is_productive = ? WHERE id = ?",
+                        (cat, 1 if is_p is True else (0 if is_p is False else None), row_id),
+                    )
+                    affected_dates.add(row_date)
+                    yt_count += 1
+
+            # 4. Re-aggregate daily summaries for affected dates BEFORE committing
+            summary_repo = SummaryRepository(conn)
+            for dt in affected_dates:
+                summary_repo.aggregate_daily_summary(dt)
+                updated_summaries_count += 1
+
+            # Commit ONLY AFTER all updates and daily summaries succeed atomically
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+
+    return {
+        "reclassified_app_sessions": app_count,
+        "reclassified_browser_sessions": browser_count,
+        "reclassified_youtube_activities": yt_count,
+        "updated_daily_summaries": updated_summaries_count,
+    }
+
+
 @router.post("/categories/reclassify", response_model=APIResponse[ReclassifyResultData])
 async def reclassify_historical_data(payload: Optional[ReclassifyRequest] = None) -> Dict:
     """Re-classify historical tracking data using current active category rules and update daily summaries.
@@ -264,114 +395,20 @@ async def reclassify_historical_data(payload: Optional[ReclassifyRequest] = None
         from_date = payload.from_date if payload else None
         to_date = payload.to_date if payload else None
 
-        affected_dates = set()
-        app_count = 0
-        browser_count = 0
-        yt_count = 0
-
-        with get_db_manager().connection() as conn:
-            rules_engine = RulesEngine(db_conn=conn)
-
-            # 1. Reclassify app_sessions
-            sql_app = "SELECT id, app_name, window_title, date FROM app_sessions"
-            params_app = []
-            where_clauses = []
-            if from_date:
-                where_clauses.append("date >= ?")
-                params_app.append(from_date)
-            if to_date:
-                where_clauses.append("date <= ?")
-                params_app.append(to_date)
-            if where_clauses:
-                sql_app += " WHERE " + " AND ".join(where_clauses)
-
-            cursor = conn.execute(sql_app, params_app)
-            app_rows = cursor.fetchall()
-
-            for row in app_rows:
-                row_id, app_name, window_title, row_date = row[0], row[1], row[2], row[3]
-                cat, sub, prod = rules_engine.classify_app(app_name, window_title)
-                conn.execute(
-                    "UPDATE app_sessions SET category = ?, subcategory = ?, productivity = ? WHERE id = ?",
-                    (cat, sub, prod, row_id),
-                )
-                affected_dates.add(row_date)
-                app_count += 1
-
-            # 2. Reclassify browser_sessions
-            sql_browser = "SELECT id, url, domain, page_title, date FROM browser_sessions"
-            params_browser = []
-            where_clauses = []
-            if from_date:
-                where_clauses.append("date >= ?")
-                params_browser.append(from_date)
-            if to_date:
-                where_clauses.append("date <= ?")
-                params_browser.append(to_date)
-            if where_clauses:
-                sql_browser += " WHERE " + " AND ".join(where_clauses)
-
-            cursor = conn.execute(sql_browser, params_browser)
-            browser_rows = cursor.fetchall()
-
-            for row in browser_rows:
-                row_id, url, domain, title, row_date = row[0], row[1], row[2], row[3], row[4]
-                cat, sub, prod = rules_engine.classify_browser(url, domain, title)
-                conn.execute(
-                    "UPDATE browser_sessions SET category = ?, subcategory = ?, productivity = ? WHERE id = ?",
-                    (cat, sub, prod, row_id),
-                )
-                affected_dates.add(row_date)
-                browser_count += 1
-
-            # 3. Reclassify youtube_activity
-            sql_yt = "SELECT id, video_title, channel_name, video_category, date FROM youtube_activity"
-            params_yt = []
-            where_clauses = []
-            if from_date:
-                where_clauses.append("date >= ?")
-                params_yt.append(from_date)
-            if to_date:
-                where_clauses.append("date <= ?")
-                params_yt.append(to_date)
-            if where_clauses:
-                sql_yt += " WHERE " + " AND ".join(where_clauses)
-
-            cursor = conn.execute(sql_yt, params_yt)
-            yt_rows = cursor.fetchall()
-
-            for row in yt_rows:
-                row_id, title, channel, existing_cat, row_date = row[0], row[1], row[2], row[3], row[4]
-                is_short = (existing_cat == "youtube_shorts")
-                cat, sub, prod, is_p = rules_engine.classify_youtube(title, channel, is_short)
-                conn.execute(
-                    "UPDATE youtube_activity SET video_category = ?, is_productive = ? WHERE id = ?",
-                    (cat, 1 if is_p is True else (0 if is_p is False else None), row_id),
-                )
-                affected_dates.add(row_date)
-                yt_count += 1
-
-            conn.commit()
-
-            # 4. Re-aggregate daily summaries for affected dates
-            summary_repo = SummaryRepository(conn)
-            updated_summaries_count = 0
-            for dt in affected_dates:
-                summary_repo.aggregate_daily_summary(dt)
-                updated_summaries_count += 1
+        result_data = await asyncio.to_thread(
+            _perform_reclassification_job, from_date, to_date
+        )
 
         logger.info(
-            f"Reclassification completed: apps={app_count}, browser={browser_count}, yt={yt_count}, summaries={updated_summaries_count}"
+            f"Reclassification completed: apps={result_data['reclassified_app_sessions']}, "
+            f"browser={result_data['reclassified_browser_sessions']}, "
+            f"yt={result_data['reclassified_youtube_activities']}, "
+            f"summaries={result_data['updated_daily_summaries']}"
         )
 
         return {
             "success": True,
-            "data": {
-                "reclassified_app_sessions": app_count,
-                "reclassified_browser_sessions": browser_count,
-                "reclassified_youtube_activities": yt_count,
-                "updated_daily_summaries": updated_summaries_count,
-            },
+            "data": result_data,
             "error": None,
         }
     except Exception as e:

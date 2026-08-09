@@ -199,3 +199,43 @@ def test_reclassify_historical_data_endpoint(test_client):
         fireship_yt = next(y for y in yts if y.channel_name == "Fireship")
         assert fireship_yt.video_category == "learning"
         assert fireship_yt.is_productive is True
+
+        from database.repositories.summary_repo import SummaryRepository
+        summary_repo = SummaryRepository(conn)
+        daily_summary = summary_repo.get_daily_summary(today_str)
+        assert daily_summary is not None
+        assert daily_summary.productive_seconds >= 3600
+        assert daily_summary.productivity_score > 0.0
+
+
+def test_category_rule_schema_validation(test_client):
+    """Test validation errors for invalid rule creation, updates, and reclassification date bounds."""
+    client, _ = test_client
+
+    # Blank pattern or invalid rule_type in POST /api/v1/categories
+    invalid_rule_1 = {
+        "rule_type": "invalid_type",
+        "pattern": "test.exe",
+        "category": "coding",
+        "productivity": "productive",
+    }
+    resp1 = client.post("/api/v1/categories", json=invalid_rule_1)
+    assert resp1.status_code == 422
+
+    blank_pattern_rule = {
+        "rule_type": "app",
+        "pattern": "   ",
+        "category": "coding",
+        "productivity": "productive",
+    }
+    resp2 = client.post("/api/v1/categories", json=blank_pattern_rule)
+    assert resp2.status_code == 422
+
+    # Reversed dates in POST /api/v1/categories/reclassify
+    invalid_reclass = {
+        "from_date": "2026-08-10",
+        "to_date": "2026-08-01",
+    }
+    resp3 = client.post("/api/v1/categories/reclassify", json=invalid_reclass)
+    assert resp3.status_code == 422
+

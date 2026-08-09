@@ -276,3 +276,63 @@ def test_aggregate_monthly_summary(temp_db):
         assert monthly.total_screen_time_seconds == 14400
         assert monthly.avg_productivity_score == 85.0
         assert monthly.best_day == "2026-08-01"
+
+
+def test_insights_json_persisted_with_historical_comparison(temp_db):
+    """Test daily summary aggregation persists insights_json with historical comparison and YouTube split."""
+    db_mgr, _ = temp_db
+    past_date = "2026-08-08"
+    today_date = "2026-08-09"
+    now = datetime.now(timezone.utc)
+
+    with db_mgr.connection() as conn:
+        summary_repo = SummaryRepository(conn)
+        app_repo = AppSessionRepository(conn)
+        yt_repo = YouTubeRepository(conn)
+
+        # 1. Save past daily summary
+        past_ds = DailySummary(
+            date=past_date,
+            total_screen_time_seconds=28800,
+            active_time_seconds=28800,
+            productive_seconds=15000,
+            productivity_score=60.0,
+        )
+        summary_repo.save_daily_summary(past_ds)
+
+        # 2. Add today's app coding sessions and YouTube activity
+        app_repo.save(
+            AppSession(
+                app_name="Code.exe",
+                window_title="main.py",
+                started_at=now,
+                duration_seconds=18000,  # 5h coding
+                is_foreground=True,
+                category="coding",
+                productivity="productive",
+                date=today_date,
+            )
+        )
+
+        yt_repo.save(
+            YouTubeActivity(
+                video_url="https://www.youtube.com/watch?v=1",
+                video_id="1",
+                video_title="FastAPI Course",
+                channel_name="FreeCodeCamp",
+                started_at=now,
+                watch_duration_seconds=3600,  # 1h productive YT
+                video_category="learning",
+                is_productive=True,
+                date=today_date,
+            )
+        )
+
+        # 3. Aggregate today's summary
+        summary = summary_repo.aggregate_daily_summary(today_date)
+        insights = json.loads(summary.insights_json)
+
+        assert len(insights) > 0
+        assert any("📺 YouTube usage:" in i for i in insights)
+        assert any("100% educational" in i for i in insights)
+        assert any("📈 Productivity score is up" in i for i in insights)

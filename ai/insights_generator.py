@@ -83,26 +83,42 @@ class InsightsGenerator:
 
         # 3. YouTube Split Insight
         if youtube_sec >= 3600:  # 1+ hour YouTube
-            # Parse top channels or estimates
-            top_channels_raw = today_summary.get("top_channels_json")
-            top_channels = []
-            if isinstance(top_channels_raw, str):
-                try:
-                    top_channels = json.loads(top_channels_raw)
-                except Exception:
-                    top_channels = []
-            elif isinstance(top_channels_raw, list):
-                top_channels = top_channels_raw
+            yt_prod_val = today_summary.get("youtube_productive_seconds")
+            yt_ent_val = today_summary.get("youtube_entertainment_seconds")
 
             yt_productive_sec = 0
             yt_entertainment_sec = 0
-            if top_channels:
-                for ch in top_channels:
-                    cat = ch.get("category", "")
-                    if cat in ["learning", "coding"]:
-                        yt_productive_sec += ch.get("duration_seconds", 0)
-                    else:
-                        yt_entertainment_sec += ch.get("duration_seconds", 0)
+            has_direct_totals = False
+
+            if yt_prod_val is not None or yt_ent_val is not None:
+                yt_productive_sec = int(yt_prod_val or 0)
+                yt_entertainment_sec = int(yt_ent_val or 0)
+                if yt_productive_sec > 0 or yt_entertainment_sec > 0:
+                    has_direct_totals = True
+
+            if not has_direct_totals:
+                # Fallback to top_channels parsing
+                top_channels_raw = today_summary.get("top_channels_json")
+                top_channels = []
+                if isinstance(top_channels_raw, str):
+                    try:
+                        parsed = json.loads(top_channels_raw)
+                        if isinstance(parsed, list):
+                            top_channels = parsed
+                    except json.JSONDecodeError:
+                        top_channels = []
+                elif isinstance(top_channels_raw, list):
+                    top_channels = top_channels_raw
+
+                if top_channels:
+                    for ch in top_channels:
+                        if not isinstance(ch, dict):
+                            continue
+                        cat = ch.get("category", "")
+                        if cat in ["learning", "coding"]:
+                            yt_productive_sec += int(ch.get("duration_seconds", 0) or 0)
+                        else:
+                            yt_entertainment_sec += int(ch.get("duration_seconds", 0) or 0)
 
             if yt_productive_sec > 0 or yt_entertainment_sec > 0:
                 yt_total = yt_productive_sec + yt_entertainment_sec
@@ -128,7 +144,7 @@ class InsightsGenerator:
         # 6. Historical Comparisons vs 7-day average
         if historical_summaries:
             past_scores = [
-                float(s.get("productivity_score") or 0.0)
+                float(s.get("productivity_score"))
                 for s in historical_summaries
                 if s.get("productivity_score") is not None
             ]
@@ -184,7 +200,11 @@ class InsightsGenerator:
             insights.append(f"🌟 Peak performance day of the week: {best_day}.")
 
         if past_weeks:
-            past_scores = [float(w.get("avg_productivity_score") or 0.0) for w in past_weeks if w.get("avg_productivity_score")]
+            past_scores = [
+                float(w.get("avg_productivity_score"))
+                for w in past_weeks
+                if w.get("avg_productivity_score") is not None
+            ]
             if past_scores:
                 prev_avg = sum(past_scores) / len(past_scores)
                 diff = round(avg_score - prev_avg, 1)

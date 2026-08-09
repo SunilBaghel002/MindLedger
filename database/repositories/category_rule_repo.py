@@ -27,18 +27,31 @@ class CategoryRuleRepository:
         self.conn = connection
         self.conn.row_factory = sqlite3.Row
 
-    def get_all(self) -> List[CategoryRule]:
+    def get_all(self, is_active: Optional[bool] = None) -> List[CategoryRule]:
         """Get all category rules ordered by priority descending.
+
+        Args:
+            is_active: Optional boolean filter. If None, returns all rules.
 
         Returns:
             List of CategoryRule instances.
         """
-        cursor = self.conn.execute(
-            """
-            SELECT * FROM category_rules
-            ORDER BY priority DESC, id ASC
-            """
-        )
+        if is_active is not None:
+            cursor = self.conn.execute(
+                """
+                SELECT * FROM category_rules
+                WHERE is_active = ?
+                ORDER BY priority DESC, id ASC
+                """,
+                (1 if is_active else 0,),
+            )
+        else:
+            cursor = self.conn.execute(
+                """
+                SELECT * FROM category_rules
+                ORDER BY priority DESC, id ASC
+                """
+            )
         rows = cursor.fetchall()
         return [CategoryRule.from_row(row) for row in rows]
 
@@ -48,33 +61,36 @@ class CategoryRuleRepository:
         Returns:
             List of active CategoryRule instances.
         """
-        cursor = self.conn.execute(
-            """
-            SELECT * FROM category_rules
-            WHERE is_active = 1
-            ORDER BY priority DESC, id ASC
-            """
-        )
-        rows = cursor.fetchall()
-        return [CategoryRule.from_row(row) for row in rows]
+        return self.get_all(is_active=True)
 
-    def get_by_type(self, rule_type: str) -> List[CategoryRule]:
+    def get_by_type(self, rule_type: str, is_active: Optional[bool] = None) -> List[CategoryRule]:
         """Get category rules by rule type.
 
         Args:
             rule_type: Type of rule ('app', 'domain', 'url_pattern', 'title_pattern', 'youtube_channel').
+            is_active: Optional boolean filter. If None, returns both active and inactive rules.
 
         Returns:
             List of matching CategoryRule instances.
         """
-        cursor = self.conn.execute(
-            """
-            SELECT * FROM category_rules
-            WHERE rule_type = ? AND is_active = 1
-            ORDER BY priority DESC, id ASC
-            """,
-            (rule_type,),
-        )
+        if is_active is not None:
+            cursor = self.conn.execute(
+                """
+                SELECT * FROM category_rules
+                WHERE rule_type = ? AND is_active = ?
+                ORDER BY priority DESC, id ASC
+                """,
+                (rule_type, 1 if is_active else 0),
+            )
+        else:
+            cursor = self.conn.execute(
+                """
+                SELECT * FROM category_rules
+                WHERE rule_type = ?
+                ORDER BY priority DESC, id ASC
+                """,
+                (rule_type,),
+            )
         rows = cursor.fetchall()
         return [CategoryRule.from_row(row) for row in rows]
 

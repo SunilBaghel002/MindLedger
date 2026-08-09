@@ -108,3 +108,30 @@ def test_generate_weekly_insights():
     assert any("🗓️ Weekly Summary:" in i for i in insights)
     assert any("🌟 Peak performance day" in i for i in insights)
     assert any("📈 Weekly average score improved" in i for i in insights)
+
+
+def test_generate_daily_insights_youtube_direct_totals():
+    """Test YouTube insight using direct youtube_productive_seconds and youtube_entertainment_seconds."""
+    summary = {
+        "total_screen_time_seconds": 28800,
+        "youtube_seconds": 7200,
+        "youtube_productive_seconds": 5400,
+        "youtube_entertainment_seconds": 1800,
+        "productivity_score": 70.0,
+    }
+    insights = InsightsGenerator.generate_daily_insights(summary)
+    assert any("📺 YouTube usage:" in i for i in insights)
+    assert any("75% educational" in i for i in insights)
+
+
+def test_generate_weekly_insights_zero_baseline():
+    """Test weekly insight generation preserving 0.0 baseline score in past weeks."""
+    weekly_summary = {
+        "total_screen_time_seconds": 180000,
+        "avg_productivity_score": 50.0,
+    }
+    past_weeks = [{"avg_productivity_score": 0.0}]
+
+    insights = InsightsGenerator.generate_weekly_insights(weekly_summary, past_weeks)
+    assert any("📈 Weekly average score improved" in i for i in insights)
+
