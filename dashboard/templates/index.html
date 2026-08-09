@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindLedger — Digital Wellbeing Dashboard</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Design System CSS -->
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div>
+            <div class="sidebar-header">
+                <span class="logo-icon">🧠</span>
+                <div class="brand-info">
+                    <span class="brand-title">MindLedger</span>
+                    <span class="brand-subtitle">Digital Wellbeing</span>
+                </div>
+            </div>
+
+            <ul class="nav-menu">
+                <li class="nav-item active">
+                    <a href="#dashboard" data-section="sec-dashboard">
+                        <span class="nav-icon">🏠</span> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#apps" data-section="sec-apps">
+                        <span class="nav-icon">📱</span> Applications
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#browser" data-section="sec-browser">
+                        <span class="nav-icon">🌐</span> Browser
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#youtube" data-section="sec-youtube">
+                        <span class="nav-icon">📺</span> YouTube
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#reports" data-section="sec-reports">
+                        <span class="nav-icon">📊</span> Reports
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#settings" data-section="sec-settings">
+                        <span class="nav-icon">⚙️</span> Settings
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Live Tracking Status Card -->
+        <div class="sidebar-footer">
+            <div class="tracking-status-card">
+                <div class="status-header">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span id="status-text">Active</span>
+                </div>
+                <div class="current-app-title" id="live-app-title">VS Code</div>
+                <div class="current-session-duration" id="live-session-duration">0m this session</div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Viewport -->
+    <div class="main-wrapper">
+        <!-- Top Header Bar -->
+        <header class="top-header">
+            <h1 class="page-title" id="current-page-title">Dashboard</h1>
+            <div class="header-controls">
+                <div class="date-pill" id="header-date-pill">📅 Today</div>
+            </div>
+        </header>
+
+        <!-- Content Body -->
+        <main class="content-body">
+            
+            <!-- SECTION 1: Dashboard Home -->
+            <section id="sec-dashboard" class="page-section active">
+                
+                <!-- Stat Cards Grid -->
+                <div class="grid-3">
+                    <!-- Card 1: Screen Time -->
+                    <div class="card stat-card">
+                        <div class="card-header">
+                            <span class="stat-label">Total Screen Time</span>
+                            <span class="card-icon">⏱️</span>
+                        </div>
+                        <div class="stat-value" id="val-screen-time">0h 0m</div>
+                        <div class="stat-subtext positive">Active tracking today</div>
+                    </div>
+
+                    <!-- Card 2: Productive Time -->
+                    <div class="card stat-card">
+                        <div class="card-header">
+                            <span class="stat-label">Productive Time</span>
+                            <span class="card-icon">🎯</span>
+                        </div>
+                        <div class="stat-value" id="val-productive-time">0h 0m</div>
+                        <div class="stat-subtext" id="val-productive-percent">0% of total</div>
+                    </div>
+
+                    <!-- Card 3: Productivity Score -->
+                    <div class="card stat-card">
+                        <div class="card-header">
+                            <span class="stat-label">Productivity Score</span>
+                            <span class="card-icon">⚡</span>
+                        </div>
+                        <div class="score-widget">
+                            <div class="score-circle-container">
+                                <svg class="score-circle-svg" width="90" height="90" viewBox="0 0 90 90">
+                                    <circle class="score-circle-bg" cx="45" cy="45" r="36"></circle>
+                                    <circle class="score-circle-bar" id="score-circle-bar" cx="45" cy="45" r="36" style="stroke-dasharray: 226; stroke-dashoffset: 226;"></circle>
+                                </svg>
+                                <div class="score-text-container">
+                                    <span class="score-num" id="val-score">0</span>
+                                    <span class="score-max">/100</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div style="font-size: 14px; font-weight: 600; color: var(--text-main);">Daily Index</div>
+                                <div style="font-size: 12px; color: var(--text-muted);">Based on rules engine</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Timeline Chart Section -->
+                <div class="card" style="margin-bottom: var(--space-xl);">
+                    <div class="card-header">
+                        <h2 class="card-title"><span class="card-icon">📈</span> Today's Activity Timeline</h2>
+                        <span style="font-size: 12px; color: var(--text-muted);">Hourly breakdown (mins)</span>
+                    </div>
+                    <div style="height: 240px; position: relative;">
+                        <canvas id="activityTimelineChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Bottom Overview Grid: Top Apps + Category Breakdown -->
+                <div class="grid-2">
+                    <!-- Top Applications List -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title"><span class="card-icon">💻</span> Top Applications</h2>
+                            <span style="font-size: 12px; color: var(--text-muted);">Time spent</span>
+                        </div>
+                        <div id="top-apps-list">
+                            <div class="empty-state">
+                                <div class="empty-icon">📱</div>
+                                <div class="empty-title">No application sessions yet</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Category Breakdown Chart -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title"><span class="card-icon">📊</span> Category Breakdown</h2>
+                            <span style="font-size: 12px; color: var(--text-muted);">Distribution</span>
+                        </div>
+                        <div style="height: 260px; position: relative;">
+                            <canvas id="categoryDonutChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- SECTION 2: Applications Page Placeholder -->
+            <section id="sec-apps" class="page-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title"><span class="card-icon">📱</span> Application Usage Analytics</h2>
+                    </div>
+                    <p style="color: var(--text-secondary);">Detailed application activity history and process session breakdown.</p>
+                </div>
+            </section>
+
+            <!-- SECTION 3: Browser Page Placeholder -->
+            <section id="sec-browser" class="page-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title"><span class="card-icon">🌐</span> Browser & Website Analytics</h2>
+                    </div>
+                    <p style="color: var(--text-secondary);">Domain breakdown, top visited sites, and web activity tracking.</p>
+                </div>
+            </section>
+
+            <!-- SECTION 4: YouTube Analytics Placeholder -->
+            <section id="sec-youtube" class="page-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title"><span class="card-icon">📺</span> YouTube Detailed Analytics</h2>
+                    </div>
+                    <p style="color: var(--text-secondary);">Educational vs entertainment breakdown, channel watch durations, and video log.</p>
+                </div>
+            </section>
+
+            <!-- SECTION 5: Reports History Placeholder -->
+            <section id="sec-reports" class="page-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title"><span class="card-icon">📊</span> Reports & Summaries</h2>
+                    </div>
+                    <p style="color: var(--text-secondary);">Daily, weekly, and monthly activity summaries and exported email archives.</p>
+                </div>
+            </section>
+
+            <!-- SECTION 6: Settings Placeholder -->
+            <section id="sec-settings" class="page-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title"><span class="card-icon">⚙️</span> MindLedger Configuration</h2>
+                    </div>
+                    <p style="color: var(--text-secondary);">System tracking thresholds, email preferences, and classification rule management.</p>
+                </div>
+            </section>
+
+        </main>
+    </div>
+</div>
+
+<!-- JavaScript Engine -->
+<script src="/static/js/utils.js"></script>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/charts.js"></script>
+<script src="/static/js/app.js"></script>
+
+</body>
+</html>
