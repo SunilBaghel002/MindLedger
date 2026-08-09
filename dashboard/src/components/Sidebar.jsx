@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { secondsToHms } from '../utils/formatters';
 
@@ -13,22 +13,31 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ activeSection, onSelectSection }) {
   const [liveStatus, setLiveStatus] = useState(null);
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
+    let abortController = new AbortController();
+
     const fetchLive = async () => {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
       try {
-        const data = await api.getLiveStatus();
+        const data = await api.getLiveStatus({ signal: abortController.signal });
         if (isMounted) setLiveStatus(data);
       } catch (e) {
-        if (isMounted) setLiveStatus(null);
+        if (isMounted && e.name !== 'AbortError') setLiveStatus(null);
+      } finally {
+        isFetchingRef.current = false;
       }
     };
 
     fetchLive();
     const interval = setInterval(fetchLive, 3000);
+
     return () => {
       isMounted = false;
+      abortController.abort();
       clearInterval(interval);
     };
   }, []);

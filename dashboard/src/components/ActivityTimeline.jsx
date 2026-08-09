@@ -12,27 +12,31 @@ import { Bar } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-export default function ActivityTimeline() {
-  const hours = ['8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM'];
-  
+export default function ActivityTimeline({ timeline }) {
+  const hours = timeline?.labels || ['8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM'];
+  const productiveMins = timeline?.productive || [45, 50, 40, 55, 20, 15, 45, 50, 30, 40, 20, 10];
+  const neutralMins = timeline?.neutral || [10, 5, 10, 5, 25, 30, 10, 5, 15, 10, 20, 15];
+  const unproductiveMins = timeline?.unproductive || [5, 5, 10, 0, 15, 15, 5, 5, 15, 10, 20, 35];
+  const isSample = !timeline;
+
   const data = {
     labels: hours,
     datasets: [
       {
         label: 'Productive',
-        data: [45, 50, 40, 55, 20, 15, 45, 50, 30, 40, 20, 10],
+        data: productiveMins,
         backgroundColor: '#48BB78',
         borderRadius: 4,
       },
       {
         label: 'Neutral',
-        data: [10, 5, 10, 5, 25, 30, 10, 5, 15, 10, 20, 15],
+        data: neutralMins,
         backgroundColor: '#ED8936',
         borderRadius: 4,
       },
       {
         label: 'Unproductive',
-        data: [5, 5, 10, 0, 15, 15, 5, 5, 15, 10, 20, 35],
+        data: unproductiveMins,
         backgroundColor: '#FC8181',
         borderRadius: 4,
       },
@@ -74,7 +78,7 @@ export default function ActivityTimeline() {
           <span className="card-icon">📈</span> Today's Activity Timeline
         </h2>
         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-          Hourly breakdown (mins)
+          {isSample ? 'Hourly breakdown (Sample Data)' : 'Hourly breakdown (mins)'}
         </span>
       </div>
       <div style={{ height: '240px', position: 'relative' }}>

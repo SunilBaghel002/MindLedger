@@ -126,42 +126,69 @@ const MindLedgerApp = {
         // 4. Render Top Applications Progress Bars
         const topAppsContainer = document.getElementById('top-apps-list');
         if (topAppsContainer && data.top_apps && data.top_apps.length > 0) {
+            topAppsContainer.innerHTML = '';
             const maxSecs = Math.max(...data.top_apps.map(a => a.total_seconds || 1));
-            topAppsContainer.innerHTML = data.top_apps.map(app => {
+            const validClasses = ['productive', 'learning', 'neutral', 'unproductive'];
+
+            data.top_apps.forEach(app => {
                 const pct = Math.round((app.total_seconds / maxSecs) * 100);
-                const colorClass = app.productivity || 'neutral';
-                return `
-                    <div class="usage-item">
-                        <div class="usage-meta">
-                            <span class="usage-name">💻 ${app.app_name}</span>
-                            <span class="usage-duration">${secondsToHms(app.total_seconds)}</span>
-                        </div>
-                        <div class="progress-track">
-                            <div class="progress-fill ${colorClass}" style="width: ${pct}%;"></div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+                const colorClass = validClasses.includes(app.productivity) ? app.productivity : 'neutral';
+
+                const item = document.createElement('div');
+                item.className = 'usage-item';
+
+                const meta = document.createElement('div');
+                meta.className = 'usage-meta';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'usage-name';
+                nameSpan.textContent = `💻 ${app.app_name || 'Unknown App'}`;
+
+                const durationSpan = document.createElement('span');
+                durationSpan.className = 'usage-duration';
+                durationSpan.textContent = secondsToHms(app.total_seconds);
+
+                meta.appendChild(nameSpan);
+                meta.appendChild(durationSpan);
+
+                const track = document.createElement('div');
+                track.className = 'progress-track';
+
+                const fill = document.createElement('div');
+                fill.className = `progress-fill ${colorClass}`;
+                fill.style.width = `${pct}%`;
+
+                track.appendChild(fill);
+                item.appendChild(meta);
+                item.appendChild(track);
+                topAppsContainer.appendChild(item);
+            });
         }
 
         // 5. Render Charts
         if (window.MindLedgerCharts) {
             window.MindLedgerCharts.renderCategoryDonut('categoryDonutChart', data);
-            window.MindLedgerCharts.renderActivityTimeline('activityTimelineChart');
+            window.MindLedgerCharts.renderActivityTimeline('activityTimelineChart', data.timeline);
         }
     },
+
+    isFetchingLive: false,
 
     /**
      * Poll live tracking endpoint every 3s to update sidebar status widget
      */
     startLiveTrackingPoll() {
         const fetchLive = async () => {
+            if (this.isFetchingLive) return;
+            this.isFetchingLive = true;
             try {
                 const liveData = await window.mindLedgerAPI.getLiveStatus();
                 this.updateLiveWidget(liveData);
             } catch (err) {
                 // Silently fallback if endpoint returns 404 or backend unavailable
                 this.updateLiveWidget(null);
+            } finally {
+                this.isFetchingLive = false;
             }
         };
 

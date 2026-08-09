@@ -179,3 +179,15 @@ class AppSessionRepository:
         row = cursor.fetchone()
         return AppSession.from_row(row) if row else None
 
+    def get_latest_active_session(self) -> Optional[AppSession]:
+        """Fetch the most recent active application session (where ended_at is NULL).
+
+        Returns:
+            AppSession model or None if no active session exists.
+        """
+        cursor = self.conn.execute(
+            "SELECT * FROM app_sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        return AppSession.from_row(row) if row else None
+

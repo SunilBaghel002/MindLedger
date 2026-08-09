@@ -272,6 +272,15 @@
   gap: var(--space-sm);
 }
 
+@media (max-width: 768px) {
+  .grid-3,
+  .grid-2,
+  .grid-1-2,
+  .grid-2-1 {
+    grid-template-columns: 1fr;
+  }
+}
+
 .toast {
   background-color: var(--text-main);
   color: #FFFFFF;
@@ -279,10 +288,10 @@
   border-radius: var(--radius-sm);
   font-size: 13px;
   box-shadow: var(--shadow-lg);
-  animation: slideUp 0.3s ease;
+  animation: slide-up 0.3s ease;
 }
 
-@keyframes slideUp {
+@keyframes slide-up {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }

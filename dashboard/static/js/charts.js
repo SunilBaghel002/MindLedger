@@ -74,8 +74,9 @@ const MindLedgerCharts = {
     /**
      * Render or update Today's Hourly Activity Timeline Chart (Stacked Bar Chart)
      * @param {string} canvasId 
+     * @param {Object} [timelineData] { labels, productive, neutral, unproductive }
      */
-    renderActivityTimeline(canvasId) {
+    renderActivityTimeline(canvasId, timelineData) {
         const ctx = document.getElementById(canvasId);
         if (!ctx) return;
 
@@ -83,11 +84,24 @@ const MindLedgerCharts = {
             this.instances[canvasId].destroy();
         }
 
-        // Mock 12-hour hourly timeline buckets for initial foundation rendering
-        const hours = ['8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM'];
-        const productiveMins = [45, 50, 40, 55, 20, 15, 45, 50, 30, 40, 20, 10];
-        const neutralMins = [10, 5, 10, 5, 25, 30, 10, 5, 15, 10, 20, 15];
-        const unproductiveMins = [5, 5, 10, 0, 15, 15, 5, 5, 15, 10, 20, 35];
+        if (!timelineData || !timelineData.labels || timelineData.labels.length === 0) {
+            // Render explicit empty state when no timeline activity is supplied
+            const container = ctx.parentElement;
+            if (container) {
+                container.innerHTML = `
+                    <div class="empty-state" style="padding: 40px;">
+                        <div class="empty-icon">📈</div>
+                        <div class="empty-title">No hourly activity recorded yet today</div>
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        const hours = timelineData.labels;
+        const productiveMins = timelineData.productive || [];
+        const neutralMins = timelineData.neutral || [];
+        const unproductiveMins = timelineData.unproductive || [];
 
         if (typeof Chart !== 'undefined') {
             this.instances[canvasId] = new Chart(ctx, {

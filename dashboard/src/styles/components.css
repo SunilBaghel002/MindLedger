@@ -15,6 +15,13 @@
   margin-bottom: var(--space-xl);
 }
 
+@media (max-width: 768px) {
+  .grid-3,
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Card Component */
 .card {
   background-color: var(--bg-card);

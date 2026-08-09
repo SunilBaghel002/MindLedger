@@ -24,6 +24,7 @@ from api.schemas import (
 )
 from config.constants import APP_NAME, APP_VERSION
 from config.settings import settings
+from core.idle_detector import IdleDetector
 from database.connection import db_manager
 from database.repositories.app_session_repo import AppSessionRepository
 from utils.logger import get_logger
@@ -78,34 +79,35 @@ async def get_health_status() -> APIResponse[HealthData]:
 async def get_live_tracking_status() -> APIResponse[LiveTrackingStatusData]:
     """Get real-time tracking status of active foreground window."""
     try:
+        is_user_idle = IdleDetector().is_idle()
         with db_manager.connection() as conn:
             repo = AppSessionRepository(conn)
-            latest = repo.get_latest_session()
+            latest = repo.get_latest_active_session()
 
         if latest:
             data = LiveTrackingStatusData(
-                is_tracking=True,
+                is_tracking=not is_user_idle,
                 current_app=latest.app_name,
                 window_title=latest.window_title,
                 started_at=latest.started_at.isoformat(),
                 duration_seconds=latest.duration_seconds,
-                is_idle=False,
+                is_idle=is_user_idle,
             )
         else:
             data = LiveTrackingStatusData(
-                is_tracking=True,
+                is_tracking=not is_user_idle,
                 current_app="MindLedger Engine",
                 window_title="Active Tracking",
                 started_at=None,
                 duration_seconds=0,
-                is_idle=False,
+                is_idle=is_user_idle,
             )
 
         return APIResponse(success=True, data=data, error=None)
 
     except Exception as e:
         logger.error(f"Failed to fetch live tracking status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch live tracking status")
 
 
 @router.get("/dashboard/today", response_model=APIResponse[DashboardTodayData])

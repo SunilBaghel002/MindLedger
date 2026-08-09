@@ -5,7 +5,39 @@ import ActivityTimeline from '../components/ActivityTimeline';
 import CategoryDonut from '../components/CategoryDonut';
 import { secondsToHms } from '../utils/formatters';
 
-export default function DashboardHome({ data }) {
+export default function DashboardHome({ data, error, onRetry }) {
+  if (error) {
+    return (
+      <section className="page-section">
+        <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
+          <div style={{ fontSize: '36px', marginBottom: '12px' }}>⚠️</div>
+          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>
+            Failed to load dashboard data
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+            {error}
+          </p>
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: 'var(--primary-blue)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 'var(--radius-sm)',
+                fontWeight: '600',
+                cursor: 'pointer',
+              }}
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      </section>
+    );
+  }
+
   const totalScreenTime = secondsToHms(data?.total_screen_time_seconds || 0);
   const productiveTime = secondsToHms(data?.productive_time_seconds || 0);
   const totalSecs = data?.total_screen_time_seconds || 0;

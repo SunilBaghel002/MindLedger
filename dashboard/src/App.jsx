@@ -24,27 +24,35 @@ const TITLES = {
 export default function App() {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardError, setDashboardError] = useState(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  const fetchDashboard = () => {
+    setDashboardError(null);
     api
       .getTodayDashboard()
       .then((data) => {
-        if (isMounted) setDashboardData(data);
+        setDashboardData(data);
       })
       .catch((err) => {
-        console.warn('Dashboard data fetch fallback:', err);
+        console.warn('Dashboard data fetch failed:', err);
+        setDashboardError(err.message || 'Failed to fetch dashboard data');
       });
+  };
 
-    return () => {
-      isMounted = false;
-    };
+  useEffect(() => {
+    fetchDashboard();
   }, []);
 
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard':
-        return <DashboardHome data={dashboardData} />;
+        return (
+          <DashboardHome
+            data={dashboardData}
+            error={dashboardError}
+            onRetry={fetchDashboard}
+          />
+        );
       case 'apps':
         return <ApplicationsPage />;
       case 'browser':
@@ -56,7 +64,13 @@ export default function App() {
       case 'settings':
         return <SettingsPage />;
       default:
-        return <DashboardHome data={dashboardData} />;
+        return (
+          <DashboardHome
+            data={dashboardData}
+            error={dashboardError}
+            onRetry={fetchDashboard}
+          />
+        );
     }
   };
 

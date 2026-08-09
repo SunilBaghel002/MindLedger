@@ -42,8 +42,8 @@ class MindLedgerAPI {
         return this._request('/dashboard/today');
     }
 
-    async getLiveStatus() {
-        return this._request('/dashboard/live');
+    async getLiveStatus(options = {}) {
+        return this._request('/dashboard/live', options);
     }
 
     async getTodayApps() {
