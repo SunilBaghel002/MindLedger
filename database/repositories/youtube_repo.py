@@ -7,6 +7,7 @@ Created: 2026-08-08
 """
 
 import sqlite3
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from database.models import YouTubeActivity
@@ -155,3 +156,94 @@ class YouTubeRepository:
             }
             for row in cursor.fetchall()
         ]
+
+    def find_recent_by_video_id(self, video_id: str, date_str: str) -> Optional[YouTubeActivity]:
+        """Find the most recent YouTube activity record for a specific video ID today.
+
+        Args:
+            video_id: YouTube video ID string.
+            date_str: Date string in YYYY-MM-DD format.
+
+        Returns:
+            YouTubeActivity model instance or None.
+        """
+        cursor = self.conn.execute(
+            """
+            SELECT * FROM youtube_activity
+            WHERE video_id = ? AND date = ?
+            ORDER BY id DESC LIMIT 1
+            """,
+            (video_id, date_str),
+        )
+        row = cursor.fetchone()
+        return self._map_row_to_model(row) if row else None
+
+    def update_watch_duration(self, activity_id: int, added_seconds: int, ended_at: datetime) -> bool:
+        """Add watched seconds to an existing video record.
+
+        Args:
+            activity_id: Primary key of YouTube activity record.
+            added_seconds: Additional seconds to accumulate.
+            ended_at: Updated end timestamp.
+
+        Returns:
+            True if row updated, False otherwise.
+        """
+        cursor = self.conn.execute(
+            """
+            UPDATE youtube_activity
+            SET watch_duration_seconds = watch_duration_seconds + ?, ended_at = ?
+            WHERE id = ?
+            """,
+            (added_seconds, ended_at.isoformat(), activity_id),
+        )
+        self.conn.commit()
+        return cursor.rowcount > 0
+
+    def upsert(self, activity: YouTubeActivity) -> int:
+        """Atomic unique upsert YouTube activity keyed by video_id and date.
+
+        If a row with matching (video_id, date) already exists, accumulates watch_duration_seconds
+        and updates ended_at while preserving existing activity fields. Otherwise inserts a new row.
+
+        Args:
+            activity: YouTubeActivity model instance.
+
+        Returns:
+            The primary key record ID of the inserted or updated row.
+        """
+        self.conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_youtube_video_date ON youtube_activity(video_id, date) WHERE video_id IS NOT NULL AND video_id != '';"
+        )
+        cursor = self.conn.execute(
+            """
+            INSERT INTO youtube_activity (
+                video_url, video_id, video_title, channel_name, channel_url,
+                channel_id, started_at, ended_at, watch_duration_seconds,
+                video_category, is_productive, date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(video_id, date) WHERE video_id IS NOT NULL AND video_id != '' DO UPDATE SET
+                watch_duration_seconds = youtube_activity.watch_duration_seconds + excluded.watch_duration_seconds,
+                ended_at = excluded.ended_at
+            RETURNING id;
+            """,
+            (
+                activity.video_url,
+                activity.video_id,
+                activity.video_title,
+                activity.channel_name,
+                activity.channel_url,
+                activity.channel_id,
+                activity.started_at.isoformat(),
+                activity.ended_at.isoformat() if activity.ended_at else None,
+                activity.watch_duration_seconds,
+                activity.video_category,
+                1 if activity.is_productive is True else (0 if activity.is_productive is False else None),
+                activity.date,
+            ),
+        )
+        row = cursor.fetchone()
+        self.conn.commit()
+        if row:
+            return row[0]
+        return cursor.lastrowid

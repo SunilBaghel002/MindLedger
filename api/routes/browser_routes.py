@@ -186,8 +186,7 @@ async def receive_youtube_event(event: YouTubeEventSchema) -> Dict:
 
         with db_manager.connection() as conn:
             repo = YouTubeRepository(conn)
-            activity_id = repo.save(activity)
-            conn.commit()
+            activity_id = repo.upsert(activity)
 
         return {
             "success": True,
