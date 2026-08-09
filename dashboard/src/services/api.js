@@ -88,6 +88,39 @@ class MindLedgerAPI {
         const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
         return this._request(`/youtube/analytics${queryStr}`);
     }
+
+    async getReportHistory() {
+        return this._request('/reports/history');
+    }
+
+    async generateReport(reportType = 'daily', dateStr = '', sendEmail = false, recipient = '') {
+        return this._request('/reports/generate', {
+            method: 'POST',
+            body: JSON.stringify({
+                report_type: reportType,
+                date: dateStr,
+                send_email: sendEmail,
+                recipient: recipient || undefined,
+            }),
+        });
+    }
+
+    async sendReportEmail(reportType = 'daily', dateStr = '', recipient = '') {
+        return this._request('/reports/send-email', {
+            method: 'POST',
+            body: JSON.stringify({
+                report_type: reportType,
+                date: dateStr,
+                send_email: true,
+                recipient: recipient || undefined,
+            }),
+        });
+    }
+
+    getReportDownloadUrl(reportType = 'daily', dateStr = '', format = 'html') {
+        const fmt = format === 'pdf' ? 'pdf' : 'html';
+        return `${this.baseUrl}/reports/download/${fmt}?report_type=${reportType}&date_str=${dateStr}`;
+    }
 }
 
 export const api = new MindLedgerAPI();

@@ -128,3 +128,28 @@ def test_youtube_analytics_endpoint():
     assert json_data["data"]["top_channels"][0]["channel_name"] == "Tech Channel"
     assert len(json_data["data"]["history"]) >= 1
     assert "FastAPI" in json_data["data"]["history"][0]["video_title"]
+
+
+def test_reports_endpoints():
+    """Verify GET /api/v1/reports/history, POST /reports/generate, and HTML download endpoints."""
+    client = TestClient(app)
+    today_str = date.today().isoformat()
+
+    # Generate Report
+    gen_res = client.post("/api/v1/reports/generate", json={"report_type": "daily", "date": today_str, "send_email": False})
+    assert gen_res.status_code == 200
+    gen_json = gen_res.json()
+    assert gen_json["success"] is True
+    assert gen_json["data"]["report_type"] == "daily"
+
+    # History List
+    hist_res = client.get("/api/v1/reports/history")
+    assert hist_res.status_code == 200
+    hist_json = hist_res.json()
+    assert hist_json["success"] is True
+    assert "reports" in hist_json["data"]
+
+    # HTML Download
+    dl_res = client.get(f"/api/v1/reports/download/html?report_type=daily&date_str={today_str}")
+    assert dl_res.status_code == 200
+    assert "MindLedger" in dl_res.text or "<html" in dl_res.text

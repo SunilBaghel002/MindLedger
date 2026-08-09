@@ -28,6 +28,9 @@ from api.schemas import (
     HourlyActivityTimelineDTO,
     LiveTrackingStatusData,
     QuickStatsDTO,
+    ReportGenerateRequest,
+    ReportHistoryData,
+    ReportSummaryItem,
     URLDetailItem,
     YouTubeAnalyticsData,
     YouTubeChannelSummaryItem,
@@ -39,7 +42,10 @@ from core.idle_detector import IdleDetector
 from database.connection import db_manager
 from database.repositories.app_session_repo import AppSessionRepository
 from database.repositories.browser_session_repo import BrowserSessionRepository
+from database.repositories.summary_repo import SummaryRepository
 from database.repositories.youtube_repo import YouTubeRepository
+from reports.report_generator import ReportGenerator
+from reports.template_renderer import TemplateRenderer
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -530,3 +536,201 @@ async def get_youtube_analytics(
     except Exception as e:
         logger.error(f"Failed to fetch YouTube analytics: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch YouTube analytics") from e
+
+
+@router.get("/reports/history", response_model=APIResponse[ReportHistoryData])
+async def get_reports_history() -> APIResponse[ReportHistoryData]:
+    """Get list of all generated daily and periodic report summaries."""
+    try:
+        reports: List[ReportSummaryItem] = []
+        with db_manager.connection() as conn:
+            summary_repo = SummaryRepository(conn)
+
+            # Fetch daily summaries
+            cursor1 = conn.execute(
+                "SELECT * FROM daily_summaries ORDER BY date DESC LIMIT 50"
+            )
+            for row in cursor1.fetchall():
+                reports.append(
+                    ReportSummaryItem(
+                        id=row["id"],
+                        report_type="daily",
+                        period_label=f"Daily Summary - {row['date']}",
+                        date=row["date"],
+                        total_screen_time_seconds=row["total_screen_time_seconds"],
+                        productivity_score=float(row["productivity_score"]),
+                        email_sent=bool(row["email_sent"]),
+                        most_used_app=row["most_used_app"],
+                    )
+                )
+
+            # Fetch periodic summaries
+            cursor2 = conn.execute(
+                "SELECT * FROM periodic_summaries ORDER BY period_end DESC LIMIT 50"
+            )
+            for row in cursor2.fetchall():
+                reports.append(
+                    ReportSummaryItem(
+                        id=row["id"],
+                        report_type=row["period_type"],
+                        period_label=row["period_label"],
+                        date=row["period_end"],
+                        total_screen_time_seconds=row["total_screen_time_seconds"],
+                        productivity_score=float(row["avg_productivity_score"]),
+                        email_sent=bool(row["email_sent"]),
+                        most_used_app=None,
+                    )
+                )
+
+        return APIResponse(success=True, data=ReportHistoryData(reports=reports), error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch reports history: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch reports history") from e
+
+
+@router.post("/reports/generate", response_model=APIResponse[ReportSummaryItem])
+async def generate_report(req: ReportGenerateRequest) -> APIResponse[ReportSummaryItem]:
+    """Trigger report generation pipeline for a specific date and report type."""
+    try:
+        with db_manager.connection() as conn:
+            generator = ReportGenerator(conn)
+            summary_repo = SummaryRepository(conn)
+
+            if req.report_type == "weekly":
+                summary = summary_repo.aggregate_weekly_summary(req.date)
+                if req.send_email:
+                    generator.generate_and_send_weekly_report(req.date, recipient=req.recipient)
+                result_item = ReportSummaryItem(
+                    id=summary.id,
+                    report_type="weekly",
+                    period_label=summary.period_label,
+                    date=summary.period_end,
+                    total_screen_time_seconds=summary.total_screen_time_seconds,
+                    productivity_score=summary.avg_productivity_score,
+                    email_sent=summary.email_sent,
+                )
+            elif req.report_type == "monthly":
+                dt = datetime.strptime(req.date, "%Y-%m-%d")
+                summary = summary_repo.aggregate_monthly_summary(dt.year, dt.month)
+                if req.send_email:
+                    generator.generate_and_send_monthly_report(dt.year, dt.month, recipient=req.recipient)
+                result_item = ReportSummaryItem(
+                    id=summary.id,
+                    report_type="monthly",
+                    period_label=summary.period_label,
+                    date=summary.period_end,
+                    total_screen_time_seconds=summary.total_screen_time_seconds,
+                    productivity_score=summary.avg_productivity_score,
+                    email_sent=summary.email_sent,
+                )
+            else:
+                if req.send_email:
+                    daily = generator.generate_and_send_daily_report(req.date, recipient=req.recipient)
+                else:
+                    daily = summary_repo.aggregate_daily_summary(req.date)
+                    summary_repo.save_daily_summary(daily)
+                result_item = ReportSummaryItem(
+                    id=daily.id,
+                    report_type="daily",
+                    period_label=f"Daily Summary - {daily.date}",
+                    date=daily.date,
+                    total_screen_time_seconds=daily.total_screen_time_seconds,
+                    productivity_score=daily.productivity_score,
+                    email_sent=daily.email_sent,
+                    most_used_app=daily.most_used_app,
+                )
+
+        return APIResponse(success=True, data=result_item, error=None)
+
+    except Exception as e:
+        logger.error(f"Failed to generate report: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate report") from e
+
+
+@router.post("/reports/send-email", response_model=APIResponse[Dict[str, Any]])
+async def send_report_email(req: ReportGenerateRequest) -> APIResponse[Dict[str, Any]]:
+    """Trigger SMTP report email delivery for a given date and report type."""
+    try:
+        with db_manager.connection() as conn:
+            generator = ReportGenerator(conn)
+            if req.report_type == "weekly":
+                summary = generator.generate_and_send_weekly_report(req.date, recipient=req.recipient)
+            elif req.report_type == "monthly":
+                dt = datetime.strptime(req.date, "%Y-%m-%d")
+                summary = generator.generate_and_send_monthly_report(dt.year, dt.month, recipient=req.recipient)
+            else:
+                summary = generator.generate_and_send_daily_report(req.date, recipient=req.recipient)
+
+        success = summary.email_sent
+        return APIResponse(
+            success=success,
+            data={"message": f"Email {'sent successfully' if success else 'dispatch failed'}", "sent": success},
+            error=None if success else "SMTP email delivery failed",
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to send report email: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send report email") from e
+
+
+@router.get("/reports/download/html", response_class=HTMLResponse)
+async def download_report_html(report_type: str = "daily", date_str: str = ""):
+    """Download Jinja2 HTML report attachment."""
+    try:
+        target_date = date_str or date.today().isoformat()
+        renderer = TemplateRenderer()
+
+        with db_manager.connection() as conn:
+            summary_repo = SummaryRepository(conn)
+            if report_type == "weekly":
+                summary = summary_repo.aggregate_weekly_summary(target_date)
+                html_str = renderer.render_weekly_report(summary)
+            elif report_type == "monthly":
+                dt = datetime.strptime(target_date, "%Y-%m-%d")
+                summary = summary_repo.aggregate_monthly_summary(dt.year, dt.month)
+                html_str = renderer.render_monthly_report(summary)
+            else:
+                summary = summary_repo.aggregate_daily_summary(target_date)
+                html_str = renderer.render_daily_report(summary)
+
+        filename = f"mindledger_{report_type}_report_{target_date}.html"
+        return HTMLResponse(
+            content=html_str,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to download HTML report: {e}")
+        raise HTTPException(status_code=500, detail="Failed to download HTML report") from e
+
+
+@router.get("/reports/download/pdf", response_class=HTMLResponse)
+async def download_report_pdf(report_type: str = "daily", date_str: str = ""):
+    """Download PDF report attachment (serves formatted HTML printable template)."""
+    try:
+        target_date = date_str or date.today().isoformat()
+        renderer = TemplateRenderer()
+
+        with db_manager.connection() as conn:
+            summary_repo = SummaryRepository(conn)
+            if report_type == "weekly":
+                summary = summary_repo.aggregate_weekly_summary(target_date)
+                html_str = renderer.render_weekly_report(summary)
+            elif report_type == "monthly":
+                dt = datetime.strptime(target_date, "%Y-%m-%d")
+                summary = summary_repo.aggregate_monthly_summary(dt.year, dt.month)
+                html_str = renderer.render_monthly_report(summary)
+            else:
+                summary = summary_repo.aggregate_daily_summary(target_date)
+                html_str = renderer.render_daily_report(summary)
+
+        filename = f"mindledger_{report_type}_report_{target_date}.pdf.html"
+        return HTMLResponse(
+            content=html_str,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to download PDF report: {e}")
+        raise HTTPException(status_code=500, detail="Failed to download PDF report") from e

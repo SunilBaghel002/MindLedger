@@ -286,6 +286,34 @@ class YouTubeAnalyticsData(BaseModel):
     history: List[YouTubeVideoHistoryItem] = Field(default_factory=list)
 
 
+class ReportGenerateRequest(BaseModel):
+    """Payload to trigger report generation and optional email delivery."""
+
+    report_type: str = "daily"
+    date: str
+    send_email: bool = False
+    recipient: Optional[str] = None
+
+
+class ReportSummaryItem(BaseModel):
+    """Summary record item for reports history and archive."""
+
+    id: Optional[int] = None
+    report_type: str
+    period_label: str
+    date: str
+    total_screen_time_seconds: int = 0
+    productivity_score: float = 0.0
+    email_sent: bool = False
+    most_used_app: Optional[str] = None
+
+
+class ReportHistoryData(BaseModel):
+    """Payload containing list of all generated reports."""
+
+    reports: List[ReportSummaryItem] = Field(default_factory=list)
+
+
 class YouTubeChannelsData(BaseModel):
     """Payload for YouTube channels breakdown list."""
 
