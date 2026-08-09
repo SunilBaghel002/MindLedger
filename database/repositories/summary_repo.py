@@ -466,42 +466,76 @@ class SummaryRepository:
         Returns:
             Persisted PeriodicSummary instance.
         """
-        self.conn.execute(
-            """
-            INSERT INTO periodic_summaries (
-                period_type, period_label, period_start, period_end,
-                total_screen_time_seconds, productive_seconds, unproductive_seconds,
-                learning_seconds, avg_daily_seconds, avg_productivity_score,
-                best_day, worst_day, top_apps_json, top_domains_json,
-                top_channels_json, trends_json, comparison_json, email_sent
-            ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        existing = self.get_periodic_summary(summary.period_type, summary.period_label)
+        if existing and existing.id:
+            self.conn.execute(
+                """
+                UPDATE periodic_summaries SET
+                    period_start=?, period_end=?,
+                    total_screen_time_seconds=?, productive_seconds=?, unproductive_seconds=?,
+                    learning_seconds=?, avg_daily_seconds=?, avg_productivity_score=?,
+                    best_day=?, worst_day=?, top_apps_json=?, top_domains_json=?,
+                    top_channels_json=?, trends_json=?, comparison_json=?, email_sent=?
+                WHERE id=?
+                """,
+                (
+                    summary.period_start,
+                    summary.period_end,
+                    summary.total_screen_time_seconds,
+                    summary.productive_seconds,
+                    summary.unproductive_seconds,
+                    summary.learning_seconds,
+                    summary.avg_daily_seconds,
+                    summary.avg_productivity_score,
+                    summary.best_day,
+                    summary.worst_day,
+                    summary.top_apps_json,
+                    summary.top_domains_json,
+                    summary.top_channels_json,
+                    summary.trends_json,
+                    summary.comparison_json,
+                    summary.email_sent,
+                    existing.id,
+                ),
             )
-            """,
-            (
-                summary.period_type,
-                summary.period_label,
-                summary.period_start,
-                summary.period_end,
-                summary.total_screen_time_seconds,
-                summary.productive_seconds,
-                summary.unproductive_seconds,
-                summary.learning_seconds,
-                summary.avg_daily_seconds,
-                summary.avg_productivity_score,
-                summary.best_day,
-                summary.worst_day,
-                summary.top_apps_json,
-                summary.top_domains_json,
-                summary.top_channels_json,
-                summary.trends_json,
-                summary.comparison_json,
-                summary.email_sent,
-            ),
-        )
+        else:
+            self.conn.execute(
+                """
+                INSERT INTO periodic_summaries (
+                    period_type, period_label, period_start, period_end,
+                    total_screen_time_seconds, productive_seconds, unproductive_seconds,
+                    learning_seconds, avg_daily_seconds, avg_productivity_score,
+                    best_day, worst_day, top_apps_json, top_domains_json,
+                    top_channels_json, trends_json, comparison_json, email_sent
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                """,
+                (
+                    summary.period_type,
+                    summary.period_label,
+                    summary.period_start,
+                    summary.period_end,
+                    summary.total_screen_time_seconds,
+                    summary.productive_seconds,
+                    summary.unproductive_seconds,
+                    summary.learning_seconds,
+                    summary.avg_daily_seconds,
+                    summary.avg_productivity_score,
+                    summary.best_day,
+                    summary.worst_day,
+                    summary.top_apps_json,
+                    summary.top_domains_json,
+                    summary.top_channels_json,
+                    summary.trends_json,
+                    summary.comparison_json,
+                    summary.email_sent,
+                ),
+            )
         self.conn.commit()
         updated = self.get_periodic_summary(summary.period_type, summary.period_label)
         return updated if updated else summary
+
 
     def aggregate_weekly_summary(
         self, period_start: str, period_end: str, period_label: str
