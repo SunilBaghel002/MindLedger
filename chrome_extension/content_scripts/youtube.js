@@ -19,6 +19,8 @@ let currentTrackingState = {
 
 let videoElement = null;
 let lastKnownUrl = window.location.href;
+let activeMetadataTimer = null;
+let youtubeSessionToken = 0;
 
 /**
  * Check if current URL is a YouTube video or Shorts page
@@ -175,7 +177,6 @@ function tickPlayer() {
     const now = Date.now();
     if (currentTrackingState.lastPlayingTimestamp) {
       const deltaSeconds = (now - currentTrackingState.lastPlayingTimestamp) / 1000;
-      // Cap max delta at 3 seconds to handle tab throttling smoothly
       if (deltaSeconds > 0 && deltaSeconds < 3) {
         currentTrackingState.accumulatedSeconds += deltaSeconds;
       }
@@ -210,13 +211,18 @@ function attachVideoListeners(video) {
 }
 
 /**
- * Initialize tracking session for video URL
+ * Initialize tracking session for video URL with session token cancellation
  */
 function setupVideoTracking() {
   const urlInfo = parseYouTubeUrl(window.location.href);
 
-  // If not a watch or shorts page, flush existing session
+  // If not a watch or shorts page, flush existing session and cancel pending timer
   if (!urlInfo.isWatch && !urlInfo.isShort) {
+    if (activeMetadataTimer) {
+      clearInterval(activeMetadataTimer);
+      activeMetadataTimer = null;
+    }
+    youtubeSessionToken++;
     flushYouTubeSession();
     return;
   }
@@ -227,10 +233,18 @@ function setupVideoTracking() {
     return;
   }
 
+  // Cancel any pending metadata discovery timer from a previous video
+  if (activeMetadataTimer) {
+    clearInterval(activeMetadataTimer);
+    activeMetadataTimer = null;
+  }
+
   // Flush previous session ONLY when changing to a different video ID
   flushYouTubeSession();
 
+  const currentToken = ++youtubeSessionToken;
   let attempts = 0;
+
   const metadataTimer = setInterval(() => {
     attempts++;
     const channelInfo = extractChannelInfo();
@@ -238,6 +252,14 @@ function setupVideoTracking() {
 
     if ((title && channelInfo.name !== 'Unknown Channel') || attempts >= 10) {
       clearInterval(metadataTimer);
+      if (activeMetadataTimer === metadataTimer) {
+        activeMetadataTimer = null;
+      }
+
+      // Verify timer still belongs to the active tracking session
+      if (youtubeSessionToken !== currentToken) {
+        return;
+      }
 
       currentTrackingState.videoId = urlInfo.videoId;
       currentTrackingState.videoTitle = title;
@@ -252,6 +274,7 @@ function setupVideoTracking() {
     }
   }, 500);
 
+  activeMetadataTimer = metadataTimer;
   getActiveVideoElement();
 }
 
@@ -260,7 +283,7 @@ window.addEventListener('yt-navigate-finish', () => {
   setupVideoTracking();
 });
 
-// Periodic URL & player tick loop (compatible with Enhancer for YouTube mode changes)
+// Periodic URL & player tick loop
 setInterval(() => {
   if (window.location.href !== lastKnownUrl) {
     lastKnownUrl = window.location.href;

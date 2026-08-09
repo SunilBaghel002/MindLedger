@@ -24,6 +24,7 @@ let youtubeVideoIdsToday = new Set();
 let lastResetDate = new Date().toISOString().split('T')[0];
 
 let windowBlurTimer = null;
+let focusGeneration = 0;
 
 /**
  * Check if a URL should be tracked (HTTP/HTTPS only)
@@ -73,7 +74,6 @@ async function bufferEvent(bufferKey, eventData) {
     const buffer = result[bufferKey] || [];
     buffer.push({ ...eventData, buffered_at: new Date().toISOString() });
 
-    // Limit buffer to maximum 500 events
     if (buffer.length > 500) {
       buffer.splice(0, buffer.length - 500);
     }
@@ -177,34 +177,40 @@ async function sendYouTubeEventToBackend(youtubeData, allowBuffer = true) {
 }
 
 /**
- * Finalize current tracking session and dispatch event
+ * Finalize a specific session snapshot with custom end timestamp
+ * @param {Object} sessionToFinalize
+ * @param {number} endTimestamp
  */
-async function finalizeCurrentSession() {
-  if (!activeState.startTime || !activeState.url) {
+async function finalizeSessionSnapshot(sessionToFinalize, endTimestamp = Date.now()) {
+  if (!sessionToFinalize || !sessionToFinalize.startTime || !sessionToFinalize.url) {
     return;
   }
 
-  const now = Date.now();
-  const durationSeconds = Math.round((now - activeState.startTime) / 1000);
+  const durationSeconds = Math.round((endTimestamp - sessionToFinalize.startTime) / 1000);
 
-  // Ignore tiny durations (< 1 second)
-  if (durationSeconds >= 1 && isValidTrackableUrl(activeState.url)) {
+  if (durationSeconds >= 1 && isValidTrackableUrl(sessionToFinalize.url)) {
     const payload = {
-      url: activeState.url,
-      domain: activeState.domain,
-      title: activeState.title || activeState.url,
-      started_at: new Date(activeState.startTime).toISOString(),
-      ended_at: new Date(now).toISOString(),
+      url: sessionToFinalize.url,
+      domain: sessionToFinalize.domain,
+      title: sessionToFinalize.title || sessionToFinalize.url,
+      started_at: new Date(sessionToFinalize.startTime).toISOString(),
+      ended_at: new Date(endTimestamp).toISOString(),
       duration_seconds: durationSeconds,
-      tab_id: activeState.tabId,
+      tab_id: sessionToFinalize.tabId,
     };
 
-    console.log('[MindLedger] Recording tab session:', payload);
+    console.log('[MindLedger] Recording tab session snapshot:', payload);
     await sendEventToBackend(payload);
   }
+}
 
-  // Clear state
+/**
+ * Finalize current active tracking session
+ */
+async function finalizeCurrentSession() {
+  const sessionCopy = { ...activeState };
   activeState.startTime = null;
+  await finalizeSessionSnapshot(sessionCopy, Date.now());
 }
 
 /**
@@ -235,6 +241,7 @@ function startTrackingTab(tab) {
  * Handle tab activation switch
  */
 async function handleTabActivated(activeInfo) {
+  focusGeneration++;
   if (windowBlurTimer) {
     clearTimeout(windowBlurTimer);
     windowBlurTimer = null;
@@ -257,7 +264,6 @@ async function handleTabActivated(activeInfo) {
 async function handleTabUpdated(tabId, changeInfo, tab) {
   if (tabId !== activeState.tabId) return;
 
-  // Finalize session if URL changed on active tab
   if (changeInfo.url && changeInfo.url !== activeState.url) {
     await finalizeCurrentSession();
     startTrackingTab(tab);
@@ -277,21 +283,32 @@ async function handleTabRemoved(tabId) {
 }
 
 /**
- * Handle window focus switch (handles screenshot tool overlays & popups gracefully)
+ * Handle window focus switch with focusGeneration token & snapshot blur capture
  */
 async function handleWindowFocusChanged(windowId) {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    // Focus left Chrome (e.g. screenshot tool overlay, Alt-Tab)
-    // Delay finalizing by 15 seconds so short OS focus blurs (screenshots) don't clear state or reset timer
+    // Focus left Chrome (screenshot overlay / Alt-Tab)
+    const capturedGen = ++focusGeneration;
+    const sessionToFinalize = { ...activeState };
+    const blurTimestamp = Date.now();
+
     if (windowBlurTimer) clearTimeout(windowBlurTimer);
     windowBlurTimer = setTimeout(async () => {
-      await finalizeCurrentSession();
-      activeState = { tabId: null, windowId: null, url: null, title: null, domain: null, startTime: null };
+      // Invalidate if focus generation changed while waiting
+      if (focusGeneration !== capturedGen) return;
+
+      await finalizeSessionSnapshot(sessionToFinalize, blurTimestamp);
+
+      // Verify focus generation hasn't changed before mutating activeState
+      if (focusGeneration === capturedGen) {
+        activeState = { tabId: null, windowId: null, url: null, title: null, domain: null, startTime: null };
+      }
     }, 15000);
     return;
   }
 
-  // Focus returned to a window -> cancel pending blur timeout
+  // Focus returned to a window -> advance focus generation token and clear pending blur timer
+  const currentGen = ++focusGeneration;
   if (windowBlurTimer) {
     clearTimeout(windowBlurTimer);
     windowBlurTimer = null;
@@ -299,20 +316,20 @@ async function handleWindowFocusChanged(windowId) {
 
   try {
     const win = await chrome.windows.get(windowId);
-    // Ignore non-normal windows (extension popup, devtools frame)
     if (win && win.type !== 'normal') {
       return;
     }
 
     const tabs = await chrome.tabs.query({ active: true, windowId: windowId });
     if (tabs && tabs.length > 0) {
-      // If returning to the same active tab, keep tracking continuously
       if (activeState.tabId === tabs[0].id && activeState.startTime) {
         return;
       }
 
       await finalizeCurrentSession();
-      startTrackingTab(tabs[0]);
+      if (focusGeneration === currentGen) {
+        startTrackingTab(tabs[0]);
+      }
     }
   } catch (err) {
     console.warn('[MindLedger] Error querying tab on window focus:', err);
@@ -330,7 +347,6 @@ setInterval(flushBuffer, FLUSH_INTERVAL_MS);
 
 // Message Handler for Popup UI and Content Scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  // Handle YouTube watch events from content_scripts/youtube.js
   if (request.type === 'YOUTUBE_EVENT') {
     checkDateReset();
     if (request.video_id) {
@@ -343,7 +359,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  // Handle Popup status requests
   if (request.action === 'GET_STATUS') {
     (async () => {
       if (windowBlurTimer) {
@@ -351,7 +366,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         windowBlurTimer = null;
       }
 
-      // Recover active tab if activeState is missing or uninitialized
       if (!activeState.url) {
         try {
           const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -368,7 +382,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const youtubeBuffer = result.youtubeEventBuffer || [];
       const totalBuffered = browserBuffer.length + youtubeBuffer.length;
 
-      // Check backend ping status
       let backendOnline = false;
       try {
         const ping = await fetch('http://127.0.0.1:8787/api/v1/health', { method: 'GET' });
@@ -394,7 +407,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         },
       });
     })();
-    return true; // Keep message channel open for async response
+    return true;
   }
 
   if (request.action === 'FLUSH_BUFFER') {
@@ -416,4 +429,4 @@ chrome.tabs.query({ active: true, lastFocusedWindow: true }).then((tabs) => {
   }
 });
 
-console.log('[MindLedger] Background service worker initialized with screenshot protection and unique YouTube tracking.');
+console.log('[MindLedger] Background service worker initialized with generation token blur protection.');

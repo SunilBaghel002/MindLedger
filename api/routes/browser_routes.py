@@ -170,28 +170,23 @@ async def receive_youtube_event(event: YouTubeEventSchema) -> Dict:
         date_str = started_dt.strftime("%Y-%m-%d")
         video_category, is_productive = classify_youtube_video(event.video_title or "", event.is_short)
 
+        activity = YouTubeActivity(
+            video_url=event.video_url or f"https://www.youtube.com/watch?v={event.video_id}",
+            video_id=event.video_id,
+            video_title=event.video_title,
+            channel_name=event.channel_name,
+            channel_url=event.channel_url,
+            started_at=started_dt,
+            ended_at=started_dt,
+            watch_duration_seconds=event.watch_duration_seconds,
+            video_category=video_category,
+            is_productive=is_productive,
+            date=date_str,
+        )
+
         with db_manager.connection() as conn:
             repo = YouTubeRepository(conn)
-            existing = repo.find_recent_by_video_id(event.video_id, date_str) if event.video_id else None
-
-            if existing and existing.id:
-                repo.update_watch_duration(existing.id, event.watch_duration_seconds, started_dt)
-                activity_id = existing.id
-            else:
-                activity = YouTubeActivity(
-                    video_url=event.video_url or f"https://www.youtube.com/watch?v={event.video_id}",
-                    video_id=event.video_id,
-                    video_title=event.video_title,
-                    channel_name=event.channel_name,
-                    channel_url=event.channel_url,
-                    started_at=started_dt,
-                    ended_at=started_dt,
-                    watch_duration_seconds=event.watch_duration_seconds,
-                    video_category=video_category,
-                    is_productive=is_productive,
-                    date=date_str,
-                )
-                activity_id = repo.save(activity)
+            activity_id = repo.upsert(activity)
 
         return {
             "success": True,
