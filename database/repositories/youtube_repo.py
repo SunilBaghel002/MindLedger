@@ -247,3 +247,109 @@ class YouTubeRepository:
         if row:
             return row[0]
         return cursor.lastrowid
+
+    def get_by_date_range(self, start_date: str, end_date: str) -> List[YouTubeActivity]:
+        """Fetch all YouTube activity records between start_date and end_date.
+
+        Args:
+            start_date: Start date string (YYYY-MM-DD).
+            end_date: End date string (YYYY-MM-DD).
+
+        Returns:
+            List of YouTubeActivity models.
+        """
+        cursor = self.conn.execute(
+            "SELECT * FROM youtube_activity WHERE date >= ? AND date <= ? ORDER BY started_at ASC",
+            (start_date, end_date),
+        )
+        rows = cursor.fetchall()
+        return [YouTubeActivity.from_row(row) for row in rows]
+
+    def get_top_channels_range(
+        self, start_date: str, end_date: str, category: Optional[str] = None, limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Calculate top channels watched within a date range by watch duration.
+
+        Args:
+            start_date: Start date string (YYYY-MM-DD).
+            end_date: End date string (YYYY-MM-DD).
+            category: Optional video category filter.
+            limit: Maximum number of channels to return.
+
+        Returns:
+            List of dicts containing channel_name, channel_url, video_category, total_videos, and total_seconds.
+        """
+        if category and category.lower() != "all":
+            cursor = self.conn.execute(
+                """
+                SELECT channel_name, MAX(channel_url) as channel_url, MAX(video_category) as video_category, COUNT(id) as total_videos, SUM(watch_duration_seconds) as total_seconds
+                FROM youtube_activity
+                WHERE date >= ? AND date <= ? AND LOWER(video_category) = ?
+                GROUP BY channel_name
+                ORDER BY total_seconds DESC
+                LIMIT ?
+                """,
+                (start_date, end_date, category.lower(), limit),
+            )
+        else:
+            cursor = self.conn.execute(
+                """
+                SELECT channel_name, MAX(channel_url) as channel_url, MAX(video_category) as video_category, COUNT(id) as total_videos, SUM(watch_duration_seconds) as total_seconds
+                FROM youtube_activity
+                WHERE date >= ? AND date <= ?
+                GROUP BY channel_name
+                ORDER BY total_seconds DESC
+                LIMIT ?
+                """,
+                (start_date, end_date, limit),
+            )
+
+        return [
+            {
+                "channel_name": row["channel_name"],
+                "channel_url": row["channel_url"],
+                "video_category": row["video_category"],
+                "total_videos": row["total_videos"],
+                "total_seconds": row["total_seconds"],
+            }
+            for row in cursor.fetchall()
+        ]
+
+    def get_video_history_range(
+        self,
+        start_date: str,
+        end_date: str,
+        category: Optional[str] = None,
+        search: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[YouTubeActivity]:
+        """Fetch video watch history within a date range with optional category filter and title search.
+
+        Args:
+            start_date: Start date string (YYYY-MM-DD).
+            end_date: End date string (YYYY-MM-DD).
+            category: Optional category filter.
+            search: Optional search term matching video_title or channel_name.
+            limit: Maximum records to return.
+
+        Returns:
+            List of YouTubeActivity models.
+        """
+        query = "SELECT * FROM youtube_activity WHERE date >= ? AND date <= ?"
+        params: List[Any] = [start_date, end_date]
+
+        if category and category.lower() != "all":
+            query += " AND LOWER(video_category) = ?"
+            params.append(category.lower())
+
+        if search and search.strip():
+            query += " AND (LOWER(video_title) LIKE ? OR LOWER(channel_name) LIKE ?)"
+            term = f"%{search.strip().lower()}%"
+            params.extend([term, term])
+
+        query += " ORDER BY started_at DESC LIMIT ?"
+        params.append(limit)
+
+        cursor = self.conn.execute(query, params)
+        rows = cursor.fetchall()
+        return [YouTubeActivity.from_row(row) for row in rows]

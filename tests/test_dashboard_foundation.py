@@ -3,9 +3,10 @@ from fastapi.testclient import TestClient
 
 from api.server import app
 from database.connection import db_manager
-from database.models import AppSession, BrowserSession
+from database.models import AppSession, BrowserSession, YouTubeActivity
 from database.repositories.app_session_repo import AppSessionRepository
 from database.repositories.browser_session_repo import BrowserSessionRepository
+from database.repositories.youtube_repo import YouTubeRepository
 
 
 def test_dashboard_index_html_route():
@@ -94,3 +95,36 @@ def test_browser_analytics_endpoints():
     assert isinstance(j2["data"], list)
     assert len(j2["data"]) >= 1
     assert j2["data"][0]["url"] == "https://github.com/test"
+
+
+def test_youtube_analytics_endpoint():
+    """Verify GET /api/v1/youtube/analytics returns YouTube metrics, channels, and video history."""
+    now = datetime.now()
+    today_str = now.date().isoformat()
+    with db_manager.connection() as conn:
+        repo = YouTubeRepository(conn)
+        repo.save(
+            YouTubeActivity(
+                video_url="https://youtube.com/watch?v=12345",
+                video_id="12345",
+                video_title="FastAPI Python Tutorial",
+                channel_name="Tech Channel",
+                watch_duration_seconds=500,
+                video_category="Educational",
+                is_productive=True,
+                started_at=now,
+                date=today_str,
+            )
+        )
+
+    client = TestClient(app)
+    response = client.get("/api/v1/youtube/analytics?range_preset=today&search=FastAPI")
+    assert response.status_code == 200
+    json_data = response.json()
+    assert json_data["success"] is True
+    assert json_data["data"]["date_range"] == "today"
+    assert json_data["data"]["total_watch_seconds"] >= 500
+    assert len(json_data["data"]["top_channels"]) >= 1
+    assert json_data["data"]["top_channels"][0]["channel_name"] == "Tech Channel"
+    assert len(json_data["data"]["history"]) >= 1
+    assert "FastAPI" in json_data["data"]["history"][0]["video_title"]

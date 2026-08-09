@@ -79,6 +79,15 @@ class MindLedgerAPI {
     async getTodayYoutube() {
         return this._request('/youtube/today');
     }
+
+    async getYoutubeAnalytics(rangePreset = 'today', category = '', search = '') {
+        const queryParams = new URLSearchParams();
+        if (rangePreset) queryParams.append('range_preset', rangePreset);
+        if (category && category !== 'all') queryParams.append('category', category);
+        if (search && search.trim()) queryParams.append('search', search.trim());
+        const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
+        return this._request(`/youtube/analytics${queryStr}`);
+    }
 }
 
 export const api = new MindLedgerAPI();

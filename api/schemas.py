@@ -244,6 +244,48 @@ class YouTubeTodayData(BaseModel):
     recent_videos: List[YouTubeActivityDTO] = Field(default_factory=list)
 
 
+class YouTubeChannelSummaryItem(BaseModel):
+    """Summary representation of channel watch duration and category."""
+
+    channel_name: str
+    channel_url: Optional[str] = None
+    video_category: Optional[str] = "uncategorized"
+    total_videos: int = 0
+    total_seconds: int = 0
+
+
+class YouTubeVideoHistoryItem(BaseModel):
+    """Detailed item for searchable YouTube video watch history."""
+
+    id: int
+    video_id: Optional[str] = None
+    video_url: Optional[str] = None
+    video_title: Optional[str] = None
+    channel_name: Optional[str] = None
+    watch_duration_seconds: int = 0
+    video_category: str = "uncategorized"
+    is_productive: Optional[bool] = None
+    is_short: bool = False
+    date: str
+    started_at: str
+
+
+class YouTubeAnalyticsData(BaseModel):
+    """Payload for YouTube watch analytics and video history."""
+
+    date_range: str
+    total_watch_seconds: int = 0
+    productive_watch_seconds: int = 0
+    entertainment_watch_seconds: int = 0
+    shorts_watch_seconds: int = 0
+    longform_watch_seconds: int = 0
+    shorts_ratio_pct: float = 0.0
+    channels_count: int = 0
+    top_channels: List[YouTubeChannelSummaryItem] = Field(default_factory=list)
+    category_breakdown: Dict[str, int] = Field(default_factory=dict)
+    history: List[YouTubeVideoHistoryItem] = Field(default_factory=list)
+
+
 class YouTubeChannelsData(BaseModel):
     """Payload for YouTube channels breakdown list."""
 
