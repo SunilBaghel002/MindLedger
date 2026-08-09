@@ -39,6 +39,32 @@ class AppUsageSummaryItem(BaseModel):
     total_seconds: int
 
 
+class HourlyActivityTimelineDTO(BaseModel):
+    """Payload for hourly activity breakdown chart."""
+
+    labels: List[str] = Field(default_factory=list)
+    productive: List[int] = Field(default_factory=list)
+    neutral: List[int] = Field(default_factory=list)
+    unproductive: List[int] = Field(default_factory=list)
+
+
+class QuickStatsDTO(BaseModel):
+    """Payload for quick insights and statistics."""
+
+    peak_hour: Optional[str] = None
+    focus_ratio_pct: float = 0.0
+    top_category: Optional[str] = None
+
+
+class DomainSummaryItem(BaseModel):
+    """Summary representation of domain duration and classification."""
+
+    domain: str
+    category: str
+    productivity: str
+    total_seconds: int
+
+
 class DashboardTodayData(BaseModel):
     """Payload for today's dashboard overview."""
 
@@ -49,6 +75,9 @@ class DashboardTodayData(BaseModel):
     neutral_time_seconds: int = 0
     productivity_score: float = 0.0
     top_apps: List[AppUsageSummaryItem] = Field(default_factory=list)
+    top_websites: List[DomainSummaryItem] = Field(default_factory=list)
+    timeline: Optional[HourlyActivityTimelineDTO] = None
+    quick_stats: Optional[QuickStatsDTO] = None
 
 
 class LiveTrackingStatusData(BaseModel):
@@ -116,15 +145,6 @@ class EventRecordedData(BaseModel):
     """Payload response confirming an event was saved."""
 
     id: int
-
-
-class DomainSummaryItem(BaseModel):
-    """Summary representation of domain duration and classification."""
-
-    domain: str
-    category: str
-    productivity: str
-    total_seconds: int
 
 
 class BrowserTodayData(BaseModel):

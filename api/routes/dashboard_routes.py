@@ -19,14 +19,18 @@ from api.schemas import (
     AppsTodayData,
     AppUsageSummaryItem,
     DashboardTodayData,
+    DomainSummaryItem,
     HealthData,
+    HourlyActivityTimelineDTO,
     LiveTrackingStatusData,
+    QuickStatsDTO,
 )
 from config.constants import APP_NAME, APP_VERSION
 from config.settings import settings
 from core.idle_detector import IdleDetector
 from database.connection import db_manager
 from database.repositories.app_session_repo import AppSessionRepository
+from database.repositories.browser_session_repo import BrowserSessionRepository
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -112,14 +116,16 @@ async def get_live_tracking_status() -> APIResponse[LiveTrackingStatusData]:
 
 @router.get("/dashboard/today", response_model=APIResponse[DashboardTodayData])
 async def get_today_dashboard() -> APIResponse[DashboardTodayData]:
-    """Get today's dashboard overview data (total screen time, productivity, top apps)."""
+    """Get today's dashboard overview data (total screen time, productivity, top apps, websites, timeline)."""
     try:
         today_str = date.today().isoformat()
 
         with db_manager.connection() as conn:
-            repo = AppSessionRepository(conn)
-            sessions = repo.get_by_date(today_str)
-            top_apps_raw = repo.get_top_apps(today_str, limit=5)
+            app_repo = AppSessionRepository(conn)
+            browser_repo = BrowserSessionRepository(conn)
+            sessions = app_repo.get_by_date(today_str)
+            top_apps_raw = app_repo.get_top_apps(today_str, limit=5)
+            top_domains_raw = browser_repo.get_top_domains(today_str, limit=5)
 
         total_seconds = sum(s.duration_seconds for s in sessions)
         productive_seconds = sum(
@@ -148,6 +154,54 @@ async def get_today_dashboard() -> APIResponse[DashboardTodayData]:
             for item in top_apps_raw
         ]
 
+        top_websites = [
+            DomainSummaryItem(
+                domain=item["domain"],
+                category=item["category"],
+                productivity=item["productivity"],
+                total_seconds=item["total_seconds"],
+            )
+            for item in top_domains_raw
+        ]
+
+        # Build 12-hour activity timeline buckets (8 AM to 7 PM)
+        labels = ["8 AM", "9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM", "6 PM", "7 PM"]
+        prod_mins = [0] * 12
+        neut_mins = [0] * 12
+        unprod_mins = [0] * 12
+
+        for s in sessions:
+            if s.started_at:
+                hour = s.started_at.hour
+                if 8 <= hour <= 19:
+                    idx = hour - 8
+                    mins = max(1, s.duration_seconds // 60)
+                    if s.productivity == "productive":
+                        prod_mins[idx] += mins
+                    elif s.productivity == "unproductive":
+                        unprod_mins[idx] += mins
+                    else:
+                        neut_mins[idx] += mins
+
+        timeline = HourlyActivityTimelineDTO(
+            labels=labels,
+            productive=prod_mins,
+            neutral=neut_mins,
+            unproductive=unprod_mins,
+        )
+
+        # Compute quick stats insights
+        hourly_totals = [p + n + u for p, n, u in zip(prod_mins, neut_mins, unprod_mins)]
+        max_idx = hourly_totals.index(max(hourly_totals)) if any(hourly_totals) else 0
+        peak_hour_str = labels[max_idx] if any(hourly_totals) else "N/A"
+        top_cat = top_apps[0].category if top_apps else "Development"
+
+        quick_stats = QuickStatsDTO(
+            peak_hour=peak_hour_str,
+            focus_ratio_pct=score,
+            top_category=top_cat,
+        )
+
         data = DashboardTodayData(
             date=today_str,
             total_screen_time_seconds=total_seconds,
@@ -156,6 +210,9 @@ async def get_today_dashboard() -> APIResponse[DashboardTodayData]:
             neutral_time_seconds=neutral_seconds,
             productivity_score=score,
             top_apps=top_apps,
+            top_websites=top_websites,
+            timeline=timeline,
+            quick_stats=quick_stats,
         )
 
         return APIResponse(success=True, data=data, error=None)

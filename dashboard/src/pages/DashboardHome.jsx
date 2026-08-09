@@ -3,6 +3,8 @@ import StatCard from '../components/StatCard';
 import ScoreWidget from '../components/ScoreWidget';
 import ActivityTimeline from '../components/ActivityTimeline';
 import CategoryDonut from '../components/CategoryDonut';
+import TopWebsites from '../components/TopWebsites';
+import QuickStats from '../components/QuickStats';
 import { secondsToHms } from '../utils/formatters';
 
 export default function DashboardHome({ data, error, onRetry }) {
@@ -44,6 +46,7 @@ export default function DashboardHome({ data, error, onRetry }) {
   const prodSecs = data?.productive_time_seconds || 0;
   const prodPct = totalSecs > 0 ? Math.round((prodSecs / totalSecs) * 100) : 0;
   const topApps = data?.top_apps || [];
+  const topWebsites = data?.top_websites || [];
   const maxAppSecs = topApps.length > 0 ? Math.max(...topApps.map((a) => a.total_seconds || 1)) : 1;
 
   return (
@@ -67,10 +70,13 @@ export default function DashboardHome({ data, error, onRetry }) {
         <ScoreWidget score={data?.productivity_score || 0} />
       </div>
 
-      {/* Activity Timeline Chart */}
-      <ActivityTimeline />
+      {/* Quick Stats / AI Insights */}
+      <QuickStats quickStats={data?.quick_stats} />
 
-      {/* Bottom Grid: Top Apps + Category Breakdown */}
+      {/* Activity Timeline Chart */}
+      <ActivityTimeline timeline={data?.timeline} />
+
+      {/* Bottom Grid: Top Apps + Top Websites */}
       <div className="grid-2">
         {/* Top Applications */}
         <div className="card">
@@ -114,9 +120,12 @@ export default function DashboardHome({ data, error, onRetry }) {
           )}
         </div>
 
-        {/* Category Breakdown Donut */}
-        <CategoryDonut breakdown={data} />
+        {/* Top Websites */}
+        <TopWebsites websites={topWebsites} />
       </div>
+
+      {/* Category Breakdown Donut */}
+      <CategoryDonut breakdown={data} />
     </section>
   );
 }
