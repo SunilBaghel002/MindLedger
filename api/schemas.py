@@ -7,7 +7,7 @@ Created: 2026-08-08
 """
 
 from typing import Any, Dict, Generic, List, Optional, TypeVar
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 T = TypeVar("T")
 
@@ -172,3 +172,147 @@ class YouTubeChannelsData(BaseModel):
     date: str
     count: int = 0
     channels: List[ChannelSummaryItem] = Field(default_factory=list)
+
+
+from datetime import datetime
+
+ALLOWED_RULE_TYPES = {"app", "domain", "url_pattern", "title_pattern", "youtube_channel"}
+ALLOWED_PRODUCTIVITY_LEVELS = {"productive", "neutral", "unproductive"}
+
+
+class CategoryRuleDTO(BaseModel):
+    """Data transfer object representing a classification rule."""
+
+    id: Optional[int] = None
+    rule_type: str
+    pattern: str
+    category: str
+    subcategory: Optional[str] = None
+    productivity: str
+    priority: int = 0
+    is_active: bool = True
+
+
+class CategoryRuleCreate(BaseModel):
+    """Payload schema for adding a new classification rule."""
+
+    rule_type: str  # 'app', 'domain', 'url_pattern', 'title_pattern', 'youtube_channel'
+    pattern: str
+    category: str
+    subcategory: Optional[str] = None
+    productivity: str  # 'productive', 'neutral', 'unproductive'
+    priority: int = 0
+    is_active: bool = True
+
+    @field_validator("rule_type")
+    @classmethod
+    def validate_rule_type(cls, v: str) -> str:
+        s = v.strip()
+        if not s or s not in ALLOWED_RULE_TYPES:
+            raise ValueError(f"rule_type must be one of {sorted(ALLOWED_RULE_TYPES)}")
+        return s
+
+    @field_validator("productivity")
+    @classmethod
+    def validate_productivity(cls, v: str) -> str:
+        s = v.strip()
+        if not s or s not in ALLOWED_PRODUCTIVITY_LEVELS:
+            raise ValueError(f"productivity must be one of {sorted(ALLOWED_PRODUCTIVITY_LEVELS)}")
+        return s
+
+    @field_validator("pattern", "category")
+    @classmethod
+    def validate_nonblank(cls, v: str) -> str:
+        s = v.strip()
+        if not s:
+            raise ValueError("Field cannot be blank")
+        return s
+
+
+class CategoryRuleUpdate(BaseModel):
+    """Payload schema for updating an existing classification rule."""
+
+    rule_type: Optional[str] = None
+    pattern: Optional[str] = None
+    category: Optional[str] = None
+    subcategory: Optional[str] = None
+    productivity: Optional[str] = None
+    priority: Optional[int] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("rule_type")
+    @classmethod
+    def validate_rule_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        s = v.strip()
+        if not s or s not in ALLOWED_RULE_TYPES:
+            raise ValueError(f"rule_type must be one of {sorted(ALLOWED_RULE_TYPES)}")
+        return s
+
+    @field_validator("productivity")
+    @classmethod
+    def validate_productivity(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        s = v.strip()
+        if not s or s not in ALLOWED_PRODUCTIVITY_LEVELS:
+            raise ValueError(f"productivity must be one of {sorted(ALLOWED_PRODUCTIVITY_LEVELS)}")
+        return s
+
+    @field_validator("pattern", "category")
+    @classmethod
+    def validate_nonblank_optional(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        s = v.strip()
+        if not s:
+            raise ValueError("Field cannot be blank")
+        return s
+
+
+class CategoryRulesListData(BaseModel):
+    """Payload for listing category rules."""
+
+    count: int = 0
+    rules: List[CategoryRuleDTO] = Field(default_factory=list)
+
+
+class ReclassifyRequest(BaseModel):
+    """Payload schema for requesting historical data re-classification."""
+
+    from_date: Optional[str] = None  # YYYY-MM-DD
+    to_date: Optional[str] = None    # YYYY-MM-DD
+
+    @field_validator("from_date", "to_date")
+    @classmethod
+    def validate_iso_date(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        s = v.strip()
+        if not s:
+            return None
+        try:
+            datetime.strptime(s, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("Date must be in YYYY-MM-DD format")
+        return s
+
+    @model_validator(mode="after")
+    def validate_date_range(self) -> "ReclassifyRequest":
+        if self.from_date and self.to_date:
+            d_from = datetime.strptime(self.from_date, "%Y-%m-%d")
+            d_to = datetime.strptime(self.to_date, "%Y-%m-%d")
+            if d_from > d_to:
+                raise ValueError("from_date cannot be later than to_date")
+        return self
+
+
+class ReclassifyResultData(BaseModel):
+    """Payload schema summarizing historical re-classification results."""
+
+    reclassified_app_sessions: int = 0
+    reclassified_browser_sessions: int = 0
+    reclassified_youtube_activities: int = 0
+    updated_daily_summaries: int = 0
+
