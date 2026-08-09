@@ -72,6 +72,7 @@ export default function URLDetailModal({ domain, rangePreset, onClose }) {
           </h2>
           <button
             onClick={onClose}
+            aria-label="Close page breakdown modal"
             style={{
               background: 'none',
               border: 'none',

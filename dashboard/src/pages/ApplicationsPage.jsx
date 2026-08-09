@@ -84,6 +84,7 @@ export default function ApplicationsPage() {
             <button
               key={p.id}
               onClick={() => setRangePreset(p.id)}
+              aria-pressed={rangePreset === p.id}
               style={{
                 padding: '6px 14px',
                 borderRadius: 'var(--radius-sm)',
@@ -104,6 +105,7 @@ export default function ApplicationsPage() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
+            aria-label="Filter applications by category"
             style={{
               padding: '6px 12px',
               borderRadius: 'var(--radius-sm)',

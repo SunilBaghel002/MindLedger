@@ -282,3 +282,28 @@ class AppSessionRepository:
             for row in cursor.fetchall()
         ]
 
+    def get_distinct_app_count_range(
+        self, start_date: str, end_date: str, category: Optional[str] = None
+    ) -> int:
+        """Count distinct applications used within date range, matching optional category filter."""
+        if category and category.lower() != "all":
+            cursor = self.conn.execute(
+                """
+                SELECT COUNT(DISTINCT app_name)
+                FROM app_sessions
+                WHERE date >= ? AND date <= ? AND is_foreground = 1 AND (LOWER(productivity) = ? OR LOWER(category) = ?)
+                """,
+                (start_date, end_date, category.lower(), category.lower()),
+            )
+        else:
+            cursor = self.conn.execute(
+                """
+                SELECT COUNT(DISTINCT app_name)
+                FROM app_sessions
+                WHERE date >= ? AND date <= ? AND is_foreground = 1
+                """,
+                (start_date, end_date),
+            )
+        result = cursor.fetchone()[0]
+        return int(result) if result else 0
+

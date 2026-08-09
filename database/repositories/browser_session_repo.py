@@ -257,3 +257,28 @@ class BrowserSessionRepository:
             }
             for row in cursor.fetchall()
         ]
+
+    def get_distinct_domain_count_range(
+        self, start_date: str, end_date: str, category: Optional[str] = None
+    ) -> int:
+        """Count distinct domains visited within date range, matching optional category filter."""
+        if category and category.lower() != "all":
+            cursor = self.conn.execute(
+                """
+                SELECT COUNT(DISTINCT domain)
+                FROM browser_sessions
+                WHERE date >= ? AND date <= ? AND (LOWER(productivity) = ? OR LOWER(category) = ?)
+                """,
+                (start_date, end_date, category.lower(), category.lower()),
+            )
+        else:
+            cursor = self.conn.execute(
+                """
+                SELECT COUNT(DISTINCT domain)
+                FROM browser_sessions
+                WHERE date >= ? AND date <= ?
+                """,
+                (start_date, end_date),
+            )
+        result = cursor.fetchone()[0]
+        return int(result) if result else 0

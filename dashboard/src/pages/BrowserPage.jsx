@@ -54,10 +54,10 @@ export default function BrowserPage() {
   }, [rangePreset, categoryFilter]);
 
   const totalTimeStr = secondsToHms(analyticsData?.total_browsing_seconds || 0);
+  const totalBrowsingSecs = analyticsData?.total_browsing_seconds || 1;
   const domainsCount = analyticsData?.unique_domains_count || 0;
   const domainsList = analyticsData?.top_domains || [];
   const topSite = domainsList.length > 0 ? domainsList[0].domain : 'None';
-  const maxSecs = domainsList.length > 0 ? Math.max(...domainsList.map((d) => d.total_seconds || 1)) : 1;
   const topMostVisited = domainsList.slice(0, 5);
 
   // Format category breakdown for donut chart
@@ -86,6 +86,7 @@ export default function BrowserPage() {
             <button
               key={p.id}
               onClick={() => setRangePreset(p.id)}
+              aria-pressed={rangePreset === p.id}
               style={{
                 padding: '6px 14px',
                 borderRadius: 'var(--radius-sm)',
@@ -106,6 +107,7 @@ export default function BrowserPage() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
+            aria-label="Filter websites by category"
             style={{
               padding: '6px 12px',
               borderRadius: 'var(--radius-sm)',
@@ -241,7 +243,7 @@ export default function BrowserPage() {
                 </thead>
                 <tbody>
                   {domainsList.map((item, idx) => {
-                    const pct = Math.round((item.total_seconds / maxSecs) * 100);
+                    const pct = Math.min(100, Math.round((item.total_seconds / totalBrowsingSecs) * 100));
                     const colorClass = item.productivity || 'neutral';
                     return (
                       <tr key={idx}>
@@ -260,7 +262,7 @@ export default function BrowserPage() {
                           <div className="progress-track">
                             <div
                               className={`progress-fill ${colorClass}`}
-                              style={{ width: `${pct}%` }}
+                              style={{ width: `${Math.max(pct, 2)}%` }}
                             ></div>
                           </div>
                         </td>

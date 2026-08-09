@@ -8,7 +8,7 @@ Created: 2026-08-08
 
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
@@ -45,6 +45,26 @@ page_router = APIRouter(tags=["dashboard_html"])
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "dashboard" / "templates"
 DIST_DIR = Path(__file__).resolve().parent.parent.parent / "dashboard" / "dist"
+
+RangePreset = Literal["today", "yesterday", "7d", "30d"]
+
+
+def _resolve_range(range_preset: RangePreset) -> tuple[str, str]:
+    """Resolve preset string into start and end ISO date strings."""
+    today = date.today()
+    if range_preset == "yesterday":
+        start_d = today - timedelta(days=1)
+        end_d = start_d
+    elif range_preset == "7d":
+        start_d = today - timedelta(days=6)
+        end_d = today
+    elif range_preset == "30d":
+        start_d = today - timedelta(days=29)
+        end_d = today
+    else:
+        start_d = today
+        end_d = today
+    return start_d.isoformat(), end_d.isoformat()
 
 
 @page_router.get("/dashboard", response_class=FileResponse, include_in_schema=False)
@@ -116,7 +136,7 @@ async def get_live_tracking_status() -> APIResponse[LiveTrackingStatusData]:
 
     except Exception as e:
         logger.error(f"Failed to fetch live tracking status: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch live tracking status")
+        raise HTTPException(status_code=500, detail="Failed to fetch live tracking status") from e
 
 
 @router.get("/dashboard/today", response_model=APIResponse[DashboardTodayData])
@@ -169,18 +189,22 @@ async def get_today_dashboard() -> APIResponse[DashboardTodayData]:
             for item in top_domains_raw
         ]
 
-        # Build 12-hour activity timeline buckets (8 AM to 7 PM)
-        labels = ["8 AM", "9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM", "6 PM", "7 PM"]
-        prod_mins = [0] * 12
-        neut_mins = [0] * 12
-        unprod_mins = [0] * 12
+        # Build full 24-hour activity timeline buckets (00:00 to 23:00)
+        labels = [
+            "12 AM", "1 AM", "2 AM", "3 AM", "4 AM", "5 AM",
+            "6 AM", "7 AM", "8 AM", "9 AM", "10 AM", "11 AM",
+            "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM",
+            "6 PM", "7 PM", "8 PM", "9 PM", "10 PM", "11 PM",
+        ]
+        prod_mins = [0] * 24
+        neut_mins = [0] * 24
+        unprod_mins = [0] * 24
 
         for s in sessions:
             if s.started_at:
-                hour = s.started_at.hour
-                if 8 <= hour <= 19:
-                    idx = hour - 8
-                    mins = max(1, s.duration_seconds // 60)
+                idx = s.started_at.hour
+                if 0 <= idx < 24:
+                    mins = s.duration_seconds // 60
                     if s.productivity == "productive":
                         prod_mins[idx] += mins
                     elif s.productivity == "unproductive":
@@ -224,7 +248,7 @@ async def get_today_dashboard() -> APIResponse[DashboardTodayData]:
 
     except Exception as e:
         logger.error(f"Failed to fetch today's dashboard overview: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch today's dashboard overview") from e
 
 
 @router.get("/apps/today", response_model=APIResponse[AppsTodayData])
@@ -276,45 +300,35 @@ async def get_today_apps() -> APIResponse[AppsTodayData]:
 
     except Exception as e:
         logger.error(f"Failed to fetch today's app usage details: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch today's app usage details") from e
 
 
 @router.get("/apps/analytics", response_model=APIResponse[AppAnalyticsData])
 async def get_apps_analytics(
-    range_preset: str = "today",
+    range_preset: RangePreset = "today",
     category: Optional[str] = None,
 ) -> APIResponse[AppAnalyticsData]:
     """Get application usage analytics over date range (today, yesterday, 7d, 30d) with optional category filtering."""
     try:
-        today = date.today()
-        if range_preset == "yesterday":
-            start_d = today - timedelta(days=1)
-            end_d = start_d
-        elif range_preset == "7d":
-            start_d = today - timedelta(days=6)
-            end_d = today
-        elif range_preset == "30d":
-            start_d = today - timedelta(days=29)
-            end_d = today
-        else:
-            start_d = today
-            end_d = today
-
-        start_str = start_d.isoformat()
-        end_str = end_d.isoformat()
+        start_str, end_str = _resolve_range(range_preset)
 
         with db_manager.connection() as conn:
             repo = AppSessionRepository(conn)
             top_apps_raw = repo.get_top_apps_range(start_str, end_str, category=category, limit=100)
             trend_raw = repo.get_daily_app_trend(start_str, end_str)
+            total_apps_cnt = repo.get_distinct_app_count_range(start_str, end_str, category=category)
             all_sessions = repo.get_by_date_range(start_str, end_str)
 
         total_seconds = sum(item["total_seconds"] for item in top_apps_raw)
 
-        # Compute category breakdown
+        # Compute category breakdown for sessions matching category filter
         cat_breakdown: Dict[str, int] = {}
         for s in all_sessions:
-            cat_key = s.productivity or s.category or "neutral"
+            if not s.is_foreground:
+                continue
+            cat_key = (s.productivity or s.category or "neutral").lower()
+            if category and category.lower() != "all" and cat_key != category.lower() and s.category.lower() != category.lower():
+                continue
             cat_breakdown[cat_key] = cat_breakdown.get(cat_key, 0) + s.duration_seconds
 
         top_apps = [
@@ -335,7 +349,7 @@ async def get_apps_analytics(
         data = AppAnalyticsData(
             date_range=range_preset,
             total_screen_time_seconds=total_seconds,
-            total_apps_count=len(top_apps),
+            total_apps_count=total_apps_cnt,
             top_apps=top_apps,
             category_breakdown=cat_breakdown,
             trend=trend,
@@ -345,44 +359,32 @@ async def get_apps_analytics(
 
     except Exception as e:
         logger.error(f"Failed to fetch app analytics: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch app analytics") from e
 
 
 @router.get("/browser/analytics", response_model=APIResponse[BrowserAnalyticsData])
 async def get_browser_analytics(
-    range_preset: str = "today",
+    range_preset: RangePreset = "today",
     category: Optional[str] = None,
 ) -> APIResponse[BrowserAnalyticsData]:
     """Get browser usage analytics over date range (today, yesterday, 7d, 30d) with optional category filtering."""
     try:
-        today = date.today()
-        if range_preset == "yesterday":
-            start_d = today - timedelta(days=1)
-            end_d = start_d
-        elif range_preset == "7d":
-            start_d = today - timedelta(days=6)
-            end_d = today
-        elif range_preset == "30d":
-            start_d = today - timedelta(days=29)
-            end_d = today
-        else:
-            start_d = today
-            end_d = today
-
-        start_str = start_d.isoformat()
-        end_str = end_d.isoformat()
+        start_str, end_str = _resolve_range(range_preset)
 
         with db_manager.connection() as conn:
             repo = BrowserSessionRepository(conn)
             top_domains_raw = repo.get_top_domains_range(start_str, end_str, category=category, limit=100)
+            unique_cnt = repo.get_distinct_domain_count_range(start_str, end_str, category=category)
             all_sessions = repo.get_by_date_range(start_str, end_str)
 
         total_seconds = sum(item["total_seconds"] for item in top_domains_raw)
 
-        # Compute category breakdown
+        # Compute category breakdown for domain sessions matching category filter
         cat_breakdown: Dict[str, int] = {}
         for s in all_sessions:
-            cat_key = s.productivity or s.category or "neutral"
+            cat_key = (s.productivity or s.category or "neutral").lower()
+            if category and category.lower() != "all" and cat_key != category.lower() and s.category.lower() != category.lower():
+                continue
             cat_breakdown[cat_key] = cat_breakdown.get(cat_key, 0) + s.duration_seconds
 
         top_domains = [
@@ -399,7 +401,7 @@ async def get_browser_analytics(
         data = BrowserAnalyticsData(
             date_range=range_preset,
             total_browsing_seconds=total_seconds,
-            unique_domains_count=len(top_domains),
+            unique_domains_count=unique_cnt,
             top_domains=top_domains,
             category_breakdown=cat_breakdown,
         )
@@ -408,32 +410,17 @@ async def get_browser_analytics(
 
     except Exception as e:
         logger.error(f"Failed to fetch browser analytics: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch browser analytics") from e
 
 
 @router.get("/browser/domain-details", response_model=APIResponse[List[URLDetailItem]])
 async def get_domain_url_details(
     domain: str,
-    range_preset: str = "today",
+    range_preset: RangePreset = "today",
 ) -> APIResponse[List[URLDetailItem]]:
     """Get detailed URL breakdown for a specific domain within a date range."""
     try:
-        today = date.today()
-        if range_preset == "yesterday":
-            start_d = today - timedelta(days=1)
-            end_d = start_d
-        elif range_preset == "7d":
-            start_d = today - timedelta(days=6)
-            end_d = today
-        elif range_preset == "30d":
-            start_d = today - timedelta(days=29)
-            end_d = today
-        else:
-            start_d = today
-            end_d = today
-
-        start_str = start_d.isoformat()
-        end_str = end_d.isoformat()
+        start_str, end_str = _resolve_range(range_preset)
 
         with db_manager.connection() as conn:
             repo = BrowserSessionRepository(conn)
@@ -453,4 +440,4 @@ async def get_domain_url_details(
 
     except Exception as e:
         logger.error(f"Failed to fetch domain URL details: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch domain URL details") from e
