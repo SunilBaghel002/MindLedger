@@ -39,6 +39,32 @@ class AppUsageSummaryItem(BaseModel):
     total_seconds: int
 
 
+class HourlyActivityTimelineDTO(BaseModel):
+    """Payload for hourly activity breakdown chart."""
+
+    labels: List[str] = Field(default_factory=list)
+    productive: List[int] = Field(default_factory=list)
+    neutral: List[int] = Field(default_factory=list)
+    unproductive: List[int] = Field(default_factory=list)
+
+
+class QuickStatsDTO(BaseModel):
+    """Payload for quick insights and statistics."""
+
+    peak_hour: Optional[str] = None
+    focus_ratio_pct: float = 0.0
+    top_category: Optional[str] = None
+
+
+class DomainSummaryItem(BaseModel):
+    """Summary representation of domain duration and classification."""
+
+    domain: str
+    category: str
+    productivity: str
+    total_seconds: int
+
+
 class DashboardTodayData(BaseModel):
     """Payload for today's dashboard overview."""
 
@@ -49,6 +75,9 @@ class DashboardTodayData(BaseModel):
     neutral_time_seconds: int = 0
     productivity_score: float = 0.0
     top_apps: List[AppUsageSummaryItem] = Field(default_factory=list)
+    top_websites: List[DomainSummaryItem] = Field(default_factory=list)
+    timeline: Optional[HourlyActivityTimelineDTO] = None
+    quick_stats: Optional[QuickStatsDTO] = None
 
 
 class LiveTrackingStatusData(BaseModel):
@@ -85,6 +114,24 @@ class AppsTodayData(BaseModel):
     recent_sessions: List[AppSessionDTO] = Field(default_factory=list)
 
 
+class AppTrendItem(BaseModel):
+    """Daily trend data point for application usage."""
+
+    date: str
+    total_seconds: int = 0
+
+
+class AppAnalyticsData(BaseModel):
+    """Payload for application usage analytics and history."""
+
+    date_range: str
+    total_screen_time_seconds: int = 0
+    total_apps_count: int = 0
+    top_apps: List[AppUsageSummaryItem] = Field(default_factory=list)
+    category_breakdown: Dict[str, int] = Field(default_factory=dict)
+    trend: List[AppTrendItem] = Field(default_factory=list)
+
+
 class BrowserEventSchema(BaseModel):
     """Payload sent by Chrome extension for browser tab tracking events."""
 
@@ -118,15 +165,6 @@ class EventRecordedData(BaseModel):
     id: int
 
 
-class DomainSummaryItem(BaseModel):
-    """Summary representation of domain duration and classification."""
-
-    domain: str
-    category: str
-    productivity: str
-    total_seconds: int
-
-
 class BrowserTodayData(BaseModel):
     """Payload for today's browser tracking analytics."""
 
@@ -135,6 +173,35 @@ class BrowserTodayData(BaseModel):
     total_unique_domains: int = 0
     total_sessions_count: int = 0
     top_domains: List[DomainSummaryItem] = Field(default_factory=list)
+
+
+class URLDetailItem(BaseModel):
+    """Detailed information for specific URL visited under a domain."""
+
+    url: str
+    page_title: Optional[str] = None
+    total_seconds: int = 0
+    visit_count: int = 0
+
+
+class BrowserDomainSummaryItem(BaseModel):
+    """Summary representation of domain duration, classification, and visit count."""
+
+    domain: str
+    category: str
+    productivity: str
+    total_seconds: int = 0
+    visit_count: int = 0
+
+
+class BrowserAnalyticsData(BaseModel):
+    """Payload for browser usage analytics and history."""
+
+    date_range: str
+    total_browsing_seconds: int = 0
+    unique_domains_count: int = 0
+    top_domains: List[BrowserDomainSummaryItem] = Field(default_factory=list)
+    category_breakdown: Dict[str, int] = Field(default_factory=dict)
 
 
 class BrowserDomainsData(BaseModel):

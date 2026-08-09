@@ -6,15 +6,16 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 export default function CategoryDonut({ breakdown }) {
   const productiveMins = Math.round((breakdown?.productive_time_seconds || 0) / 60);
+  const learningMins = Math.round((breakdown?.learning_time_seconds || 0) / 60);
   const neutralMins = Math.round((breakdown?.neutral_time_seconds || 0) / 60);
   const unproductiveMins = Math.round((breakdown?.unproductive_time_seconds || 0) / 60);
 
   const data = {
-    labels: ['Productive', 'Neutral', 'Unproductive'],
+    labels: ['Productive', 'Learning', 'Neutral', 'Unproductive'],
     datasets: [
       {
-        data: [productiveMins, neutralMins, unproductiveMins],
-        backgroundColor: ['#48BB78', '#ED8936', '#FC8181'],
+        data: [productiveMins, learningMins, neutralMins, unproductiveMins],
+        backgroundColor: ['#48BB78', '#4299E1', '#ED8936', '#FC8181'],
         borderWidth: 2,
         borderColor: '#FFFFFF',
         hoverOffset: 4,
