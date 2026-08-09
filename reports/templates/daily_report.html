@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Activity Report - {{ summary.date }}{% endblock %}
+{% block subtitle %}Daily Activity Report for {{ summary.date }}{% endblock %}
+
+{% block content %}
+<h2 style="font-size: 18px; margin-top: 0; margin-bottom: 16px; color: #0f172a;">
+  Daily Summary Overview
+</h2>
+
+<!-- Top Key Stats Grid -->
+<div class="stat-grid">
+  <div class="stat-card" style="margin-right: 8px;">
+    <div class="stat-label">Screen Time</div>
+    <div class="stat-value">{{ summary.total_screen_time_seconds | format_duration }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Productivity Score</div>
+    <div class="stat-value" style="color: {% if summary.productivity_score >= 70 %}#10b981{% elif summary.productivity_score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};">
+      {{ "%.1f" | format(summary.productivity_score) }}
+    </div>
+  </div>
+</div>
+
+<div class="stat-grid" style="margin-bottom: 24px;">
+  <div class="stat-card" style="margin-right: 8px;">
+    <div class="stat-label">Active Time</div>
+    <div class="stat-value">{{ summary.active_time_seconds | format_duration }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Idle Time</div>
+    <div class="stat-value">{{ summary.idle_time_seconds | format_duration }}</div>
+  </div>
+</div>
+
+<!-- Inline Chart: Productivity Donut -->
+{% if has_charts %}
+<div class="chart-section">
+  <img src="cid:chart_productivity" alt="Productivity Donut Chart" class="chart-img" />
+</div>
+{% endif %}
+
+<!-- Top Applications Table -->
+<h3 style="font-size: 15px; margin-bottom: 12px; color: #0f172a;">Top Applications Used</h3>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Application</th>
+      <th>Time Spent</th>
+      <th>Percentage</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for app in top_apps %}
+    <tr>
+      <td><strong>{{ app.app_name }}</strong></td>
+      <td>{{ app.duration_seconds | format_duration }}</td>
+      <td>{{ app.percentage }}%</td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="3" style="text-align: center; color: #64748b;">No application data recorded.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Inline Chart: App Usage -->
+{% if has_charts and top_apps %}
+<div class="chart-section">
+  <img src="cid:chart_apps" alt="Top Apps Bar Chart" class="chart-img" />
+</div>
+{% endif %}
+
+<!-- Top Websites Table -->
+<h3 style="font-size: 15px; margin-bottom: 12px; color: #0f172a;">Top Websites Visited</h3>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Domain / Website</th>
+      <th>Time Spent</th>
+      <th>Percentage</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for dom in top_domains %}
+    <tr>
+      <td><strong>{{ dom.domain }}</strong></td>
+      <td>{{ dom.duration_seconds | format_duration }}</td>
+      <td>{{ dom.percentage }}%</td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="3" style="text-align: center; color: #64748b;">No website data recorded.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Top YouTube Channels -->
+{% if top_channels %}
+<h3 style="font-size: 15px; margin-bottom: 12px; color: #0f172a;">Top YouTube Channels</h3>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Channel</th>
+      <th>Watch Duration</th>
+      <th>Percentage</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for ch in top_channels %}
+    <tr>
+      <td><strong>{{ ch.channel_name }}</strong></td>
+      <td>{{ ch.watch_duration_seconds | format_duration }}</td>
+      <td>{{ ch.percentage }}%</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<!-- AI Insights Section -->
+{% if insights %}
+<div class="insight-box">
+  <h4>Personal Wellbeing Insights</h4>
+  {% for insight in insights %}
+  <p style="margin-bottom: 6px;">• {{ insight }}</p>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

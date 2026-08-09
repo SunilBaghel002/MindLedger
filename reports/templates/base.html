@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}MindLedger Activity Report{% endblock %}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      background-color: #f8fafc;
+      padding: 20px 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .header {
+      background-color: #6366f1;
+      padding: 24px 30px;
+      text-align: left;
+    }
+    .header h1 {
+      margin: 0;
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .header p {
+      margin: 4px 0 0 0;
+      color: #e0e7ff;
+      font-size: 13px;
+    }
+    .content {
+      padding: 24px 30px;
+    }
+    .footer {
+      background-color: #f1f5f9;
+      padding: 16px 30px;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+      border-top: 1px solid #e2e8f0;
+    }
+    .stat-grid {
+      display: table;
+      width: 100%;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      display: table-cell;
+      width: 50%;
+      padding: 12px;
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      text-align: center;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+    }
+    .data-table th {
+      background-color: #f8fafc;
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .data-table td {
+      padding: 10px 12px;
+      font-size: 13px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #0f172a;
+    }
+    .chart-section {
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .chart-img {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+    .insight-box {
+      background-color: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 14px 16px;
+      margin-bottom: 24px;
+      border-radius: 0 6px 6px 0;
+    }
+    .insight-box h4 {
+      margin: 0 0 6px 0;
+      font-size: 14px;
+      color: #1e40af;
+    }
+    .insight-box p {
+      margin: 0;
+      font-size: 13px;
+      color: #1e3a8a;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <h1>MindLedger</h1>
+        <p>{% block subtitle %}Digital Wellbeing & Productivity Summary{% endblock %}</p>
+      </div>
+
+      <div class="content">
+        {% block content %}{% endblock %}
+      </div>
+
+      <div class="footer">
+        <p>Generated automatically by MindLedger local tracking system • Local Privacy First</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
