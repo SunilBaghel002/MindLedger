@@ -242,7 +242,9 @@ async def get_today_dashboard() -> APIResponse[DashboardTodayData]:
         hourly_totals = [p + n + u for p, n, u in zip(prod_mins, neut_mins, unprod_mins)]
         max_idx = hourly_totals.index(max(hourly_totals)) if any(hourly_totals) else 0
         peak_hour_str = labels[max_idx] if any(hourly_totals) else "N/A"
-        top_cat = top_apps[0].category if top_apps else "Development"
+
+        valid_cats = [a.category for a in top_apps if a.category and a.category.lower() != "uncategorized"]
+        top_cat = valid_cats[0].title() if valid_cats else ("Coding" if productive_seconds >= neutral_seconds else "Browsing")
 
         quick_stats = QuickStatsDTO(
             peak_hour=peak_hour_str,
@@ -556,20 +558,32 @@ async def get_reports_history() -> APIResponse[ReportHistoryData]:
             summary_repo = SummaryRepository(conn)
 
             # Fetch daily summaries
+            today_str = date.today().isoformat()
             cursor1 = conn.execute(
                 "SELECT * FROM daily_summaries ORDER BY date DESC LIMIT 50"
             )
             for row in cursor1.fetchall():
+                is_today = (row["date"] == today_str)
+                if is_today:
+                    live_sum = summary_repo.aggregate_daily_summary(today_str)
+                    screen_secs = live_sum.total_screen_time_seconds
+                    score_val = float(live_sum.productivity_score)
+                    top_app_val = live_sum.most_used_app
+                else:
+                    screen_secs = row["total_screen_time_seconds"]
+                    score_val = float(row["productivity_score"])
+                    top_app_val = row["most_used_app"]
+
                 reports.append(
                     ReportSummaryItem(
                         id=row["id"],
                         report_type="daily",
                         period_label=f"Daily Summary - {row['date']}",
                         date=row["date"],
-                        total_screen_time_seconds=row["total_screen_time_seconds"],
-                        productivity_score=float(row["productivity_score"]),
+                        total_screen_time_seconds=screen_secs,
+                        productivity_score=score_val,
                         email_sent=bool(row["email_sent"]),
-                        most_used_app=row["most_used_app"],
+                        most_used_app=top_app_val,
                     )
                 )
 

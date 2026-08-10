@@ -569,54 +569,61 @@ export default function SettingsPage() {
                 <FiLock /> Data Management, Backup & Privacy
               </h3>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '540px' }}>
-                <div style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-page)' }}>
-                  <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '4px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <FiDownload /> Export Complete Activity Data (JSON)
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', width: '100%' }}>
+                <div style={{ padding: '20px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-page)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '6px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FiDownload style={{ color: 'var(--primary-blue)' }} /> Export Complete Activity Data (JSON)
+                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
+                      Download all local application tracking sessions, browser domain logs, and YouTube watch history records in structured JSON format.
+                    </p>
                   </div>
-                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-                    Download all local application tracking sessions, browser domain logs, and YouTube history records.
-                  </p>
                   <a
                     href={exportUrl}
                     download
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
+                      justifyContent: 'center',
                       gap: '6px',
-                      padding: '8px 16px',
+                      padding: '10px 16px',
                       borderRadius: 'var(--radius-sm)',
                       backgroundColor: 'var(--primary-blue)',
                       color: '#fff',
                       fontWeight: '600',
                       fontSize: '13px',
                       textDecoration: 'none',
+                      boxShadow: 'var(--shadow-sm)',
                     }}
                   >
                     <FiDownload /> Download Activity JSON
                   </a>
                 </div>
 
-                <div style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-page)' }}>
-                  <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '4px', color: 'var(--color-unproductive)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <FiTrash2 /> Clear Tracking History
+                <div style={{ padding: '20px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-page)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '6px', color: 'var(--color-unproductive)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FiTrash2 /> Clear Tracking History
+                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
+                      Purge app sessions, web tracking logs, YouTube watch history, and summary reports permanently from your local SQLite database.
+                    </p>
                   </div>
-                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-                    Purge app sessions, web tracking logs, YouTube watch history, and summary reports from the SQLite database.
-                  </p>
                   <button
                     onClick={handleClearHistory}
                     style={{
-                      padding: '8px 16px',
+                      padding: '10px 16px',
                       borderRadius: 'var(--radius-sm)',
                       border: '1px solid var(--color-unproductive)',
-                      backgroundColor: 'rgba(252, 129, 129, 0.1)',
+                      backgroundColor: '#FFF1F2',
                       color: 'var(--color-unproductive)',
                       fontWeight: '600',
                       fontSize: '13px',
                       cursor: 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
+                      justifyContent: 'center',
                       gap: '6px',
                     }}
                   >
