@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { FiCheckCircle, FiDatabase, FiDownload, FiLock, FiMail, FiPauseCircle, FiPlus, FiSave, FiSend, FiShield, FiSliders, FiTag, FiTrash2 } from 'react-icons/fi';
 import { api } from '../services/api';
 
 const TABS = [
-  { id: 'general', label: 'General & Tracking', icon: '⚙️' },
-  { id: 'email', label: 'Email & SMTP', icon: '✉️' },
-  { id: 'rules', label: 'Category Rules', icon: '🏷️' },
-  { id: 'data', label: 'Data & Privacy', icon: '🔒' },
+  { id: 'general', label: 'General & Tracking', icon: <FiSliders /> },
+  { id: 'email', label: 'Email & SMTP', icon: <FiMail /> },
+  { id: 'rules', label: 'Category Rules', icon: <FiTag /> },
+  { id: 'data', label: 'Data & Privacy', icon: <FiLock /> },
 ];
 
 export default function SettingsPage() {
@@ -145,7 +146,7 @@ export default function SettingsPage() {
       <div className="card">
         <div className="card-header" style={{ marginBottom: '16px' }}>
           <h2 className="card-title">
-            <span className="card-icon">⚙️</span> MindLedger Preferences & Settings
+            <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiSliders /></span> MindLedger Preferences & Settings
           </h2>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
             System Configuration
@@ -167,6 +168,9 @@ export default function SettingsPage() {
                 fontWeight: activeTab === t.id ? '600' : '500',
                 fontSize: '13px',
                 cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
               {t.icon} {t.label}
@@ -203,8 +207,8 @@ export default function SettingsPage() {
           {/* TAB 1: General & Tracking */}
           {activeTab === 'general' && (
             <div className="card">
-              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'var(--text-main)' }}>
-                ⚙️ Tracking & Idle Threshold Controls
+              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FiSliders /> Tracking & Idle Threshold Controls
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '500px' }}>
@@ -232,9 +236,12 @@ export default function SettingsPage() {
                       fontWeight: '600',
                       fontSize: '13px',
                       cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
                     }}
                   >
-                    {settingsData.tracking_enabled ? '✓ Tracking Active' : '⏸️ Tracking Paused'}
+                    {settingsData.tracking_enabled ? <><FiCheckCircle /> Tracking Active</> : <><FiPauseCircle /> Tracking Paused</>}
                   </button>
                 </div>
 
@@ -275,9 +282,12 @@ export default function SettingsPage() {
                       fontWeight: '600',
                       fontSize: '13px',
                       cursor: saving ? 'wait' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
                     }}
                   >
-                    {saving ? 'Saving...' : '💾 Save General Preferences'}
+                    <FiSave /> {saving ? 'Saving...' : 'Save General Preferences'}
                   </button>
                 </div>
               </div>
@@ -287,8 +297,8 @@ export default function SettingsPage() {
           {/* TAB 2: Email & SMTP Settings */}
           {activeTab === 'email' && (
             <div className="card">
-              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'var(--text-main)' }}>
-                ✉️ SMTP Email Server Configuration
+              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FiMail /> SMTP Email Server Configuration
               </h3>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxWidth: '640px' }}>
@@ -371,9 +381,12 @@ export default function SettingsPage() {
                     fontWeight: '600',
                     fontSize: '13px',
                     cursor: saving ? 'wait' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
                   }}
                 >
-                  {saving ? 'Saving...' : '💾 Save Email Credentials'}
+                  <FiSave /> {saving ? 'Saving...' : 'Save Email Credentials'}
                 </button>
 
                 <button
@@ -388,9 +401,12 @@ export default function SettingsPage() {
                     fontWeight: '600',
                     fontSize: '13px',
                     cursor: testingEmail ? 'wait' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
                   }}
                 >
-                  {testingEmail ? 'Testing...' : '✉️ Dispatch Test Email'}
+                  <FiSend /> {testingEmail ? 'Testing...' : 'Dispatch Test Email'}
                 </button>
               </div>
             </div>
@@ -399,8 +415,8 @@ export default function SettingsPage() {
           {/* TAB 3: Category Rules Manager */}
           {activeTab === 'rules' && (
             <div className="card">
-              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'var(--text-main)' }}>
-                🏷️ Custom Category & Productivity Classification Rules
+              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FiTag /> Custom Category & Productivity Classification Rules
               </h3>
 
               {/* Add New Rule Form */}
@@ -470,9 +486,12 @@ export default function SettingsPage() {
                       fontWeight: '600',
                       fontSize: '12px',
                       cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
                     }}
                   >
-                    + Add Rule
+                    <FiPlus /> Add Rule
                   </button>
                 </div>
               </form>
@@ -517,9 +536,12 @@ export default function SettingsPage() {
                               backgroundColor: 'var(--bg-page)',
                               color: 'var(--color-unproductive)',
                               cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
                             }}
                           >
-                            🗑️ Delete
+                            <FiTrash2 /> Delete
                           </button>
                         </td>
                       </tr>
@@ -528,7 +550,7 @@ export default function SettingsPage() {
                 </table>
               ) : (
                 <div className="empty-state">
-                  <div className="empty-icon">🏷️</div>
+                  <div className="empty-icon"><FiTag /></div>
                   <div className="empty-title">No custom classification rules defined</div>
                 </div>
               )}
@@ -538,14 +560,14 @@ export default function SettingsPage() {
           {/* TAB 4: Data Management & Privacy */}
           {activeTab === 'data' && (
             <div className="card">
-              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'var(--text-main)' }}>
-                🔒 Data Management, Backup & Privacy
+              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FiLock /> Data Management, Backup & Privacy
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '540px' }}>
                 <div style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-page)' }}>
-                  <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '4px', color: 'var(--text-main)' }}>
-                    📥 Export Complete Activity Data (JSON)
+                  <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '4px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FiDownload /> Export Complete Activity Data (JSON)
                   </div>
                   <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
                     Download all local application tracking sessions, browser domain logs, and YouTube history records.
@@ -554,7 +576,9 @@ export default function SettingsPage() {
                     href={exportUrl}
                     download
                     style={{
-                      display: 'inline-block',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
                       padding: '8px 16px',
                       borderRadius: 'var(--radius-sm)',
                       backgroundColor: 'var(--primary-blue)',
@@ -564,13 +588,13 @@ export default function SettingsPage() {
                       textDecoration: 'none',
                     }}
                   >
-                    📥 Download Activity JSON
+                    <FiDownload /> Download Activity JSON
                   </a>
                 </div>
 
                 <div style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-page)' }}>
-                  <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '4px', color: 'var(--color-unproductive)' }}>
-                    🗑️ Clear Tracking History
+                  <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '4px', color: 'var(--color-unproductive)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FiTrash2 /> Clear Tracking History
                   </div>
                   <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
                     Purge app sessions, web tracking logs, YouTube watch history, and summary reports from the SQLite database.
@@ -586,9 +610,12 @@ export default function SettingsPage() {
                       fontWeight: '600',
                       fontSize: '13px',
                       cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
                     }}
                   >
-                    🗑️ Clear All Tracking History
+                    <FiTrash2 /> Clear All Tracking History
                   </button>
                 </div>
               </div>

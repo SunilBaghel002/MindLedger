@@ -75,6 +75,7 @@ async def receive_browser_event(event: BrowserEventSchema) -> Dict:
                 ended_dt = None
 
         date_str = started_dt.strftime("%Y-%m-%d")
+        duration_seconds = max(0, min(event.duration_seconds, 7200))
 
         with db_manager.connection() as conn:
             rules_engine = RulesEngine(db_conn=conn)
@@ -91,7 +92,7 @@ async def receive_browser_event(event: BrowserEventSchema) -> Dict:
                 tab_id=event.tab_id,
                 started_at=started_dt,
                 ended_at=ended_dt,
-                duration_seconds=event.duration_seconds,
+                duration_seconds=duration_seconds,
                 is_active=True,
                 category=category,
                 subcategory=subcategory,

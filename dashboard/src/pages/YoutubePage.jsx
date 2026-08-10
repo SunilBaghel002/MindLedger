@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import StatCard from '../components/StatCard';
+import { FiAlertTriangle, FiAward, FiBookOpen, FiExternalLink, FiList, FiPlayCircle, FiSearch, FiYoutube, FiZap } from 'react-icons/fi';
 import CategoryDonut from '../components/CategoryDonut';
+import StatCard from '../components/StatCard';
 import { api } from '../services/api';
 import { secondsToHms } from '../utils/formatters';
 
@@ -155,7 +156,9 @@ export default function YoutubePage() {
         </div>
       ) : error ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '36px', marginBottom: '12px' }}>⚠️</div>
+          <div style={{ fontSize: '32px', color: 'var(--color-unproductive)', marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
+            <FiAlertTriangle />
+          </div>
           <p style={{ color: 'var(--text-secondary)' }}>{error}</p>
         </div>
       ) : (
@@ -164,21 +167,21 @@ export default function YoutubePage() {
           <div className="grid-3">
             <StatCard
               label="Total YouTube Watch Time"
-              icon="📺"
+              icon={<FiYoutube />}
               value={totalTimeStr}
               subtext={`Selected range (${rangePreset})`}
               isPositive={true}
             />
             <StatCard
               label="Shorts vs Longform"
-              icon="⚡"
+              icon={<FiZap />}
               value={`${shortsPct}% Shorts`}
               subtext={`${secondsToHms(analyticsData?.shorts_watch_seconds || 0)} Shorts / ${secondsToHms(analyticsData?.longform_watch_seconds || 0)} Longform`}
               isPositive={shortsPct < 30}
             />
             <StatCard
               label="Productive Watch Time"
-              icon="🎓"
+              icon={<FiBookOpen />}
               value={secondsToHms(analyticsData?.productive_watch_seconds || 0)}
               subtext={`Vs ${secondsToHms(analyticsData?.entertainment_watch_seconds || 0)} Entertainment`}
               isPositive={true}
@@ -190,7 +193,7 @@ export default function YoutubePage() {
             <div className="card">
               <div className="card-header">
                 <h2 className="card-title">
-                  <span className="card-icon">👑</span> Top Channels Watched
+                  <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiAward /></span> Top Channels Watched
                 </h2>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                   {channelsList.length} channels
@@ -213,7 +216,7 @@ export default function YoutubePage() {
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontSize: '18px' }}>▶️</span>
+                          <span style={{ fontSize: '16px', color: '#E53E3E', display: 'flex', alignItems: 'center' }}><FiPlayCircle /></span>
                           <div>
                             <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-main)' }}>
                               {item.channel_name || 'Unknown Channel'}
@@ -232,7 +235,7 @@ export default function YoutubePage() {
                 </div>
               ) : (
                 <div className="empty-state">
-                  <div className="empty-icon">📺</div>
+                  <div className="empty-icon"><FiYoutube /></div>
                   <div className="empty-title">No channel records found</div>
                 </div>
               )}
@@ -245,7 +248,7 @@ export default function YoutubePage() {
           <div className="card">
             <div className="card-header">
               <h2 className="card-title">
-                <span className="card-icon">📜</span> Video Watch History
+                <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiList /></span> Video Watch History
               </h2>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 {historyList.length} watched videos
@@ -272,25 +275,25 @@ export default function YoutubePage() {
                           <div style={{ fontWeight: '600', color: 'var(--text-main)', marginBottom: '2px' }}>
                             {item.video_title || 'Untitled YouTube Video'}
                           </div>
-                          <div style={{ fontSize: '12px', display: 'flex', gap: '8px' }}>
+                          <div style={{ fontSize: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>{item.channel_name || 'Unknown Channel'}</span>
                             {videoUrl !== '#' && (
                               <a
                                 href={videoUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{ color: 'var(--primary-blue)', textDecoration: 'none' }}
+                                style={{ color: 'var(--primary-blue)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
                               >
-                                Watch 🔗
+                                Watch <FiExternalLink />
                               </a>
                             )}
                           </div>
                         </td>
                         <td>
                           {item.is_short ? (
-                            <span className="badge badge-unproductive">⚡ Short</span>
+                            <span className="badge badge-unproductive"><FiZap style={{ marginRight: '3px' }} /> Short</span>
                           ) : (
-                            <span className="badge badge-productive">📹 Video</span>
+                            <span className="badge badge-productive"><FiPlayCircle style={{ marginRight: '3px' }} /> Video</span>
                           )}
                         </td>
                         <td>
@@ -311,7 +314,7 @@ export default function YoutubePage() {
               </table>
             ) : (
               <div className="empty-state">
-                <div className="empty-icon">🔍</div>
+                <div className="empty-icon"><FiSearch /></div>
                 <div className="empty-title">No watched videos matching query</div>
               </div>
             )}

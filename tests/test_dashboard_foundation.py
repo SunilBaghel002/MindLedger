@@ -1,12 +1,28 @@
+import pytest
 from datetime import date, datetime
 from fastapi.testclient import TestClient
 
 from api.server import app
 from database.connection import db_manager
+from database.migrations import v001_initial
 from database.models import AppSession, BrowserSession, YouTubeActivity
 from database.repositories.app_session_repo import AppSessionRepository
 from database.repositories.browser_session_repo import BrowserSessionRepository
 from database.repositories.youtube_repo import YouTubeRepository
+from database.seed_data import seed_database
+
+
+@pytest.fixture(autouse=True)
+def setup_test_db(tmp_path, monkeypatch):
+    """Use an isolated temporary SQLite database for test execution."""
+    test_db_path = str(tmp_path / "test_foundation.db")
+    monkeypatch.setattr(db_manager, "db_path", test_db_path)
+
+    with db_manager.connection() as conn:
+        v001_initial.up(conn)
+        seed_database(conn)
+
+    yield test_db_path
 
 
 def test_dashboard_index_html_route():
@@ -125,7 +141,7 @@ def test_youtube_analytics_endpoint():
     assert json_data["data"]["date_range"] == "today"
     assert json_data["data"]["total_watch_seconds"] >= 500
     assert len(json_data["data"]["top_channels"]) >= 1
-    assert json_data["data"]["top_channels"][0]["channel_name"] == "Tech Channel"
+    assert any(c["channel_name"] == "Tech Channel" for c in json_data["data"]["top_channels"])
     assert len(json_data["data"]["history"]) >= 1
     assert "FastAPI" in json_data["data"]["history"][0]["video_title"]
 

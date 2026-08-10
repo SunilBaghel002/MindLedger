@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import StatCard from '../components/StatCard';
+import { FiAlertTriangle, FiGlobe, FiLink, FiPieChart, FiSearch, FiStar, FiTrendingUp } from 'react-icons/fi';
 import CategoryDonut from '../components/CategoryDonut';
+import StatCard from '../components/StatCard';
 import URLDetailModal from '../components/URLDetailModal';
 import { api } from '../services/api';
 import { secondsToHms } from '../utils/formatters';
@@ -135,7 +136,9 @@ export default function BrowserPage() {
         </div>
       ) : error ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '36px', marginBottom: '12px' }}>⚠️</div>
+          <div style={{ fontSize: '32px', color: 'var(--color-unproductive)', marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
+            <FiAlertTriangle />
+          </div>
           <p style={{ color: 'var(--text-secondary)' }}>{error}</p>
         </div>
       ) : (
@@ -144,21 +147,21 @@ export default function BrowserPage() {
           <div className="grid-3">
             <StatCard
               label="Total Browsing Time"
-              icon="🌐"
+              icon={<FiGlobe />}
               value={totalTimeStr}
               subtext={`Selected range (${rangePreset})`}
               isPositive={true}
             />
             <StatCard
               label="Unique Domains Visited"
-              icon="🔗"
+              icon={<FiLink />}
               value={domainsCount.toString()}
               subtext="Distinct website domains"
               isPositive={true}
             />
             <StatCard
               label="Top Website"
-              icon="⭐"
+              icon={<FiStar />}
               value={topSite}
               subtext={domainsList.length > 0 ? secondsToHms(domainsList[0].total_seconds) : 'No data'}
               isPositive={true}
@@ -170,7 +173,7 @@ export default function BrowserPage() {
             <div className="card">
               <div className="card-header">
                 <h2 className="card-title">
-                  <span className="card-icon">🔥</span> Most Visited Websites
+                  <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiTrendingUp /></span> Most Visited Websites
                 </h2>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                   Top 5 sites
@@ -191,7 +194,7 @@ export default function BrowserPage() {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '16px' }}>🌐</span>
+                        <span style={{ fontSize: '14px', color: 'var(--primary-blue)', display: 'flex', alignItems: 'center' }}><FiGlobe /></span>
                         <div>
                           <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-main)' }}>
                             {item.domain}
@@ -209,7 +212,7 @@ export default function BrowserPage() {
                 </div>
               ) : (
                 <div className="empty-state">
-                  <div className="empty-icon">🌐</div>
+                  <div className="empty-icon"><FiGlobe /></div>
                   <div className="empty-title">No top websites recorded</div>
                 </div>
               )}
@@ -222,7 +225,7 @@ export default function BrowserPage() {
           <div className="card">
             <div className="card-header">
               <h2 className="card-title">
-                <span className="card-icon">📊</span> All Visited Domains
+                <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiPieChart /></span> All Visited Domains
               </h2>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 {domainsList.length} domains
@@ -248,7 +251,7 @@ export default function BrowserPage() {
                     return (
                       <tr key={idx}>
                         <td style={{ fontWeight: '600' }}>
-                          <span>🌐 {item.domain}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><FiGlobe style={{ color: 'var(--primary-blue)' }} /> {item.domain}</span>
                         </td>
                         <td>
                           <span className={`badge badge-${colorClass}`}>
@@ -281,9 +284,12 @@ export default function BrowserPage() {
                               color: 'var(--primary-blue)',
                               fontWeight: '600',
                               cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
                             }}
                           >
-                            Inspect URLs
+                            <FiSearch /> Inspect URLs
                           </button>
                         </td>
                       </tr>
@@ -293,7 +299,7 @@ export default function BrowserPage() {
               </table>
             ) : (
               <div className="empty-state">
-                <div className="empty-icon">🌐</div>
+                <div className="empty-icon"><FiGlobe /></div>
                 <div className="empty-title">No domain records found for selected filters</div>
               </div>
             )}

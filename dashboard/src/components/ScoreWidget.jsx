@@ -1,4 +1,5 @@
 import React from 'react';
+import { FiAward } from 'react-icons/fi';
 
 export default function ScoreWidget({ score = 0 }) {
   const roundedScore = Math.round(score);
@@ -14,7 +15,7 @@ export default function ScoreWidget({ score = 0 }) {
     <div className="card stat-card">
       <div className="card-header">
         <span className="stat-label">Productivity Score</span>
-        <span className="card-icon">⚡</span>
+        <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiAward /></span>
       </div>
       <div className="score-widget">
         <div className="score-circle-container">

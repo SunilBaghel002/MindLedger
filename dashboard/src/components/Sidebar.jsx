@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { FiActivity, FiFileText, FiGlobe, FiGrid, FiLayers, FiSliders, FiYoutube } from 'react-icons/fi';
 import { api } from '../services/api';
 import { secondsToHms } from '../utils/formatters';
 
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-  { id: 'apps', label: 'Applications', icon: '📱' },
-  { id: 'browser', label: 'Browser', icon: '🌐' },
-  { id: 'youtube', label: 'YouTube', icon: '📺' },
-  { id: 'reports', label: 'Reports', icon: '📊' },
-  { id: 'settings', label: 'Settings', icon: '⚙️' },
+  { id: 'dashboard', label: 'Dashboard', icon: <FiGrid /> },
+  { id: 'apps', label: 'Applications', icon: <FiLayers /> },
+  { id: 'browser', label: 'Browser', icon: <FiGlobe /> },
+  { id: 'youtube', label: 'YouTube', icon: <FiYoutube /> },
+  { id: 'reports', label: 'Reports', icon: <FiFileText /> },
+  { id: 'settings', label: 'Settings', icon: <FiSliders /> },
 ];
 
 export default function Sidebar({ activeSection, onSelectSection }) {
@@ -46,7 +47,7 @@ export default function Sidebar({ activeSection, onSelectSection }) {
     <aside className="sidebar">
       <div>
         <div className="sidebar-header">
-          <span className="logo-icon">🧠</span>
+          <span className="logo-icon-svg"><FiActivity /></span>
           <div className="brand-info">
             <span className="brand-title">MindLedger</span>
             <span className="brand-subtitle">Digital Wellbeing</span>

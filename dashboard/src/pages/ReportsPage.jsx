@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { FiBookOpen, FiCalendar, FiCheckCircle, FiClock, FiDownload, FiFileText, FiMail, FiPieChart, FiSend, FiZap } from 'react-icons/fi';
 import StatCard from '../components/StatCard';
 import { api } from '../services/api';
 import { secondsToHms } from '../utils/formatters';
 
 const REPORT_TYPES = [
-  { id: 'daily', label: 'Daily Report', icon: '📅' },
-  { id: 'weekly', label: 'Weekly Summary', icon: '🗓️' },
-  { id: 'monthly', label: 'Monthly Digest', icon: '📊' },
+  { id: 'daily', label: 'Daily Report', icon: <FiCalendar /> },
+  { id: 'weekly', label: 'Weekly Summary', icon: <FiFileText /> },
+  { id: 'monthly', label: 'Monthly Digest', icon: <FiPieChart /> },
 ];
 
 export default function ReportsPage() {
@@ -98,7 +99,7 @@ export default function ReportsPage() {
       <div className="card">
         <div className="card-header" style={{ marginBottom: '16px' }}>
           <h2 className="card-title">
-            <span className="card-icon">⚡</span> Report Generator & Exporter
+            <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiZap /></span> Report Generator & Exporter
           </h2>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
             Pipeline Orchestration
@@ -130,6 +131,9 @@ export default function ReportsPage() {
                   fontWeight: reportType === t.id ? '600' : '500',
                   fontSize: '13px',
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
                 }}
               >
                 {t.icon} {t.label}
@@ -167,9 +171,12 @@ export default function ReportsPage() {
                 fontWeight: '600',
                 fontSize: '13px',
                 cursor: generating ? 'wait' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
-              {generating ? 'Processing...' : '🚀 Generate Report'}
+              <FiSend /> {generating ? 'Processing...' : 'Generate Report'}
             </button>
           </div>
         </div>
@@ -198,7 +205,7 @@ export default function ReportsPage() {
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">
-              <span className="card-icon">📋</span> Active Report Preview
+              <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiFileText /></span> Active Report Preview
             </h2>
             <span className={`badge badge-${activeReport.productivity_score >= 70 ? 'productive' : 'neutral'}`}>
               Score: {activeReport.productivity_score}%
@@ -208,21 +215,21 @@ export default function ReportsPage() {
           <div className="grid-3" style={{ marginBottom: '16px' }}>
             <StatCard
               label="Report Period"
-              icon="🗓️"
+              icon={<FiCalendar />}
               value={activeReport.period_label}
               subtext={`Target Date: ${activeReport.date}`}
               isPositive={true}
             />
             <StatCard
               label="Screen Time"
-              icon="⏱️"
+              icon={<FiClock />}
               value={secondsToHms(activeReport.total_screen_time_seconds)}
               subtext={`Most used: ${activeReport.most_used_app || 'N/A'}`}
               isPositive={true}
             />
             <StatCard
               label="Delivery Status"
-              icon="✉️"
+              icon={<FiMail />}
               value={activeReport.email_sent ? 'Email Sent' : 'Not Emailed'}
               subtext={activeReport.email_sent ? 'Dispatched via SMTP' : 'Ready for email'}
               isPositive={activeReport.email_sent}
@@ -243,9 +250,12 @@ export default function ReportsPage() {
                 fontWeight: '600',
                 textDecoration: 'none',
                 fontSize: '13px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
-              📥 Download HTML Report
+              <FiDownload /> Download HTML Report
             </a>
 
             <a
@@ -261,9 +271,12 @@ export default function ReportsPage() {
                 fontWeight: '600',
                 textDecoration: 'none',
                 fontSize: '13px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
-              📄 Download PDF Report
+              <FiFileText /> Download PDF Report
             </a>
 
             <button
@@ -278,9 +291,12 @@ export default function ReportsPage() {
                 fontWeight: '600',
                 fontSize: '13px',
                 cursor: emailSending ? 'wait' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
-              {emailSending ? 'Sending...' : '✉️ Send Email Report'}
+              <FiMail /> {emailSending ? 'Sending...' : 'Send Email Report'}
             </button>
           </div>
         </div>
@@ -290,7 +306,7 @@ export default function ReportsPage() {
       <div className="card">
         <div className="card-header">
           <h2 className="card-title">
-            <span className="card-icon">📚</span> Generated Reports Archive
+            <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiBookOpen /></span> Generated Reports Archive
           </h2>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
             {historyReports.length} reports saved
@@ -338,7 +354,7 @@ export default function ReportsPage() {
                     </td>
                     <td>
                       {item.email_sent ? (
-                        <span className="badge badge-productive">✓ Sent</span>
+                        <span className="badge badge-productive" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><FiCheckCircle /> Sent</span>
                       ) : (
                         <span className="badge badge-neutral">Not Sent</span>
                       )}
@@ -388,9 +404,11 @@ export default function ReportsPage() {
                             backgroundColor: 'var(--bg-page)',
                             color: 'var(--text-secondary)',
                             cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
                           }}
                         >
-                          ✉️
+                          <FiMail />
                         </button>
                       </div>
                     </td>
@@ -401,7 +419,7 @@ export default function ReportsPage() {
           </table>
         ) : (
           <div className="empty-state">
-            <div className="empty-icon">📊</div>
+            <div className="empty-icon"><FiFileText /></div>
             <div className="empty-title">No generated report summaries found</div>
           </div>
         )}

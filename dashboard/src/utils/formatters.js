@@ -20,5 +20,5 @@ export function secondsToHms(totalSeconds) {
 
 export function formatHeaderDate(dateObj = new Date()) {
     const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
-    return `📅 ${dateObj.toLocaleDateString('en-US', options)}`;
+    return dateObj.toLocaleDateString('en-US', options);
 }

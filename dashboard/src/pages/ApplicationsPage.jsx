@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import StatCard from '../components/StatCard';
-import CategoryDonut from '../components/CategoryDonut';
+import { FiAlertTriangle, FiAward, FiClock, FiLayers } from 'react-icons/fi';
 import AppTrendChart from '../components/AppTrendChart';
+import CategoryDonut from '../components/CategoryDonut';
+import StatCard from '../components/StatCard';
 import { api } from '../services/api';
 import { secondsToHms } from '../utils/formatters';
 
@@ -133,7 +134,9 @@ export default function ApplicationsPage() {
         </div>
       ) : error ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '36px', marginBottom: '12px' }}>⚠️</div>
+          <div style={{ fontSize: '32px', color: 'var(--color-unproductive)', marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
+            <FiAlertTriangle />
+          </div>
           <p style={{ color: 'var(--text-secondary)' }}>{error}</p>
         </div>
       ) : (
@@ -142,21 +145,21 @@ export default function ApplicationsPage() {
           <div className="grid-3">
             <StatCard
               label="Total Screen Time"
-              icon="⏱️"
+              icon={<FiClock />}
               value={totalTimeStr}
               subtext={`Selected range (${rangePreset})`}
               isPositive={true}
             />
             <StatCard
               label="Tracked Applications"
-              icon="📱"
+              icon={<FiLayers />}
               value={appsCount.toString()}
               subtext="Distinct applications"
               isPositive={true}
             />
             <StatCard
               label="Top Application"
-              icon="💻"
+              icon={<FiAward />}
               value={topAppName}
               subtext={appsList.length > 0 ? secondsToHms(appsList[0].total_seconds) : 'No data'}
               isPositive={true}
@@ -171,7 +174,7 @@ export default function ApplicationsPage() {
             <div className="card">
               <div className="card-header">
                 <h2 className="card-title">
-                  <span className="card-icon">📱</span> Applications List
+                  <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiLayers /></span> Applications List
                 </h2>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                   {appsList.length} applications
@@ -186,7 +189,9 @@ export default function ApplicationsPage() {
                     return (
                       <div key={idx} className="usage-item">
                         <div className="usage-meta">
-                          <span className="usage-name">💻 {app.app_name}</span>
+                          <span className="usage-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <FiLayers style={{ color: 'var(--primary-blue)' }} /> {app.app_name}
+                          </span>
                           <span className="usage-duration">
                             {secondsToHms(app.total_seconds)}
                           </span>
@@ -203,7 +208,7 @@ export default function ApplicationsPage() {
                 </div>
               ) : (
                 <div className="empty-state">
-                  <div className="empty-icon">📱</div>
+                  <div className="empty-icon"><FiLayers /></div>
                   <div className="empty-title">No applications found for selected filters</div>
                 </div>
               )}

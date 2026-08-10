@@ -1,10 +1,11 @@
 import React from 'react';
-import StatCard from '../components/StatCard';
-import ScoreWidget from '../components/ScoreWidget';
+import { FiAlertTriangle, FiCheckCircle, FiClock, FiLayers, FiRefreshCw, FiZap } from 'react-icons/fi';
 import ActivityTimeline from '../components/ActivityTimeline';
 import CategoryDonut from '../components/CategoryDonut';
-import TopWebsites from '../components/TopWebsites';
 import QuickStats from '../components/QuickStats';
+import ScoreWidget from '../components/ScoreWidget';
+import StatCard from '../components/StatCard';
+import TopWebsites from '../components/TopWebsites';
 import { secondsToHms } from '../utils/formatters';
 
 export default function DashboardHome({ data, error, onRetry }) {
@@ -12,7 +13,9 @@ export default function DashboardHome({ data, error, onRetry }) {
     return (
       <section className="page-section">
         <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '36px', marginBottom: '12px' }}>⚠️</div>
+          <div style={{ fontSize: '32px', color: 'var(--color-unproductive)', marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
+            <FiAlertTriangle />
+          </div>
           <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>
             Failed to load dashboard data
           </h2>
@@ -30,9 +33,12 @@ export default function DashboardHome({ data, error, onRetry }) {
                 borderRadius: 'var(--radius-sm)',
                 fontWeight: '600',
                 cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
-              Retry
+              <FiRefreshCw /> Retry
             </button>
           )}
         </div>
@@ -55,14 +61,14 @@ export default function DashboardHome({ data, error, onRetry }) {
       <div className="grid-3">
         <StatCard
           label="Total Screen Time"
-          icon="⏱️"
+          icon={<FiClock />}
           value={totalScreenTime}
           subtext="Active tracking today"
           isPositive={true}
         />
         <StatCard
           label="Productive Time"
-          icon="🎯"
+          icon={<FiCheckCircle />}
           value={productiveTime}
           subtext={`${prodPct}% of total screen time`}
           isPositive={prodPct >= 50}
@@ -82,7 +88,7 @@ export default function DashboardHome({ data, error, onRetry }) {
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">
-              <span className="card-icon">💻</span> Top Applications
+              <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiLayers /></span> Top Applications
             </h2>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
               Time spent
@@ -97,7 +103,9 @@ export default function DashboardHome({ data, error, onRetry }) {
                 return (
                   <div key={idx} className="usage-item">
                     <div className="usage-meta">
-                      <span className="usage-name">💻 {app.app_name}</span>
+                      <span className="usage-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <FiLayers style={{ color: 'var(--primary-blue)' }} /> {app.app_name}
+                      </span>
                       <span className="usage-duration">
                         {secondsToHms(app.total_seconds)}
                       </span>
@@ -114,7 +122,7 @@ export default function DashboardHome({ data, error, onRetry }) {
             </div>
           ) : (
             <div className="empty-state">
-              <div className="empty-icon">📱</div>
+              <div className="empty-icon"><FiLayers /></div>
               <div className="empty-title">No application sessions yet</div>
             </div>
           )}

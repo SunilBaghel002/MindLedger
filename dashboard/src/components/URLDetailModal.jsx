@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { FiLink, FiSearch, FiX } from 'react-icons/fi';
 import { api } from '../services/api';
 import { secondsToHms } from '../utils/formatters';
 
@@ -68,7 +69,7 @@ export default function URLDetailModal({ domain, rangePreset, onClose }) {
       >
         <div className="card-header" style={{ marginBottom: '16px' }}>
           <h2 className="card-title">
-            <span className="card-icon">🔍</span> {domain} Page Breakdown
+            <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiSearch /></span> {domain} Page Breakdown
           </h2>
           <button
             onClick={onClose}
@@ -76,12 +77,14 @@ export default function URLDetailModal({ domain, rangePreset, onClose }) {
             style={{
               background: 'none',
               border: 'none',
-              fontSize: '20px',
+              fontSize: '18px',
               cursor: 'pointer',
               color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
             }}
           >
-            ✕
+            <FiX />
           </button>
         </div>
 
@@ -132,7 +135,7 @@ export default function URLDetailModal({ domain, rangePreset, onClose }) {
             </table>
           ) : (
             <div className="empty-state">
-              <div className="empty-icon">🔗</div>
+              <div className="empty-icon"><FiLink /></div>
               <div className="empty-title">No detailed page logs found</div>
             </div>
           )}
