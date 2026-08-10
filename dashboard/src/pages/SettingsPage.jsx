@@ -143,24 +143,24 @@ export default function SettingsPage() {
   return (
     <section className="page-section">
       {/* Header Tabs */}
-      <div className="card">
+      <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
         <div className="card-header" style={{ marginBottom: '16px' }}>
           <h2 className="card-title">
-            <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiSliders /></span> MindLedger Preferences & Settings
+            <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiSliders style={{ color: 'var(--primary-blue)' }} /></span> MindLedger System Preferences
           </h2>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            System Configuration
+            System Configuration & Automation
           </span>
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
               aria-pressed={activeTab === t.id}
               style={{
-                padding: '8px 16px',
+                padding: '9px 18px',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--border-color)',
                 backgroundColor: activeTab === t.id ? 'var(--primary-blue)' : 'var(--bg-page)',
@@ -170,7 +170,9 @@ export default function SettingsPage() {
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '8px',
+                boxShadow: activeTab === t.id ? 'var(--shadow-sm)' : 'none',
+                transition: 'all 0.15s ease',
               }}
             >
               {t.icon} {t.label}
@@ -183,16 +185,19 @@ export default function SettingsPage() {
           <div
             style={{
               marginTop: '16px',
-              padding: '10px 14px',
+              padding: '12px 16px',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: actionMessage.type === 'success' ? 'rgba(72, 187, 120, 0.12)' : 'rgba(252, 129, 129, 0.12)',
-              color: actionMessage.type === 'success' ? '#276749' : '#9B2C2C',
-              border: `1px solid ${actionMessage.type === 'success' ? '#9AE6B4' : '#FEB2B2'}`,
+              backgroundColor: actionMessage.type === 'success' ? '#ECFDF5' : '#FFF1F2',
+              color: actionMessage.type === 'success' ? '#047857' : '#BE123C',
+              border: `1px solid ${actionMessage.type === 'success' ? '#A7F3D0' : '#FECDD3'}`,
               fontSize: '13px',
-              fontWeight: '500',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
             }}
           >
-            {actionMessage.text}
+            {actionMessage.type === 'success' ? <FiCheckCircle /> : <FiShield />} {actionMessage.text}
           </div>
         )}
       </div>

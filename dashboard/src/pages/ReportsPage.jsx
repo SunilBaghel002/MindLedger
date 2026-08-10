@@ -95,61 +95,65 @@ export default function ReportsPage() {
 
   return (
     <section className="page-section">
-      {/* Controls Bar: Type Tabs + Date Picker + Action Buttons */}
-      <div className="card">
-        <div className="card-header" style={{ marginBottom: '16px' }}>
-          <h2 className="card-title">
-            <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiZap /></span> Report Generator & Exporter
-          </h2>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Pipeline Orchestration
-          </span>
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 'var(--space-md)',
-          }}
-        >
-          {/* Report Type Tabs */}
-          <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-            {REPORT_TYPES.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setReportType(t.id)}
-                aria-pressed={reportType === t.id}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: reportType === t.id ? 'var(--primary-blue)' : 'var(--bg-page)',
-                  color: reportType === t.id ? '#fff' : 'var(--text-secondary)',
-                  fontWeight: reportType === t.id ? '600' : '500',
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                {t.icon} {t.label}
-              </button>
-            ))}
+      {/* Hero 2-Column Row: Generator Hub + Quick Exporter */}
+      <div className="grid-2">
+        {/* Left Column: Report Generator */}
+        <div className="card">
+          <div className="card-header" style={{ marginBottom: '16px' }}>
+            <h2 className="card-title">
+              <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiZap style={{ color: 'var(--primary-blue)' }} /></span> Report Generator
+            </h2>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              Configure & Compile
+            </span>
           </div>
 
-          {/* Date Selector & Triggers */}
-          <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+              Select Report Frequency
+            </label>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {REPORT_TYPES.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setReportType(t.id)}
+                  aria-pressed={reportType === t.id}
+                  style={{
+                    flex: '1',
+                    minWidth: '100px',
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: reportType === t.id ? 'var(--primary-blue)' : 'var(--bg-page)',
+                    color: reportType === t.id ? '#fff' : 'var(--text-secondary)',
+                    fontWeight: reportType === t.id ? '600' : '500',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {t.icon} {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+              Target Date
+            </label>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               aria-label="Target report date"
               style={{
-                padding: '7px 12px',
+                width: '100%',
+                padding: '8px 12px',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--border-color)',
                 backgroundColor: 'var(--bg-page)',
@@ -158,57 +162,148 @@ export default function ReportsPage() {
                 fontWeight: '500',
               }}
             />
+          </div>
 
+          <button
+            onClick={() => handleGenerate(false)}
+            disabled={generating}
+            style={{
+              width: '100%',
+              padding: '10px 18px',
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              backgroundColor: 'var(--primary-blue)',
+              color: '#fff',
+              fontWeight: '600',
+              fontSize: '13px',
+              cursor: generating ? 'wait' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
+            <FiSend /> {generating ? 'Compiling Report...' : 'Compile & Preview Report'}
+          </button>
+        </div>
+
+        {/* Right Column: Instant Exporters */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <div className="card-header" style={{ marginBottom: '16px' }}>
+              <h2 className="card-title">
+                <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiDownload style={{ color: 'var(--color-productive)' }} /></span> Instant File Exporters
+              </h2>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                {reportType.toUpperCase()} ({selectedDate})
+              </span>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+              Download pre-formatted HTML or PDF productivity reports directly to your local file system.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <a
+                href={downloadHtmlUrl}
+                download
+                style={{
+                  padding: '14px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-page)',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary-blue)', fontWeight: '700', fontSize: '13px' }}>
+                  <FiDownload /> HTML Format
+                </div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Interactive web document</span>
+              </a>
+
+              <a
+                href={downloadPdfUrl}
+                download
+                style={{
+                  padding: '14px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-page)',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-productive)', fontWeight: '700', fontSize: '13px' }}>
+                  <FiFileText /> PDF Format
+                </div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Printable document</span>
+              </a>
+            </div>
+          </div>
+
+          <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-light)' }}>
             <button
-              onClick={() => handleGenerate(false)}
-              disabled={generating}
+              onClick={() => handleSendEmail(reportType, selectedDate)}
+              disabled={emailSending}
               style={{
-                padding: '8px 18px',
+                width: '100%',
+                padding: '9px 16px',
                 borderRadius: 'var(--radius-sm)',
-                border: 'none',
-                backgroundColor: 'var(--primary-blue)',
-                color: '#fff',
+                border: '1px solid var(--primary-blue)',
+                backgroundColor: 'var(--primary-light)',
+                color: 'var(--primary-blue)',
                 fontWeight: '600',
                 fontSize: '13px',
-                cursor: generating ? 'wait' : 'pointer',
+                cursor: emailSending ? 'wait' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '6px',
               }}
             >
-              <FiSend /> {generating ? 'Processing...' : 'Generate Report'}
+              <FiMail /> {emailSending ? 'Dispatching Email...' : 'Dispatch Email to Recipient'}
             </button>
           </div>
         </div>
-
-        {/* Action Status Feedback Toast */}
-        {actionMessage && (
-          <div
-            style={{
-              marginTop: '16px',
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: actionMessage.type === 'success' ? 'rgba(72, 187, 120, 0.12)' : 'rgba(252, 129, 129, 0.12)',
-              color: actionMessage.type === 'success' ? '#276749' : '#9B2C2C',
-              border: `1px solid ${actionMessage.type === 'success' ? '#9AE6B4' : '#FEB2B2'}`,
-              fontSize: '13px',
-              fontWeight: '500',
-            }}
-          >
-            {actionMessage.text}
-          </div>
-        )}
       </div>
+
+      {/* Action Status Feedback Toast */}
+      {actionMessage && (
+        <div
+          style={{
+            marginBottom: 'var(--space-xl)',
+            padding: '12px 16px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: actionMessage.type === 'success' ? '#ECFDF5' : '#FFF1F2',
+            color: actionMessage.type === 'success' ? '#047857' : '#BE123C',
+            border: `1px solid ${actionMessage.type === 'success' ? '#A7F3D0' : '#FECDD3'}`,
+            fontSize: '13px',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          {actionMessage.type === 'success' ? <FiCheckCircle /> : <FiFileText />} {actionMessage.text}
+        </div>
+      )}
 
       {/* Active Report Preview Card */}
       {activeReport && (
-        <div className="card">
+        <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
           <div className="card-header">
             <h2 className="card-title">
-              <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiFileText /></span> Active Report Preview
+              <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiFileText /></span> Active Report Summary ({activeReport.date})
             </h2>
             <span className={`badge badge-${activeReport.productivity_score >= 70 ? 'productive' : 'neutral'}`}>
-              Score: {activeReport.productivity_score}%
+              Productivity Index: {activeReport.productivity_score}%
             </span>
           </div>
 
@@ -221,7 +316,7 @@ export default function ReportsPage() {
               isPositive={true}
             />
             <StatCard
-              label="Screen Time"
+              label="Total Screen Time"
               icon={<FiClock />}
               value={secondsToHms(activeReport.total_screen_time_seconds)}
               subtext={`Most used: ${activeReport.most_used_app || 'N/A'}`}
@@ -230,74 +325,10 @@ export default function ReportsPage() {
             <StatCard
               label="Delivery Status"
               icon={<FiMail />}
-              value={activeReport.email_sent ? 'Email Sent' : 'Not Emailed'}
-              subtext={activeReport.email_sent ? 'Dispatched via SMTP' : 'Ready for email'}
+              value={activeReport.email_sent ? 'Email Sent' : 'Ready'}
+              subtext={activeReport.email_sent ? 'Dispatched via SMTP' : 'Ready for email dispatch'}
               isPositive={activeReport.email_sent}
             />
-          </div>
-
-          <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
-            <a
-              href={downloadHtmlUrl}
-              download
-              className="btn"
-              style={{
-                padding: '8px 16px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-page)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--primary-blue)',
-                fontWeight: '600',
-                textDecoration: 'none',
-                fontSize: '13px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <FiDownload /> Download HTML Report
-            </a>
-
-            <a
-              href={downloadPdfUrl}
-              download
-              className="btn"
-              style={{
-                padding: '8px 16px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-page)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--primary-blue)',
-                fontWeight: '600',
-                textDecoration: 'none',
-                fontSize: '13px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <FiFileText /> Download PDF Report
-            </a>
-
-            <button
-              onClick={() => handleSendEmail(reportType, selectedDate)}
-              disabled={emailSending}
-              style={{
-                padding: '8px 16px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--primary-blue)',
-                border: 'none',
-                color: '#fff',
-                fontWeight: '600',
-                fontSize: '13px',
-                cursor: emailSending ? 'wait' : 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <FiMail /> {emailSending ? 'Sending...' : 'Send Email Report'}
-            </button>
           </div>
         </div>
       )}
@@ -309,7 +340,7 @@ export default function ReportsPage() {
             <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiBookOpen /></span> Generated Reports Archive
           </h2>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            {historyReports.length} reports saved
+            {historyReports.length} reports archived
           </span>
         </div>
 
@@ -324,10 +355,10 @@ export default function ReportsPage() {
               <tr>
                 <th>Report Period</th>
                 <th>Type</th>
-                <th>Score</th>
-                <th>Screen Time</th>
+                <th>Productivity Score</th>
+                <th>Total Screen Time</th>
                 <th>Email Status</th>
-                <th style={{ textAlign: 'center' }}>Actions</th>
+                <th style={{ textAlign: 'center' }}>Download Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -337,7 +368,7 @@ export default function ReportsPage() {
                 return (
                   <tr key={idx}>
                     <td style={{ fontWeight: '600', color: 'var(--text-main)' }}>
-                      {item.period_label}
+                      {item.period_label} ({item.date})
                     </td>
                     <td>
                       <span className="badge badge-neutral" style={{ textTransform: 'capitalize' }}>
@@ -354,7 +385,7 @@ export default function ReportsPage() {
                     </td>
                     <td>
                       {item.email_sent ? (
-                        <span className="badge badge-productive" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><FiCheckCircle /> Sent</span>
+                        <span className="badge badge-productive"><FiCheckCircle /> Sent</span>
                       ) : (
                         <span className="badge badge-neutral">Not Sent</span>
                       )}
@@ -366,38 +397,46 @@ export default function ReportsPage() {
                           download
                           title="Download HTML"
                           style={{
-                            padding: '4px 8px',
+                            padding: '4px 10px',
                             fontSize: '12px',
                             borderRadius: 'var(--radius-sm)',
                             border: '1px solid var(--border-color)',
                             backgroundColor: 'var(--bg-page)',
                             color: 'var(--primary-blue)',
                             textDecoration: 'none',
+                            fontWeight: '600',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
                           }}
                         >
-                          HTML
+                          <FiDownload /> HTML
                         </a>
                         <a
                           href={pdfUrl}
                           download
                           title="Download PDF"
                           style={{
-                            padding: '4px 8px',
+                            padding: '4px 10px',
                             fontSize: '12px',
                             borderRadius: 'var(--radius-sm)',
                             border: '1px solid var(--border-color)',
                             backgroundColor: 'var(--bg-page)',
                             color: 'var(--primary-blue)',
                             textDecoration: 'none',
+                            fontWeight: '600',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
                           }}
                         >
-                          PDF
+                          <FiFileText /> PDF
                         </a>
                         <button
                           onClick={() => handleSendEmail(item.report_type, item.date)}
                           title="Resend Email"
                           style={{
-                            padding: '4px 8px',
+                            padding: '4px 10px',
                             fontSize: '12px',
                             borderRadius: 'var(--radius-sm)',
                             border: '1px solid var(--border-color)',
