@@ -30,26 +30,51 @@ export default function ApplicationsPage() {
 
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
-    setError(null);
+    
+    const loadAppData = (showLoading = false) => {
+      if (showLoading && !analyticsData) {
+        setLoading(true);
+        setError(null);
+      }
+      api
+        .getAppAnalytics(rangePreset, categoryFilter)
+        .then((data) => {
+          if (isMounted) {
+            setAnalyticsData(data);
+            setLoading(false);
+            setError(null);
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            if (!analyticsData) {
+              setError(err.message || 'Failed to fetch application analytics');
+            }
+            setLoading(false);
+          }
+        });
+    };
 
-    api
-      .getAppAnalytics(rangePreset, categoryFilter)
-      .then((data) => {
-        if (isMounted) {
-          setAnalyticsData(data);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setError(err.message || 'Failed to fetch application analytics');
-          setLoading(false);
-        }
-      });
+    loadAppData(true);
+
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        loadAppData(false);
+      }
+    }, 5000);
+
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        loadAppData(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       isMounted = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [rangePreset, categoryFilter]);
 
