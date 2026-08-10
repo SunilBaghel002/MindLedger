@@ -81,7 +81,7 @@ class RulesEngine:
         try:
             repo = CategoryRuleRepository(db_conn)
             self.rules = repo.get_active_rules()
-            logger.info(f"RulesEngine loaded {len(self.rules)} active rules from database.")
+            logger.debug(f"RulesEngine loaded {len(self.rules)} active rules from database.")
         except Exception as e:
             logger.error(f"Failed to load rules from database: {e}", exc_info=True)
             self.rules = []

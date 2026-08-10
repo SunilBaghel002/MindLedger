@@ -201,7 +201,7 @@ class YouTubeRepository:
         return cursor.rowcount > 0
 
     def upsert(self, activity: YouTubeActivity) -> int:
-        """Atomic unique upsert YouTube activity keyed by video_id and date.
+        """Atomic upsert YouTube activity keyed by video_id and date.
 
         If a row with matching (video_id, date) already exists, accumulates watch_duration_seconds
         and updates ended_at while preserving existing activity fields. Otherwise inserts a new row.
@@ -212,9 +212,39 @@ class YouTubeRepository:
         Returns:
             The primary key record ID of the inserted or updated row.
         """
-        self.conn.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_youtube_video_date ON youtube_activity(video_id, date) WHERE video_id IS NOT NULL AND video_id != '';"
-        )
+        if activity.video_id:
+            cursor = self.conn.execute(
+                "SELECT id, watch_duration_seconds FROM youtube_activity WHERE video_id = ? AND date = ?",
+                (activity.video_id, activity.date),
+            )
+            row = cursor.fetchone()
+            if row:
+                existing_id = row["id"] if isinstance(row, sqlite3.Row) else row[0]
+                existing_duration = row["watch_duration_seconds"] if isinstance(row, sqlite3.Row) else row[1]
+                new_duration = existing_duration + activity.watch_duration_seconds
+                self.conn.execute(
+                    """
+                    UPDATE youtube_activity
+                    SET watch_duration_seconds = ?,
+                        ended_at = ?,
+                        video_title = COALESCE(?, video_title),
+                        channel_name = COALESCE(?, channel_name),
+                        video_category = COALESCE(?, video_category)
+                    WHERE id = ?
+                    """,
+                    (
+                        new_duration,
+                        activity.ended_at.isoformat() if activity.ended_at else None,
+                        activity.video_title,
+                        activity.channel_name,
+                        activity.video_category,
+                        existing_id,
+                    ),
+                )
+                self.conn.commit()
+                return existing_id
+
+        # Insert new record if non-existent or no video_id
         cursor = self.conn.execute(
             """
             INSERT INTO youtube_activity (
@@ -222,10 +252,6 @@ class YouTubeRepository:
                 channel_id, started_at, ended_at, watch_duration_seconds,
                 video_category, is_productive, date
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(video_id, date) WHERE video_id IS NOT NULL AND video_id != '' DO UPDATE SET
-                watch_duration_seconds = youtube_activity.watch_duration_seconds + excluded.watch_duration_seconds,
-                ended_at = excluded.ended_at
-            RETURNING id;
             """,
             (
                 activity.video_url,
@@ -242,10 +268,7 @@ class YouTubeRepository:
                 activity.date,
             ),
         )
-        row = cursor.fetchone()
         self.conn.commit()
-        if row:
-            return row[0]
         return cursor.lastrowid
 
     def get_by_date_range(self, start_date: str, end_date: str) -> List[YouTubeActivity]:
