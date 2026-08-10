@@ -1,14 +1,15 @@
 import React from 'react';
+import { FiTrendingUp } from 'react-icons/fi';
 import {
-  Chart as ChartJS,
   CategoryScale,
+  Chart as ChartJS,
+  Filler,
+  Legend,
   LinearScale,
-  PointElement,
   LineElement,
+  PointElement,
   Title,
   Tooltip,
-  Legend,
-  Filler,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 
@@ -70,7 +71,7 @@ export default function AppTrendChart({ trend = [] }) {
     <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
       <div className="card-header">
         <h2 className="card-title">
-          <span className="card-icon">📈</span> App Screen Time Trend
+          <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiTrendingUp /></span> App Screen Time Trend
         </h2>
         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
           Daily total minutes

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { FiPieChart } from 'react-icons/fi';
+import { ArcElement, Chart as ChartJS, Legend, Tooltip } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -48,7 +49,7 @@ export default function CategoryDonut({ breakdown }) {
     <div className="card">
       <div className="card-header">
         <h2 className="card-title">
-          <span className="card-icon">📊</span> Category Breakdown
+          <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiPieChart /></span> Category Breakdown
         </h2>
         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
           Distribution

@@ -1,4 +1,5 @@
 import React from 'react';
+import { FiGlobe } from 'react-icons/fi';
 import { secondsToHms } from '../utils/formatters';
 
 export default function TopWebsites({ websites = [] }) {
@@ -8,7 +9,7 @@ export default function TopWebsites({ websites = [] }) {
     <div className="card">
       <div className="card-header">
         <h2 className="card-title">
-          <span className="card-icon">🌐</span> Top Websites
+          <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiGlobe /></span> Top Websites
         </h2>
         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
           Browse time
@@ -23,7 +24,9 @@ export default function TopWebsites({ websites = [] }) {
             return (
               <div key={idx} className="usage-item">
                 <div className="usage-meta">
-                  <span className="usage-name">🌐 {site.domain}</span>
+                  <span className="usage-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FiGlobe style={{ color: 'var(--primary-blue)' }} /> {site.domain}
+                  </span>
                   <span className="usage-duration">
                     {secondsToHms(site.total_seconds)}
                   </span>
@@ -40,7 +43,7 @@ export default function TopWebsites({ websites = [] }) {
         </div>
       ) : (
         <div className="empty-state">
-          <div className="empty-icon">🌐</div>
+          <div className="empty-icon"><FiGlobe /></div>
           <div className="empty-title">No web browsing recorded yet</div>
         </div>
       )}

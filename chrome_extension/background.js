@@ -181,12 +181,26 @@ async function sendYouTubeEventToBackend(youtubeData, allowBuffer = true) {
  * @param {Object} sessionToFinalize
  * @param {number} endTimestamp
  */
+/**
+ * Finalize a specific session snapshot with custom end timestamp
+ * @param {Object} sessionToFinalize
+ * @param {number} endTimestamp
+ */
 async function finalizeSessionSnapshot(sessionToFinalize, endTimestamp = Date.now()) {
   if (!sessionToFinalize || !sessionToFinalize.startTime || !sessionToFinalize.url) {
     return;
   }
 
-  const durationSeconds = Math.round((endTimestamp - sessionToFinalize.startTime) / 1000);
+  let durationSeconds = Math.round((endTimestamp - sessionToFinalize.startTime) / 1000);
+
+  // Cap single tab session duration to 30 minutes (1800s) to prevent runaway sleep accumulation
+  const MAX_SINGLE_SESSION_SECONDS = 1800;
+  if (durationSeconds > MAX_SINGLE_SESSION_SECONDS) {
+    console.warn(
+      `[MindLedger] Capping excessively long tab session duration from ${durationSeconds}s to ${MAX_SINGLE_SESSION_SECONDS}s (likely system sleep/idle).`
+    );
+    durationSeconds = MAX_SINGLE_SESSION_SECONDS;
+  }
 
   if (durationSeconds >= 1 && isValidTrackableUrl(sessionToFinalize.url)) {
     const payload = {
@@ -209,7 +223,7 @@ async function finalizeSessionSnapshot(sessionToFinalize, endTimestamp = Date.no
  */
 async function finalizeCurrentSession() {
   const sessionCopy = { ...activeState };
-  activeState.startTime = null;
+  activeState = { tabId: null, windowId: null, url: null, title: null, domain: null, startTime: null };
   await finalizeSessionSnapshot(sessionCopy, Date.now());
 }
 
@@ -241,12 +255,6 @@ function startTrackingTab(tab) {
  * Handle tab activation switch
  */
 async function handleTabActivated(activeInfo) {
-  focusGeneration++;
-  if (windowBlurTimer) {
-    clearTimeout(windowBlurTimer);
-    windowBlurTimer = null;
-  }
-
   await finalizeCurrentSession();
   tabSwitchCountToday++;
 
@@ -283,35 +291,14 @@ async function handleTabRemoved(tabId) {
 }
 
 /**
- * Handle window focus switch with focusGeneration token & snapshot blur capture
+ * Handle window focus switch - pause immediately when focus leaves Chrome
  */
 async function handleWindowFocusChanged(windowId) {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    // Focus left Chrome (screenshot overlay / Alt-Tab)
-    const capturedGen = ++focusGeneration;
-    const sessionToFinalize = { ...activeState };
-    const blurTimestamp = Date.now();
-
-    if (windowBlurTimer) clearTimeout(windowBlurTimer);
-    windowBlurTimer = setTimeout(async () => {
-      // Invalidate if focus generation changed while waiting
-      if (focusGeneration !== capturedGen) return;
-
-      await finalizeSessionSnapshot(sessionToFinalize, blurTimestamp);
-
-      // Verify focus generation hasn't changed before mutating activeState
-      if (focusGeneration === capturedGen) {
-        activeState = { tabId: null, windowId: null, url: null, title: null, domain: null, startTime: null };
-      }
-    }, 15000);
+    // Focus left Chrome completely (user switched to another application or desktop)
+    console.log('[MindLedger] Focus left Chrome windows. Pausing browser tab session.');
+    await finalizeCurrentSession();
     return;
-  }
-
-  // Focus returned to a window -> advance focus generation token and clear pending blur timer
-  const currentGen = ++focusGeneration;
-  if (windowBlurTimer) {
-    clearTimeout(windowBlurTimer);
-    windowBlurTimer = null;
   }
 
   try {
@@ -322,18 +309,42 @@ async function handleWindowFocusChanged(windowId) {
 
     const tabs = await chrome.tabs.query({ active: true, windowId: windowId });
     if (tabs && tabs.length > 0) {
-      if (activeState.tabId === tabs[0].id && activeState.startTime) {
-        return;
-      }
-
       await finalizeCurrentSession();
-      if (focusGeneration === currentGen) {
-        startTrackingTab(tabs[0]);
-      }
+      startTrackingTab(tabs[0]);
     }
   } catch (err) {
     console.warn('[MindLedger] Error querying tab on window focus:', err);
   }
+}
+
+/**
+ * Handle system idle and screen lock / sleep state transitions
+ */
+async function handleIdleStateChanged(newState) {
+  console.log(`[MindLedger] System idle state changed to: ${newState}`);
+  if (newState === 'idle' || newState === 'locked') {
+    // System is idle, locked, or sleeping -> finalize session and pause tracking
+    await finalizeCurrentSession();
+  } else if (newState === 'active') {
+    // System returned from idle -> check if Chrome window is focused
+    try {
+      const lastFocused = await chrome.windows.getLastFocused();
+      if (lastFocused && lastFocused.focused && lastFocused.type === 'normal') {
+        const tabs = await chrome.tabs.query({ active: true, windowId: lastFocused.id });
+        if (tabs && tabs.length > 0) {
+          startTrackingTab(tabs[0]);
+        }
+      }
+    } catch (err) {
+      console.warn('[MindLedger] Error restoring tracking after system idle return:', err);
+    }
+  }
+}
+
+// Set Chrome idle detection threshold to 60 seconds
+if (chrome.idle && chrome.idle.setDetectionInterval) {
+  chrome.idle.setDetectionInterval(60);
+  chrome.idle.onStateChanged.addListener(handleIdleStateChanged);
 }
 
 // Register Chrome Tab & Window Event Listeners

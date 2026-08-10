@@ -1,12 +1,13 @@
 import React from 'react';
+import { FiTrendingUp } from 'react-icons/fi';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
   BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LinearScale,
   Title,
   Tooltip,
-  Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 
@@ -75,7 +76,7 @@ export default function ActivityTimeline({ timeline }) {
     <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
       <div className="card-header">
         <h2 className="card-title">
-          <span className="card-icon">📈</span> Today's Activity Timeline
+          <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiTrendingUp /></span> Today's Activity Timeline
         </h2>
         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
           {isSample ? 'Hourly breakdown (Sample Data)' : 'Hourly breakdown (mins)'}
