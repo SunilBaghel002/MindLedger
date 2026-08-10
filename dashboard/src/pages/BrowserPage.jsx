@@ -31,26 +31,51 @@ export default function BrowserPage() {
 
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
-    setError(null);
 
-    api
-      .getBrowserAnalytics(rangePreset, categoryFilter)
-      .then((data) => {
-        if (isMounted) {
-          setAnalyticsData(data);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setError(err.message || 'Failed to fetch browser analytics');
-          setLoading(false);
-        }
-      });
+    const loadBrowserData = (showLoading = false) => {
+      if (showLoading && !analyticsData) {
+        setLoading(true);
+        setError(null);
+      }
+      api
+        .getBrowserAnalytics(rangePreset, categoryFilter)
+        .then((data) => {
+          if (isMounted) {
+            setAnalyticsData(data);
+            setLoading(false);
+            setError(null);
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            if (!analyticsData) {
+              setError(err.message || 'Failed to fetch browser analytics');
+            }
+            setLoading(false);
+          }
+        });
+    };
+
+    loadBrowserData(true);
+
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        loadBrowserData(false);
+      }
+    }, 5000);
+
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        loadBrowserData(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       isMounted = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [rangePreset, categoryFilter]);
 

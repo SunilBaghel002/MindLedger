@@ -32,29 +32,54 @@ export default function YoutubePage() {
 
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
-    setError(null);
 
-    const timer = setTimeout(() => {
+    const loadYoutubeData = (showLoading = false) => {
+      if (showLoading && !analyticsData) {
+        setLoading(true);
+        setError(null);
+      }
       api
         .getYoutubeAnalytics(rangePreset, categoryFilter, searchQuery)
         .then((data) => {
           if (isMounted) {
             setAnalyticsData(data);
             setLoading(false);
+            setError(null);
           }
         })
         .catch((err) => {
           if (isMounted) {
-            setError(err.message || 'Failed to fetch YouTube analytics');
+            if (!analyticsData) {
+              setError(err.message || 'Failed to fetch YouTube analytics');
+            }
             setLoading(false);
           }
         });
+    };
+
+    const timer = setTimeout(() => {
+      loadYoutubeData(true);
     }, 200);
+
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        loadYoutubeData(false);
+      }
+    }, 5000);
+
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        loadYoutubeData(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       isMounted = false;
       clearTimeout(timer);
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [rangePreset, categoryFilter, searchQuery]);
 

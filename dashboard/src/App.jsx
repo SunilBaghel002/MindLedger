@@ -26,21 +26,44 @@ export default function App() {
   const [dashboardData, setDashboardData] = useState(null);
   const [dashboardError, setDashboardError] = useState(null);
 
-  const fetchDashboard = () => {
-    setDashboardError(null);
+  const fetchDashboard = (isInitial = false) => {
+    if (isInitial && !dashboardData) {
+      setDashboardError(null);
+    }
     api
       .getTodayDashboard()
       .then((data) => {
         setDashboardData(data);
+        setDashboardError(null);
       })
       .catch((err) => {
         console.warn('Dashboard data fetch failed:', err);
-        setDashboardError(err.message || 'Failed to fetch dashboard data');
+        if (!dashboardData) {
+          setDashboardError(err.message || 'Failed to fetch dashboard data');
+        }
       });
   };
 
   useEffect(() => {
-    fetchDashboard();
+    fetchDashboard(true);
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        fetchDashboard(false);
+      }
+    }, 5000);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchDashboard(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const renderContent = () => {
