@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from api.middleware import PerformanceMiddleware
 from api.routes.browser_routes import router as browser_router
 from api.routes.category_routes import router as category_router
+from api.routes.data_routes import router as data_router
 from api.routes.dashboard_routes import page_router, router as dashboard_router
 from config.constants import APP_NAME, APP_VERSION
 from config.settings import settings
@@ -65,7 +66,9 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_router)
     app.include_router(browser_router)
     app.include_router(category_router)
+    app.include_router(data_router)
     app.include_router(page_router)
+
 
     # Mount Static Files for Dashboard UI (React dist assets & static fallback)
     dist_dir = Path(__file__).resolve().parent.parent / "dashboard" / "dist"
