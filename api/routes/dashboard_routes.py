@@ -56,8 +56,10 @@ from reports.email_sender import EmailSender
 from reports.report_generator import ReportGenerator
 from reports.template_renderer import TemplateRenderer
 from utils.logger import get_logger
+from utils.profiler import system_profiler
 
 logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 page_router = APIRouter(tags=["dashboard_html"])
@@ -114,6 +116,7 @@ async def get_dashboard_subpage(page_name: str):
 
 
 @router.get("/health", response_model=APIResponse[HealthData])
+
 async def get_health_status() -> APIResponse[HealthData]:
     """Health check endpoint confirming API server operational status."""
     return APIResponse(
@@ -121,6 +124,29 @@ async def get_health_status() -> APIResponse[HealthData]:
         data=HealthData(status="ok", app=APP_NAME, version=APP_VERSION),
         error=None,
     )
+
+
+@router.get("/system/perf", response_model=APIResponse[Dict[str, Any]])
+async def get_system_performance() -> APIResponse[Dict[str, Any]]:
+    """System performance diagnostics endpoint returning CPU, RAM, Thread count, and DB pool stats."""
+    try:
+        metrics = system_profiler.get_metrics()
+        return APIResponse(
+            success=True,
+            data={
+                "cpu_percent": metrics.cpu_percent,
+                "memory_rss_mb": metrics.memory_rss_mb,
+                "memory_vms_mb": metrics.memory_vms_mb,
+                "active_threads_count": metrics.active_threads_count,
+                "gc_collections": metrics.gc_collections,
+                "db_pool_stats": metrics.db_pool_stats,
+            },
+            error=None,
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch system performance metrics: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch performance metrics") from e
+
 
 
 @router.get("/dashboard/live", response_model=APIResponse[LiveTrackingStatusData])

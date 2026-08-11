@@ -16,6 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from api.middleware import PerformanceMiddleware
 from api.routes.browser_routes import router as browser_router
 from api.routes.category_routes import router as category_router
 from api.routes.dashboard_routes import page_router, router as dashboard_router
@@ -40,6 +41,8 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
 
+    app.add_middleware(PerformanceMiddleware)
+
     # Privacy & Security: Localhost CORS ONLY
     allowed_origins = [
         "http://127.0.0.1",
@@ -56,6 +59,7 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
+
 
     # Mount Route Modules
     app.include_router(dashboard_router)

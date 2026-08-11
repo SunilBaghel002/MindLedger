@@ -18,6 +18,7 @@ from config.settings import settings
 from core.event_processor import EventProcessor
 from database.connection import db_manager
 from database.migrations.v001_initial import up as run_v001_migration
+from database.migrations.v002_performance_indexes import up as run_v002_migration
 from database.seed_data import seed_database
 from tray_app import SystemTrayApp
 from utils.logger import get_logger
@@ -37,8 +38,10 @@ def initialize_database() -> None:
     logger.info(f"Initializing database at: {settings.database_path}")
     with db_manager.connection() as conn:
         run_v001_migration(conn)
+        run_v002_migration(conn)
         seed_database(conn)
     logger.info("Database initialization and seeding completed successfully.")
+
 
 
 def tracking_loop() -> None:
