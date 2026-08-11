@@ -59,7 +59,11 @@ hiddenimports = [
     'api.routes.dashboard_routes',
     'api.routes.browser_routes',
     'api.routes.category_routes',
+    'webview',
+    'webview.platforms.winforms',
+    'clr_loader',
 ]
+
 
 a = Analysis(
     ['main.py'],

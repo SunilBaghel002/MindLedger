@@ -1,6 +1,6 @@
 """
 MindLedger - Logger Utility
-Centralized logging configuration supporting formatted console and file output.
+Centralized logging configuration supporting formatted console and file output safely under PyInstaller frozen GUI bundles.
 
 Author: MindLedger Team
 Created: 2026-08-08
@@ -42,22 +42,27 @@ def get_logger(name: str, log_file: Optional[str] = "logs/mindledger.log") -> lo
     if not logger.handlers:
         formatter = logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT)
 
-        # Console Handler
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
+        # Console Handler (Only if sys.stdout is present e.g. non-frozen console mode)
+        if sys.stdout is not None:
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setFormatter(formatter)
+            logger.addHandler(console_handler)
 
-        # File Handler (Optional / Safe Creation)
+        # File Handler (Safe creation across frozen bundle and dev environments)
         if log_file:
             try:
-                log_path = Path(log_file)
+                if getattr(sys, "frozen", False):
+                    base_dir = Path(sys.executable).parent
+                    log_path = base_dir / log_file
+                else:
+                    log_path = Path(log_file)
                 log_path.parent.mkdir(parents=True, exist_ok=True)
                 file_handler = logging.FileHandler(log_path, encoding="utf-8")
                 file_handler.setFormatter(formatter)
                 logger.addHandler(file_handler)
             except Exception as e:
-                console_handler.setLevel(logging.WARNING)
-                logger.warning(f"Could not initialize log file handler at '{log_file}': {e}")
+                if sys.stdout is not None:
+                    print(f"Could not initialize log file handler at '{log_file}': {e}")
 
     _loggers[name] = logger
     return logger

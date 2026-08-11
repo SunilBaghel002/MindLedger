@@ -14,6 +14,8 @@ pynput>=1.7.6
 # System Tray & UI Icons
 pystray>=0.19.5
 Pillow>=10.0.0
+pywebview>=6.0.0
+
 
 # Task Scheduling & Templating
 apscheduler>=3.10.0
