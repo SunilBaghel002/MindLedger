@@ -86,21 +86,31 @@ def verify_bundle() -> None:
 
     required_paths = [
         check_dir / "dashboard" / "dist",
+        check_dir / "dashboard" / "static",
         check_dir / "reports" / "templates",
         ext_dst / "manifest.json",
         ext_dst / "background.js",
         ext_dst / "content_scripts" / "youtube.js",
     ]
 
+    missing_paths = []
     for p in required_paths:
         if not p.exists():
             print(f"[BUILD WARNING] Required asset missing in bundle: {p}")
+            missing_paths.append(p)
         else:
             print(f"[BUILD VERIFIED] {p.relative_to(bundle_dir)} exists.")
+
+    if missing_paths:
+        missing_str = "\n  ".join(str(p) for p in missing_paths)
+        raise FileNotFoundError(
+            f"Build verification failed! Missing required asset(s) in bundle:\n  {missing_str}"
+        )
 
     print(
         f"\n[BUILD COMPLETE] Standalone MindLedger Windows package successfully built at:\n  {bundle_dir.resolve()}"
     )
+
 
 
 

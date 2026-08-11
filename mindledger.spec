@@ -13,13 +13,14 @@ block_cipher = None
 # Root directory of the project
 project_root = Path('.').resolve()
 
-# Static assets and template dependencies to bundle into _MEIPASS
 datas = [
     (str(project_root / 'dashboard' / 'dist'), 'dashboard/dist'),
+    (str(project_root / 'dashboard' / 'static'), 'dashboard/static'),
     (str(project_root / 'dashboard' / 'templates'), 'dashboard/templates'),
     (str(project_root / 'reports' / 'templates'), 'reports/templates'),
     (str(project_root / 'chrome_extension'), 'chrome_extension'),
 ]
+
 
 # Collect submodules and data files for dynamic imports
 hiddenimports = [
