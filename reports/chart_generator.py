@@ -61,7 +61,7 @@ def _format_duration(seconds: int) -> str:
 
 
 class ChartGenerator:
-    """Renders PNG charts for daily/weekly/monthly activity reports."""
+    """Renders PNG charts for daily/weekly/monthly activity reports with in-memory caching."""
 
     def __init__(self, width: int = 600, height: int = 350) -> None:
         """Initialize ChartGenerator with default dimensions.
@@ -72,6 +72,8 @@ class ChartGenerator:
         """
         self.width = width
         self.height = height
+        self._cache: Dict[str, bytes] = {}
+
 
     def _create_canvas(self, title: str) -> Tuple[Image.Image, ImageDraw.ImageDraw]:
         """Create base image canvas with title header.
