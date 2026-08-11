@@ -195,16 +195,77 @@
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  gap: 4px;
+  padding: 4px 10px;
   border-radius: 9999px;
   font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
-.badge-productive { background: #E6FFFA; color: #234E52; }
-.badge-learning { background: #EBF8FF; color: #2B6CB0; }
-.badge-neutral { background: #FEEBC8; color: #744210; }
-.badge-unproductive { background: #FFF5F5; color: #9B2C2C; }
+.badge-productive { background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
+.badge-learning { background: #ECFEFF; color: #0E7490; border: 1px solid #A5F3FC; }
+.badge-neutral { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
+.badge-unproductive { background: #FFF1F2; color: #BE123C; border: 1px solid #FECDD3; }
+
+/* Grid Utilities Extension */
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+@media (max-width: 1024px) {
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Data Table Styling */
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.data-table th {
+  background-color: var(--bg-page);
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.data-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-main);
+  vertical-align: middle;
+}
+
+.data-table tbody tr {
+  transition: background-color var(--transition-fast);
+}
+
+.data-table tbody tr:hover {
+  background-color: var(--bg-hover);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
 
 /* Empty State */
 .empty-state {
@@ -214,12 +275,13 @@
 }
 
 .empty-icon {
-  font-size: 40px;
+  font-size: 36px;
   margin-bottom: var(--space-sm);
+  color: var(--text-muted);
 }
 
 .empty-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-secondary);
 }

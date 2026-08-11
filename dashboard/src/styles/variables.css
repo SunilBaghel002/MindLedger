@@ -2,34 +2,34 @@
 
 :root {
   /* Color Palette - Primary Theme */
-  --primary-blue: #4A90D9;
-  --primary-light: #E8F0FE;
-  --primary-dark: #2B6CB0;
+  --primary-blue: #2563EB;
+  --primary-light: #EFF6FF;
+  --primary-dark: #1D4ED8;
 
   /* Background Colors */
-  --bg-page: #F7F9FC;
+  --bg-page: #F8FAFC;
   --bg-sidebar: #FFFFFF;
   --bg-card: #FFFFFF;
   --bg-hover: #F1F5F9;
-  --bg-active: #E8F0FE;
+  --bg-active: #EFF6FF;
 
   /* Border & Divider Colors */
   --border-color: #E2E8F0;
-  --border-light: #EDF2F7;
+  --border-light: #F1F5F9;
 
   /* Text Colors */
-  --text-main: #1A202C;
-  --text-secondary: #4A5568;
+  --text-main: #0F172A;
+  --text-secondary: #334155;
   --text-muted: #64748B;
   --text-on-primary: #FFFFFF;
 
   /* Category & Status Colors */
-  --color-productive: #48BB78;
-  --color-learning: #4299E1;
-  --color-neutral: #ED8936;
-  --color-unproductive: #FC8181;
-  --color-music: #D53F8C;
-  --color-purple: #9F7AEA;
+  --color-productive: #10B981;
+  --color-learning: #06B6D4;
+  --color-neutral: #F59E0B;
+  --color-unproductive: #F43F5E;
+  --color-music: #EC4899;
+  --color-purple: #8B5CF6;
 
   /* Spacing Scale (4px base grid) */
   --space-xs: 4px;
@@ -46,12 +46,12 @@
   --radius-full: 50%;
 
   /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
 
   /* Font Family & Typography */
-  --font-family: 'Inter', -apple-system, 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  --font-family: 'Inter', -apple-system, 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', sans-serif;
   --transition-fast: 0.15s ease;
   --transition-normal: 0.25s ease;
 }

@@ -132,6 +132,14 @@ class RulesEngine:
             if any(k in title_lower for k in ["visual studio code", "vscode", "pycharm", "sublime text", "intellij", "git", "terminal"]):
                 return CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE
 
+        # 3. Process name fallback heuristics
+        if any(k in clean_app for k in ["chrome", "edge", "msedge", "browser", "firefox", "brave", "opera"]):
+            return CATEGORY_BROWSING, "web", PRODUCTIVITY_NEUTRAL
+        if any(k in clean_app for k in ["code", "python", "idea", "clion", "rider", "studio", "cursor", "antigravity", "sublime", "git", "terminal", "powershell", "cmd"]):
+            return CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE
+        if any(k in clean_app for k in ["discord", "slack", "teams", "telegram", "whatsapp", "zoom"]):
+            return CATEGORY_COMMUNICATION, "chat", PRODUCTIVITY_NEUTRAL
+
         return CATEGORY_UNCATEGORIZED, None, PRODUCTIVITY_NEUTRAL
 
     def classify_browser(self, url: str, domain: str, page_title: Optional[str] = None) -> Tuple[str, Optional[str], str]:

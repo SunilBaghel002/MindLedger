@@ -4,7 +4,10 @@ import { FiSun, FiTag, FiTarget, FiZap } from 'react-icons/fi';
 export default function QuickStats({ quickStats }) {
   const peakHour = quickStats?.peak_hour || 'N/A';
   const focusRatio = quickStats?.focus_ratio_pct || 0;
-  const topCategory = quickStats?.top_category || 'General';
+  const rawCat = quickStats?.top_category || 'General';
+  const topCategory = (!rawCat || rawCat.toLowerCase() === 'uncategorized')
+    ? 'Development'
+    : rawCat.charAt(0).toUpperCase() + rawCat.slice(1);
 
   return (
     <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
