@@ -40,7 +40,8 @@ dist/
 node_modules/
 *.egg-info/
 .eggs/
-*.spec
+!mindledger.spec
+
 
 # IDE & Editor Files
 .idea/
