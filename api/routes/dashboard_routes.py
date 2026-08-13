@@ -11,7 +11,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, HTMLResponse
 
 from api.schemas import (
@@ -185,28 +185,32 @@ async def get_live_tracking_status() -> APIResponse[LiveTrackingStatusData]:
 
 
 @router.get("/dashboard/today", response_model=APIResponse[DashboardTodayData])
-async def get_today_dashboard() -> APIResponse[DashboardTodayData]:
-    """Get today's dashboard overview data (total screen time, productivity, top apps, websites, timeline)."""
+async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="date", description="Date in YYYY-MM-DD format")) -> APIResponse[DashboardTodayData]:
+    """Get dashboard overview data for target date (defaults to today)."""
     try:
-        today_str = date.today().isoformat()
+        today_str = target_date or date.today().isoformat()
 
         with db_manager.connection() as conn:
             app_repo = AppSessionRepository(conn)
             browser_repo = BrowserSessionRepository(conn)
             sessions = app_repo.get_by_date(today_str)
+            browser_sessions = browser_repo.get_by_date(today_str)
             top_apps_raw = app_repo.get_top_apps(today_str, limit=5)
             top_domains_raw = browser_repo.get_top_domains(today_str, limit=5)
 
-        total_seconds = sum(s.duration_seconds for s in sessions)
-        productive_seconds = sum(
-            s.duration_seconds for s in sessions if s.productivity == "productive"
-        )
-        unproductive_seconds = sum(
-            s.duration_seconds for s in sessions if s.productivity == "unproductive"
-        )
-        neutral_seconds = sum(
-            s.duration_seconds for s in sessions if s.productivity == "neutral"
-        )
+        total_app_sec = sum(s.duration_seconds for s in sessions)
+        total_browser_sec = sum(b.duration_seconds for b in browser_sessions)
+
+        if total_browser_sec > total_app_sec:
+            total_seconds = total_browser_sec
+            productive_seconds = sum(b.duration_seconds for b in browser_sessions if b.productivity == "productive")
+            unproductive_seconds = sum(b.duration_seconds for b in browser_sessions if b.productivity == "unproductive")
+            neutral_seconds = sum(b.duration_seconds for b in browser_sessions if b.productivity == "neutral")
+        else:
+            total_seconds = total_app_sec
+            productive_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "productive")
+            unproductive_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "unproductive")
+            neutral_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "neutral")
 
         score = (
             round((productive_seconds / total_seconds) * 100.0, 1)
@@ -299,10 +303,10 @@ async def get_today_dashboard() -> APIResponse[DashboardTodayData]:
 
 
 @router.get("/apps/today", response_model=APIResponse[AppsTodayData])
-async def get_today_apps() -> APIResponse[AppsTodayData]:
-    """Get today's application tracking sessions and top applications summary."""
+async def get_today_apps(target_date: Optional[str] = Query(None, alias="date", description="Date in YYYY-MM-DD format")) -> APIResponse[AppsTodayData]:
+    """Get target date's application tracking sessions and top applications summary."""
     try:
-        today_str = date.today().isoformat()
+        today_str = target_date or date.today().isoformat()
 
         with db_manager.connection() as conn:
             repo = AppSessionRepository(conn)

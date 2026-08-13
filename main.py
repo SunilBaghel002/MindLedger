@@ -45,7 +45,12 @@ def ensure_single_instance() -> Optional[socket.socket]:
     try:
         _instance_lock_socket.bind(("127.0.0.1", 8788))
     except socket.error:
-        logger.warning("Another instance of MindLedger is already running. Exiting duplicate process.")
+        logger.warning("Another instance of MindLedger is already running. Opening dashboard in browser.")
+        try:
+            import webbrowser
+            webbrowser.open(f"http://{settings.app_host}:{settings.app_port}/dashboard")
+        except Exception as e:
+            logger.error(f"Failed to open browser: {e}")
         sys.exit(0)
     return _instance_lock_socket
 

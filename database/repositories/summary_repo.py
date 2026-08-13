@@ -302,7 +302,15 @@ class SummaryRepository:
         # 2. Aggregate browser_sessions
         cursor = self.conn.execute(
             """
-            SELECT COUNT(DISTINCT domain) as total_domains
+            SELECT
+                COUNT(DISTINCT domain) as total_domains,
+                COALESCE(SUM(duration_seconds), 0) as total_browser_time,
+                COALESCE(SUM(CASE WHEN category = 'coding' THEN duration_seconds ELSE 0 END), 0) as b_coding_time,
+                COALESCE(SUM(CASE WHEN category = 'learning' THEN duration_seconds ELSE 0 END), 0) as b_learning_time,
+                COALESCE(SUM(CASE WHEN category = 'browsing' THEN duration_seconds ELSE 0 END), 0) as b_browsing_time,
+                COALESCE(SUM(CASE WHEN productivity = 'productive' THEN duration_seconds ELSE 0 END), 0) as b_prod_time,
+                COALESCE(SUM(CASE WHEN productivity = 'neutral' THEN duration_seconds ELSE 0 END), 0) as b_neutral_time,
+                COALESCE(SUM(CASE WHEN productivity = 'unproductive' THEN duration_seconds ELSE 0 END), 0) as b_unprod_time
             FROM browser_sessions
             WHERE date = ?
             """,
@@ -310,6 +318,18 @@ class SummaryRepository:
         )
         browser_data = cursor.fetchone()
         total_domains = browser_data["total_domains"] if browser_data else 0
+        total_browser_time = browser_data["total_browser_time"] if browser_data else 0
+
+        # Combine app and browser totals so browser tracking is fully reflected
+        if total_browser_time > total_screen_time:
+            total_screen_time = total_browser_time
+            active_time = max(active_time, total_browser_time)
+            coding_seconds = max(coding_seconds, browser_data["b_coding_time"])
+            learning_seconds = max(learning_seconds, browser_data["b_learning_time"])
+            browsing_seconds = max(browsing_seconds, browser_data["b_browsing_time"])
+            prod_seconds = max(prod_seconds, browser_data["b_prod_time"])
+            neutral_seconds = max(neutral_seconds, browser_data["b_neutral_time"])
+            unprod_seconds = max(unprod_seconds, browser_data["b_unprod_time"])
 
         # 3. Aggregate youtube_activity
         cursor = self.conn.execute(
