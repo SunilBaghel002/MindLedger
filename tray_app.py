@@ -13,6 +13,7 @@ from typing import Callable, Optional
 
 from PIL import Image, ImageDraw
 import pystray
+import webview
 
 from config.constants import APP_NAME, APP_VERSION
 from config.settings import settings
@@ -20,8 +21,40 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+_active_webview_window = None
+
+
+def open_native_desktop_window(url: Optional[str] = None) -> None:
+    """Launch native standalone desktop GUI window for MindLedger."""
+    target_url = url or f"http://{settings.app_host}:{settings.app_port}/dashboard"
+
+    try:
+        def _launch():
+            global _active_webview_window
+            _active_webview_window = webview.create_window(
+                title=f"{APP_NAME} - Personal Wellbeing Analytics",
+                url=target_url,
+                width=1280,
+                height=820,
+                min_size=(900, 600),
+                resizable=True,
+            )
+            webview.start()
+
+        if threading.current_thread() is threading.main_thread():
+            _launch()
+        else:
+            # Fallback to browser open when invoked from secondary worker threads
+            webbrowser.open(target_url)
+        logger.info(f"Native desktop window opened pointing to: {target_url}")
+    except Exception as e:
+        logger.warning(f"Could not open pywebview native window ({e}), falling back to browser.")
+        webbrowser.open(target_url)
+
+
 
 def create_default_tray_image(width: int = 64, height: int = 64) -> Image.Image:
+
     """Generate a clean 64x64 RGBA icon image for system tray.
 
     Args:
@@ -120,11 +153,12 @@ class SystemTrayApp:
 
         logger.info(f"System tray tracking toggled: paused={self.is_paused}")
 
-    def _on_open_dashboard(self, icon: pystray.Icon, item) -> None:
-        """Open the local web dashboard URL in the default browser."""
+    def _on_open_dashboard(self, icon: Optional[pystray.Icon] = None, item=None) -> None:
+        """Open native desktop application GUI window."""
         dashboard_url = f"http://{settings.app_host}:{settings.app_port}/dashboard"
-        logger.info(f"Opening dashboard at: {dashboard_url}")
-        webbrowser.open(dashboard_url)
+        logger.info(f"Opening native desktop GUI application window at: {dashboard_url}")
+        open_native_desktop_window(dashboard_url)
+
 
     def _on_quit(self, icon: pystray.Icon, item) -> None:
         """Handle Quit menu item click."""

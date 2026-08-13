@@ -78,7 +78,17 @@ DEFAULT_CATEGORY_RULES: List[Tuple[str, str, str, str, str, int]] = [
     ("domain", "indeed.com", CATEGORY_JOB_SEARCH, "portal", PRODUCTIVITY_PRODUCTIVE, 90),
     ("domain", "wellfound.com", CATEGORY_JOB_SEARCH, "portal", PRODUCTIVITY_PRODUCTIVE, 90),
     ("domain", "chatgpt.com", CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE, 95),
+    ("domain", "chat.openai.com", CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE, 95),
+    ("domain", "openai.com", CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE, 95),
     ("domain", "claude.ai", CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE, 95),
+    ("domain", "lmarina.in", CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("domain", "lmarina.com", CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("domain", "lmarina.edu", CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("domain", "gateoverflow.in", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("domain", "geeksforgeeks.org", CATEGORY_LEARNING, "documentation", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("domain", "nptel.ac.in", CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("domain", "unacademy.com", CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("domain", "pw.live", CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE, 100),
     ("domain", "google.com", CATEGORY_BROWSING, "search", PRODUCTIVITY_NEUTRAL, 50),
     ("domain", "mail.google.com", CATEGORY_COMMUNICATION, "email", PRODUCTIVITY_NEUTRAL, 60),
     ("domain", "youtube.com", CATEGORY_BROWSING, "video", PRODUCTIVITY_NEUTRAL, 40),
@@ -90,6 +100,18 @@ DEFAULT_CATEGORY_RULES: List[Tuple[str, str, str, str, str, int]] = [
     ("domain", "netflix.com", CATEGORY_ENTERTAINMENT, "movies", PRODUCTIVITY_UNPRODUCTIVE, 80),
     ("domain", "crunchyroll.com", CATEGORY_ENTERTAINMENT, "anime", PRODUCTIVITY_UNPRODUCTIVE, 80),
 
+    # Window Title Pattern Rules (priority 110 to override app executable rules like chrome.exe)
+    ("title_pattern", "leetcode", CATEGORY_CODING, "practice", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "github", CATEGORY_CODING, "git", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "gitlab", CATEGORY_CODING, "git", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "chatgpt", CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "claude", CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "lmarina", CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "gate smashers", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "neso academy", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "knowledge gate", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "gate", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
+
     # YouTube Channel Rules
     ("youtube_channel", "Fireship", CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, 100),
     ("youtube_channel", "Traversy Media", CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, 100),
@@ -98,6 +120,16 @@ DEFAULT_CATEGORY_RULES: List[Tuple[str, str, str, str, str, int]] = [
     ("youtube_channel", "Web Dev Simplified", CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, 100),
     ("youtube_channel", "The Net Ninja", CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, 100),
     ("youtube_channel", "Programming with Mosh", CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("youtube_channel", "Gate Smashers", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("youtube_channel", "Neso Academy", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("youtube_channel", "Knowledge Gate", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("youtube_channel", "Unacademy Computer Science", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("youtube_channel", "Physics Wallah", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("youtube_channel", "GeeksforGeeks", CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("youtube_channel", "Jenny's Lectures CS IT", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("youtube_channel", "Abdul Bari", CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("youtube_channel", "Amit Khurana", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("youtube_channel", "Ravindrababu Ravula", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
     ("youtube_channel", "Lofi Girl", CATEGORY_MUSIC, "lofi", PRODUCTIVITY_NEUTRAL, 90),
 ]
 
@@ -134,6 +166,15 @@ def seed_database(conn: sqlite3.Connection) -> None:
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (rule_type, pattern, category, subcategory, productivity, priority),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE category_rules
+                SET category = ?, subcategory = ?, productivity = ?, priority = ?
+                WHERE rule_type = ? AND pattern = ?
+                """,
+                (category, subcategory, productivity, priority, rule_type, pattern),
             )
 
     # Seed Default Settings

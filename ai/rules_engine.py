@@ -37,7 +37,11 @@ PRODUCTIVE_YOUTUBE_KEYWORDS = [
     "tutorial", "course", "learn", "how to", "explained", "guide", "documentation",
     "react", "python", "javascript", "typescript", "coding", "programming", "development",
     "algorithm", "data structure", "system design", "interview", "web dev", "backend",
-    "frontend", "devops", "api", "fastapi", "django", "flask", "node", "sql", "git"
+    "frontend", "devops", "api", "fastapi", "django", "flask", "node", "sql", "git",
+    "gate", "gate exam", "gate cs", "gate cse", "gate smashers", "neso academy", "knowledge gate",
+    "gateoverflow", "dsa", "dbms", "operating system", "computer networks", "toc", "compiler design",
+    "digital logic", "coa", "computer architecture", "discrete math", "discrete mathematics",
+    "engineering mathematics", "aptitude", "pyq", "pyqs", "lecture", "one shot", "gate da", "computer science"
 ]
 
 ENTERTAINMENT_YOUTUBE_KEYWORDS = [
@@ -109,9 +113,11 @@ class RulesEngine:
 
         app_lower = app_name.lower().strip()
         clean_app = app_lower[:-4] if app_lower.endswith(".exe") else app_lower
+        title_lower = window_title.lower().strip() if window_title else ""
 
-        # 1. Match against 'app' category rules (ordered by priority DESC)
-        for rule in self.rules:
+        # 1. Match against active rules ordered strictly by priority DESC (both 'app' and 'title_pattern')
+        sorted_rules = sorted(self.rules, key=lambda r: r.priority, reverse=True)
+        for rule in sorted_rules:
             if rule.rule_type == "app":
                 pattern_lower = rule.pattern.lower().strip()
                 clean_pattern = pattern_lower[:-4] if pattern_lower.endswith(".exe") else pattern_lower
@@ -119,16 +125,23 @@ class RulesEngine:
                 if app_lower == pattern_lower or clean_app == clean_pattern or clean_pattern in clean_app:
                     return rule.category, rule.subcategory, rule.productivity
 
-        # 2. Check window title pattern rules if title is provided
-        if window_title:
-            title_lower = window_title.lower()
-            for rule in self.rules:
-                if rule.rule_type == "title_pattern":
-                    pattern_lower = rule.pattern.lower().strip()
-                    if pattern_lower in title_lower:
-                        return rule.category, rule.subcategory, rule.productivity
+            elif rule.rule_type == "title_pattern" and title_lower:
+                pattern_lower = rule.pattern.lower().strip()
+                if pattern_lower in title_lower:
+                    return rule.category, rule.subcategory, rule.productivity
 
-            # Keyword heuristics for IDE / coding window titles
+        # 2. Window title fallback heuristics when no DB rule matched
+        if title_lower:
+            if any(k in title_lower for k in ["leetcode"]):
+                return CATEGORY_CODING, "practice", PRODUCTIVITY_PRODUCTIVE
+            if any(k in title_lower for k in ["github", "gitlab"]):
+                return CATEGORY_CODING, "git", PRODUCTIVITY_PRODUCTIVE
+            if any(k in title_lower for k in ["chatgpt", "claude", "openai"]):
+                return CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE
+            if any(k in title_lower for k in ["lmarina"]):
+                return CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE
+            if any(k in title_lower for k in ["gate", "gate smashers", "neso academy", "knowledge gate"]):
+                return CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE
             if any(k in title_lower for k in ["visual studio code", "vscode", "pycharm", "sublime text", "intellij", "git", "terminal"]):
                 return CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE
 

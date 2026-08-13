@@ -20,10 +20,13 @@ from database.connection import db_manager
 from database.migrations.v001_initial import up as run_v001_migration
 from database.migrations.v002_performance_indexes import up as run_v002_migration
 from database.seed_data import seed_database
-from tray_app import SystemTrayApp
+from tray_app import SystemTrayApp, open_native_desktop_window
+
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+import socket
 
 # Global runtime handles
 event_processor: Optional[EventProcessor] = None
@@ -31,6 +34,21 @@ tray_app: Optional[SystemTrayApp] = None
 api_thread: Optional[threading.Thread] = None
 stop_event = threading.Event()
 pause_event = threading.Event()
+_instance_lock_socket: Optional[socket.socket] = None
+
+
+
+def ensure_single_instance() -> Optional[socket.socket]:
+    """Ensure only one instance of MindLedger runs at a time using a localhost socket lock."""
+    global _instance_lock_socket
+    _instance_lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        _instance_lock_socket.bind(("127.0.0.1", 8788))
+    except socket.error:
+        logger.warning("Another instance of MindLedger is already running. Exiting duplicate process.")
+        sys.exit(0)
+    return _instance_lock_socket
+
 
 
 def initialize_database() -> None:
@@ -41,6 +59,7 @@ def initialize_database() -> None:
         run_v002_migration(conn)
         seed_database(conn)
     logger.info("Database initialization and seeding completed successfully.")
+
 
 
 
@@ -92,6 +111,9 @@ def main() -> None:
     """Initialize services, start background threads, and launch system tray app."""
     global tray_app, api_thread
 
+    ensure_single_instance()
+
+
     logger.info(f"Starting {APP_NAME} v{APP_VERSION}")
     logger.info(f"Host: {settings.app_host}:{settings.app_port}")
     logger.info(f"Database: {settings.database_path}")
@@ -101,6 +123,7 @@ def main() -> None:
 
     # 1. Initialize Database & Seed Rules
     initialize_database()
+
 
     # 2. Register Signal Handlers
     try:
@@ -129,12 +152,14 @@ def main() -> None:
     )
     tray_app.run_detached()
 
-    # 6. Main Thread Sleep Loop (Responsive to SIGINT / Ctrl+C)
+    # 6. Open Standalone Native Desktop Application Window (Main Thread GUI Loop)
+    open_native_desktop_window()
+
+    # Main Thread Wait Loop if GUI Window is closed
     try:
         while not stop_event.is_set():
             time.sleep(0.5)
     except KeyboardInterrupt:
-        logger.info("KeyboardInterrupt received on main thread.")
         shutdown()
 
     # Final cleanup on main thread
@@ -142,6 +167,8 @@ def main() -> None:
     tracking_thread.join()
     logger.info("Graceful shutdown completed successfully.")
     sys.exit(0)
+
+
 
 
 if __name__ == "__main__":

@@ -80,9 +80,10 @@ def test_system_tray_app_callbacks():
     assert pause_called[0] is True
 
     # Test dashboard launch patch
-    with patch("webbrowser.open") as mock_open:
+    with patch("tray_app.open_native_desktop_window") as mock_open:
         app._on_open_dashboard(None, None)
         mock_open.assert_called_once()
+
 
     # Test quit callback
     app._on_quit(None, None)
