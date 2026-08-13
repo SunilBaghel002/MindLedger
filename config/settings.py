@@ -25,6 +25,21 @@ from config.constants import (
 load_dotenv()
 
 
+def get_default_db_path() -> str:
+    """Resolve persistent SQLite database path in LOCALAPPDATA directory."""
+    custom_path = os.getenv("DATABASE_PATH")
+    if custom_path:
+        return custom_path
+
+    appdata = os.getenv("LOCALAPPDATA") or os.getenv("APPDATA")
+    if appdata:
+        db_dir = Path(appdata) / "MindLedger"
+        db_dir.mkdir(parents=True, exist_ok=True)
+        return str(db_dir / DEFAULT_DB_FILENAME)
+
+    return DEFAULT_DB_FILENAME
+
+
 @dataclass
 class Settings:
     """Application Settings dataclass.
@@ -48,7 +63,7 @@ class Settings:
     log_level: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
     # Database
-    database_path: str = os.getenv("DATABASE_PATH", DEFAULT_DB_FILENAME)
+    database_path: str = get_default_db_path()
 
     # Tracking Configuration
     poll_interval_seconds: int = int(
