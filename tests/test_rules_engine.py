@@ -69,14 +69,21 @@ def test_app_classification(rules_engine):
         ("vlc.exe", "Movie.mkv", CATEGORY_ENTERTAINMENT, "movies", PRODUCTIVITY_UNPRODUCTIVE),
         ("explorer.exe", "C:\\Projects", CATEGORY_SYSTEM, "file_manager", PRODUCTIVITY_NEUTRAL),
         ("notepad.exe", "notes.txt", CATEGORY_SYSTEM, "other", PRODUCTIVITY_NEUTRAL),
+        # Chrome process with specific work/study window titles
+        ("chrome.exe", "LeetCode - 1. Two Sum - Google Chrome", CATEGORY_CODING, "practice", PRODUCTIVITY_PRODUCTIVE),
+        ("chrome.exe", "Claude AI - Google Chrome", CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE),
+        ("chrome.exe", "ChatGPT - Google Chrome", CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE),
+        ("chrome.exe", "lmarina Course Portal - Google Chrome", CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE),
+        ("chrome.exe", "GATE Smashers Operating Systems - YouTube - Google Chrome", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE),
+        ("chrome.exe", "Google Chrome", CATEGORY_BROWSING, "web", PRODUCTIVITY_NEUTRAL),
         ("unknown_app.exe", "Untitled Window", CATEGORY_UNCATEGORIZED, None, PRODUCTIVITY_NEUTRAL),
     ]
 
     for app_name, window_title, exp_cat, exp_sub, exp_prod in test_cases:
         cat, sub, prod = rules_engine.classify_app(app_name=app_name, window_title=window_title)
-        assert cat == exp_cat, f"Failed app category for {app_name}: got {cat}, expected {exp_cat}"
-        assert sub == exp_sub, f"Failed app subcategory for {app_name}: got {sub}, expected {exp_sub}"
-        assert prod == exp_prod, f"Failed app productivity for {app_name}: got {prod}, expected {exp_prod}"
+        assert cat == exp_cat, f"Failed app category for {app_name} ({window_title}): got {cat}, expected {exp_cat}"
+        assert sub == exp_sub, f"Failed app subcategory for {app_name} ({window_title}): got {sub}, expected {exp_sub}"
+        assert prod == exp_prod, f"Failed app productivity for {app_name} ({window_title}): got {prod}, expected {exp_prod}"
 
 
 def test_domain_and_url_classification(rules_engine):
@@ -98,7 +105,11 @@ def test_domain_and_url_classification(rules_engine):
         ("https://indeed.com/jobs", "indeed.com", "Indeed Jobs", CATEGORY_JOB_SEARCH, "portal", PRODUCTIVITY_PRODUCTIVE),
         ("https://wellfound.com/jobs", "wellfound.com", "Wellfound Startup Jobs", CATEGORY_JOB_SEARCH, "portal", PRODUCTIVITY_PRODUCTIVE),
         ("https://chatgpt.com/c/123", "chatgpt.com", "ChatGPT Code Helper", CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE),
+        ("https://chat.openai.com/c/456", "chat.openai.com", "ChatGPT AI", CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE),
         ("https://claude.ai/chat/456", "claude.ai", "Claude Assistant", CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE),
+        ("https://lmarina.in/student/dashboard", "lmarina.in", "lmarina Learning", CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE),
+        ("https://gateoverflow.in/questions", "gateoverflow.in", "GATE Overflow Questions", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE),
+        ("https://geeksforgeeks.org/dbms-tutorial", "geeksforgeeks.org", "DBMS GeeksforGeeks", CATEGORY_LEARNING, "documentation", PRODUCTIVITY_PRODUCTIVE),
         ("https://google.com/search?q=test", "google.com", "Google Search", CATEGORY_BROWSING, "search", PRODUCTIVITY_NEUTRAL),
         ("https://mail.google.com/mail/u/0", "mail.google.com", "Gmail Inbox", CATEGORY_COMMUNICATION, "email", PRODUCTIVITY_NEUTRAL),
         ("https://reddit.com/r/python", "reddit.com", "r/python - Reddit", CATEGORY_ENTERTAINMENT, "social_media", PRODUCTIVITY_UNPRODUCTIVE),
@@ -127,6 +138,9 @@ def test_youtube_classification(rules_engine):
         ("CSS Grid Layout", "Web Dev Simplified", False, CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, True),
         ("Vue 3 Tutorial", "The Net Ninja", False, CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, True),
         ("Python for Beginners", "Programming with Mosh", False, CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, True),
+        ("Operating Systems DBMS Lecture 1", "Gate Smashers", False, CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, True),
+        ("Digital Logic Computer Networks", "Neso Academy", False, CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, True),
+        ("Theory of Computation TOC", "Knowledge Gate", False, CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, True),
         ("Lofi Beats to Study", "Lofi Girl", False, CATEGORY_MUSIC, "lofi", PRODUCTIVITY_NEUTRAL, None),
     ]
 
@@ -139,6 +153,8 @@ def test_youtube_classification(rules_engine):
 
     title_keyword_test_cases = [
         ("FastAPI Python Complete Tutorial and Guide", "Unknown Channel", False, CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, True),
+        ("GATE CS Operating Systems Lecture One Shot", "Unknown Channel", False, CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, True),
+        ("DSA PYQ Question Practice for GATE Exam", "Unknown Channel", False, CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, True),
         ("System Design Interview Masterclass", "Unknown Channel", False, CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, True),
         ("Funny Cat Clips Meme Reaction Vlog", "Unknown Channel", False, CATEGORY_ENTERTAINMENT, "video", PRODUCTIVITY_UNPRODUCTIVE, False),
         ("Movie Trailer Highlights 2026", "Unknown Channel", False, CATEGORY_ENTERTAINMENT, "video", PRODUCTIVITY_UNPRODUCTIVE, False),

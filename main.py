@@ -143,24 +143,31 @@ def main() -> None:
         host=settings.app_host, port=settings.app_port
     )
 
-    # 5. Open Native Desktop GUI Application Window
-    open_native_desktop_window()
-
-    # 6. Start System Tray App on Main Thread (Windows Message Pump)
+    # 5. Start System Tray App (Detached)
     tray_app = SystemTrayApp(
         on_quit_callback=shutdown,
         on_toggle_pause_callback=lambda paused: (
             pause_event.set() if paused else pause_event.clear()
         ),
     )
-    tray_app.run()
+    tray_app.run_detached()
 
+    # 6. Open Standalone Native Desktop Application Window (Main Thread GUI Loop)
+    open_native_desktop_window()
+
+    # Main Thread Wait Loop if GUI Window is closed
+    try:
+        while not stop_event.is_set():
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        shutdown()
 
     # Final cleanup on main thread
     shutdown()
     tracking_thread.join()
     logger.info("Graceful shutdown completed successfully.")
     sys.exit(0)
+
 
 
 
