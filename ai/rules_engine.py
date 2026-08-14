@@ -176,9 +176,15 @@ class RulesEngine:
         url_lower = (url or "").lower().strip()
         title_lower = (page_title or "").lower().strip()
 
-        # 1. Check domain rules
-        for rule in self.rules:
-            if rule.rule_type == "domain":
+        # 1. Match active rules ordered strictly by priority DESC
+        sorted_rules = sorted(self.rules, key=lambda r: r.priority, reverse=True)
+        for rule in sorted_rules:
+            if rule.rule_type == "title_pattern" and title_lower:
+                pattern_lower = rule.pattern.lower().strip()
+                if pattern_lower in title_lower:
+                    return rule.category, rule.subcategory, rule.productivity
+
+            elif rule.rule_type == "domain":
                 pattern_lower = rule.pattern.lower().strip()
                 if pattern_lower.startswith("www."):
                     pattern_lower = pattern_lower[4:]
@@ -186,22 +192,12 @@ class RulesEngine:
                 if domain_lower == pattern_lower or domain_lower.endswith("." + pattern_lower):
                     return rule.category, rule.subcategory, rule.productivity
 
-        # 2. Check URL pattern rules (regex or substring match)
-        for rule in self.rules:
-            if rule.rule_type == "url_pattern":
+            elif rule.rule_type == "url_pattern" and url_lower:
                 try:
                     if re.search(rule.pattern, url_lower, re.IGNORECASE):
                         return rule.category, rule.subcategory, rule.productivity
                 except re.error:
                     if rule.pattern.lower() in url_lower:
-                        return rule.category, rule.subcategory, rule.productivity
-
-        # 3. Check page title pattern rules
-        if title_lower:
-            for rule in self.rules:
-                if rule.rule_type == "title_pattern":
-                    pattern_lower = rule.pattern.lower().strip()
-                    if pattern_lower in title_lower:
                         return rule.category, rule.subcategory, rule.productivity
 
         # Default fallbacks based on common domain indicators
