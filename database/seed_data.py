@@ -115,7 +115,6 @@ DEFAULT_CATEGORY_RULES: List[Tuple[str, str, str, str, str, int]] = [
     ("title_pattern", "arena.ai", CATEGORY_LEARNING, "ai_tools", PRODUCTIVITY_PRODUCTIVE, 110),
     ("title_pattern", "lm arena", CATEGORY_LEARNING, "ai_tools", PRODUCTIVITY_PRODUCTIVE, 110),
     ("title_pattern", "lmsys", CATEGORY_LEARNING, "ai_tools", PRODUCTIVITY_PRODUCTIVE, 110),
-    ("title_pattern", "arena", CATEGORY_LEARNING, "ai_tools", PRODUCTIVITY_PRODUCTIVE, 110),
     ("title_pattern", "indeed", CATEGORY_JOB_SEARCH, "portal", PRODUCTIVITY_PRODUCTIVE, 110),
     ("title_pattern", "gate smashers", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
     ("title_pattern", "neso academy", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),

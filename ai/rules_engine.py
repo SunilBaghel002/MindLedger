@@ -127,7 +127,7 @@ class RulesEngine:
 
             elif rule.rule_type == "title_pattern" and title_lower:
                 pattern_lower = rule.pattern.lower().strip()
-                if pattern_lower in title_lower:
+                if re.search(r"\b" + re.escape(pattern_lower) + r"\b", title_lower):
                     return rule.category, rule.subcategory, rule.productivity
 
         # 2. Window title fallback heuristics when no DB rule matched
@@ -140,7 +140,7 @@ class RulesEngine:
                 return CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE
             if any(k in title_lower for k in ["lmarina"]):
                 return CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE
-            if any(k in title_lower for k in ["gate", "gate smashers", "neso academy", "knowledge gate"]):
+            if any(re.search(r"\b" + re.escape(k) + r"\b", title_lower) for k in ["gate", "gate smashers", "neso academy", "knowledge gate"]):
                 return CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE
             if any(k in title_lower for k in ["visual studio code", "vscode", "pycharm", "sublime text", "intellij", "git", "terminal"]):
                 return CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE
@@ -181,7 +181,7 @@ class RulesEngine:
         for rule in sorted_rules:
             if rule.rule_type == "title_pattern" and title_lower:
                 pattern_lower = rule.pattern.lower().strip()
-                if pattern_lower in title_lower:
+                if re.search(r"\b" + re.escape(pattern_lower) + r"\b", title_lower):
                     return rule.category, rule.subcategory, rule.productivity
 
             elif rule.rule_type == "domain":

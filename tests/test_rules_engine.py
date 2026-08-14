@@ -123,13 +123,22 @@ def test_domain_and_url_classification(rules_engine):
         ("https://netflix.com/watch/123", "netflix.com", "Netflix Watch", CATEGORY_ENTERTAINMENT, "movies", PRODUCTIVITY_UNPRODUCTIVE),
         ("https://crunchyroll.com/anime", "crunchyroll.com", "Crunchyroll Anime", CATEGORY_ENTERTAINMENT, "anime", PRODUCTIVITY_UNPRODUCTIVE),
         ("https://unknownblog.org", "unknownblog.org", "Personal Blog", CATEGORY_BROWSING, "web", PRODUCTIVITY_NEUTRAL),
+        # Title matching exercised independently on neutral domains (e.g. YouTube)
+        ("https://youtube.com/watch?v=1", "youtube.com", "LM Arena LLM Benchmark Test", CATEGORY_LEARNING, "ai_tools", PRODUCTIVITY_PRODUCTIVE),
+        ("https://youtube.com/watch?v=2", "youtube.com", "LMSYS Chat Leaderboard", CATEGORY_LEARNING, "ai_tools", PRODUCTIVITY_PRODUCTIVE),
+        ("https://youtube.com/watch?v=3", "youtube.com", "GATE 2026 CS Lecture Series", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE),
+        ("https://youtube.com/watch?v=4", "youtube.com", "DBMS Relational Algebra Tutorial", CATEGORY_LEARNING, "computer_science", PRODUCTIVITY_PRODUCTIVE),
+        # Negative test case: 'Navigate' contains 'gate' as a substring but must NOT match standalone 'gate' word boundary
+        ("https://google.com/search?q=navigate", "google.com", "Navigate to App Settings Page", CATEGORY_BROWSING, "search", PRODUCTIVITY_NEUTRAL),
+        # Priority override test: priority-110 title_pattern overrides priority-40 domain rule for youtube.com
+        ("https://youtube.com/watch?v=5", "youtube.com", "GATE Smashers Operating System", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE),
     ]
 
     for url, domain, title, exp_cat, exp_sub, exp_prod in test_cases:
         cat, sub, prod = rules_engine.classify_browser(url=url, domain=domain, page_title=title)
-        assert cat == exp_cat, f"Failed domain category for {domain}: got {cat}, expected {exp_cat}"
-        assert sub == exp_sub, f"Failed domain subcategory for {domain}: got {sub}, expected {exp_sub}"
-        assert prod == exp_prod, f"Failed domain productivity for {domain}: got {prod}, expected {exp_prod}"
+        assert cat == exp_cat, f"Failed domain category for {domain} ({title}): got {cat}, expected {exp_cat}"
+        assert sub == exp_sub, f"Failed domain subcategory for {domain} ({title}): got {sub}, expected {exp_sub}"
+        assert prod == exp_prod, f"Failed domain productivity for {domain} ({title}): got {prod}, expected {exp_prod}"
 
 
 def test_youtube_classification(rules_engine):
