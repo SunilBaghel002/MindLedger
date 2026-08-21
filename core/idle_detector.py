@@ -77,3 +77,13 @@ class IdleDetector:
     def touch_activity(self) -> None:
         """Simulate user activity (useful for testing or manual reset)."""
         self._last_simulated_activity = time.time()
+
+    def get_last_active_time(self) -> float:
+        """Get epoch timestamp of the most recent user keyboard/mouse activity.
+
+        Returns:
+            Epoch timestamp as float.
+        """
+        idle_seconds = self.get_idle_time_seconds()
+        return time.time() - idle_seconds
+

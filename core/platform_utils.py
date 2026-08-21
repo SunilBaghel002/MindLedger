@@ -41,15 +41,42 @@ def is_linux() -> bool:
     return sys.platform.startswith("linux")
 
 
+def is_screen_locked() -> bool:
+    """Check if the operating system session or workstation is locked.
+
+    Returns:
+        True if screen is locked or inaccessible, False otherwise.
+    """
+    if not IS_WINDOWS:
+        return False
+
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        # DESKTOP_SWITCHDESKTOP = 0x0100
+        hdesk = user32.OpenInputDesktop(0, False, 0x0100)
+        if not hdesk:
+            return True
+        user32.CloseDesktop(hdesk)
+        return False
+    except Exception as e:
+        logger.debug(f"Error checking Windows screen lock status: {e}")
+        return False
+
+
 def get_active_window_info() -> Optional[Dict[str, Any]]:
     """Get active foreground window details (app name, process path, title, pid).
 
     Returns:
         Dictionary containing app_name, app_path, window_title, and pid,
-        or None if active window cannot be determined.
+        or None if active window cannot be determined or workstation is locked.
     """
     if not IS_WINDOWS:
         logger.debug("Active window detection currently implemented for Windows.")
+        return None
+
+    if is_screen_locked():
+        logger.debug("Screen is locked. Skipping active window inspection.")
         return None
 
     try:
@@ -75,6 +102,11 @@ def get_active_window_info() -> Optional[Dict[str, Any]]:
             logger.debug(f"Could not inspect process pid={pid}: {e}")
             app_name = "System"
             app_path = None
+
+        # Ignore Windows Lock Screen and Logon UI processes
+        if app_name.lower() in ("lockapp.exe", "logonui.exe", "screenclipper.exe"):
+            logger.debug(f"Ignored system lock window: {app_name}")
+            return None
 
         return {
             "app_name": app_name,

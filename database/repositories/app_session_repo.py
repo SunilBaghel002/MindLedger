@@ -307,3 +307,48 @@ class AppSessionRepository:
         result = cursor.fetchone()[0]
         return int(result) if result else 0
 
+    def repair_runaway_sessions(self, max_allowed_seconds: int = 1800) -> int:
+        """Repair historical runaway sessions where duration_seconds exceeded reasonable limits due to sleep/suspend bugs.
+
+        Args:
+            max_allowed_seconds: Threshold above which sessions are capped/repaired.
+
+        Returns:
+            Number of rows updated.
+        """
+        # Neutralize LockApp sessions if any were tracked
+        self.conn.execute(
+            """
+            UPDATE app_sessions
+            SET duration_seconds = 0, is_foreground = 0
+            WHERE LOWER(app_name) IN ('lockapp.exe', 'logonui.exe', 'screenclipper.exe')
+            """
+        )
+
+        # Cap runaway sleep sessions
+        cursor = self.conn.execute(
+            """
+            UPDATE app_sessions
+            SET duration_seconds = 60
+            WHERE duration_seconds > ? AND ended_at IS NOT NULL
+            """,
+            (max_allowed_seconds,),
+        )
+        self.conn.commit()
+        return cursor.rowcount
+
+
+def repair_runaway_sessions(conn: sqlite3.Connection, max_allowed_seconds: int = 1800) -> int:
+    """Standalone helper to repair runaway sleep/suspend sessions.
+
+    Args:
+        conn: Active sqlite3.Connection.
+        max_allowed_seconds: Max allowed duration seconds before clamping.
+
+    Returns:
+        Number of repaired rows.
+    """
+    repo = AppSessionRepository(conn)
+    return repo.repair_runaway_sessions(max_allowed_seconds=max_allowed_seconds)
+
+

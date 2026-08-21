@@ -19,6 +19,7 @@ from core.event_processor import EventProcessor
 from database.connection import db_manager
 from database.migrations.v001_initial import up as run_v001_migration
 from database.migrations.v002_performance_indexes import up as run_v002_migration
+from database.repositories.app_session_repo import repair_runaway_sessions
 from database.seed_data import seed_database
 from tray_app import SystemTrayApp, open_native_desktop_window
 
@@ -63,7 +64,9 @@ def initialize_database() -> None:
         run_v001_migration(conn)
         run_v002_migration(conn)
         seed_database(conn)
-    logger.info("Database initialization and seeding completed successfully.")
+        repair_runaway_sessions(conn)
+    logger.info("Database initialization, seeding, and session sanity checks completed successfully.")
+
 
 
 
