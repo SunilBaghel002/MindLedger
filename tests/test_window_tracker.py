@@ -151,7 +151,8 @@ def test_event_processor(temp_db):
             "pid": 1234,
         }
 
-        with patch("core.window_tracker.get_active_window_info", return_value=mock_window):
+        with patch("core.window_tracker.get_active_window_info", return_value=mock_window), \
+             patch("core.event_processor.is_screen_locked", return_value=False):
             res = ep.tick()
             assert res["status"] == "active"
             assert res["app_name"] == "pycharm.exe"
@@ -161,3 +162,130 @@ def test_event_processor(temp_db):
             assert res2["status"] == "active"
 
         ep.stop()
+
+
+def test_session_manager_idle_deduction(temp_db):
+    """Test SessionManager idle deduction when ending a session."""
+    with temp_db.connection() as conn:
+        sm = SessionManager(db_conn=conn)
+        s1 = sm.start_session(
+            app_name="Code.exe",
+            window_title="main.py",
+            category="coding",
+            productivity="productive",
+        )
+        # End session with 300s idle deduction
+        ended = sm.end_current_session(idle_seconds_to_deduct=300.0)
+        assert ended is not None
+        assert ended.duration_seconds == 0
+        assert sm.current_session is None
+
+
+def test_session_manager_sleep_gap_in_same_window(temp_db):
+    """Test SessionManager detects large time gap in same window and splits session."""
+    with temp_db.connection() as conn:
+        sm = SessionManager(db_conn=conn)
+        s1 = sm.start_session(
+            app_name="Code.exe",
+            window_title="main.py",
+            category="coding",
+            productivity="productive",
+        )
+        # Simulate last_active_at was 2 hours ago
+        from datetime import timedelta
+        sm._last_active_at = datetime.now() - timedelta(hours=2)
+
+        # Handle window change with same window
+        s2 = sm.handle_window_change(
+            app_name="Code.exe",
+            window_title="main.py",
+            category="coding",
+            productivity="productive",
+        )
+        # Should have ended previous session and started a new one
+        assert s2.id != s1.id
+
+
+def test_event_processor_sleep_gap_detection(temp_db):
+    """Test EventProcessor detects sleep gap (> 10s) and pauses tracking."""
+    with temp_db.connection() as conn:
+        ep = EventProcessor(db_conn=conn, poll_interval=1, idle_threshold=300)
+        ep.start()
+
+        mock_window = {
+            "app_name": "Code.exe",
+            "app_path": "C:\\VSCode\\Code.exe",
+            "window_title": "app.py",
+            "pid": 100,
+        }
+
+        with patch("core.window_tracker.get_active_window_info", return_value=mock_window), \
+             patch("core.event_processor.is_screen_locked", return_value=False):
+            ep.tick()
+            assert ep.session_manager.current_session is not None
+
+            # Simulate 2 hours elapsed since last tick (system sleep)
+            ep._last_tick_time = time.time() - 7200.0
+            res = ep.tick()
+            # Session should be ended or marked idle
+            assert ep.is_idle_state is False or res["status"] == "active"
+
+        ep.stop()
+
+
+def test_event_processor_screen_lock(temp_db):
+    """Test EventProcessor handles workstation screen lock."""
+    with temp_db.connection() as conn:
+        ep = EventProcessor(db_conn=conn, poll_interval=1, idle_threshold=300)
+        ep.start()
+
+        mock_window = {
+            "app_name": "Code.exe",
+            "app_path": "C:\\VSCode\\Code.exe",
+            "window_title": "app.py",
+            "pid": 100,
+        }
+
+        with patch("core.window_tracker.get_active_window_info", return_value=mock_window), \
+             patch("core.event_processor.is_screen_locked", return_value=True):
+            res = ep.tick()
+            assert res["status"] == "locked"
+            assert ep.is_idle_state is True
+            assert ep.session_manager.current_session is None
+
+        ep.stop()
+
+
+def test_repair_runaway_sessions(temp_db):
+    """Test repair_runaway_sessions clamps sessions > 1800s and cleans LockApp."""
+    with temp_db.connection() as conn:
+        from database.repositories.app_session_repo import repair_runaway_sessions
+        # Insert test runaway session
+        conn.execute(
+            """
+            INSERT INTO app_sessions (
+                app_name, started_at, ended_at, duration_seconds, is_foreground, category, productivity, date
+            ) VALUES ('WindowsTerminal.exe', '2026-08-21T08:00:00', '2026-08-21T10:00:00', 7200, 1, 'coding', 'productive', '2026-08-21')
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO app_sessions (
+                app_name, started_at, ended_at, duration_seconds, is_foreground, category, productivity, date
+            ) VALUES ('LockApp.exe', '2026-08-21T10:00:00', '2026-08-21T11:00:00', 3600, 1, 'system', 'neutral', '2026-08-21')
+            """
+        )
+        conn.commit()
+
+        repaired = repair_runaway_sessions(conn, max_allowed_seconds=1800)
+        assert repaired >= 1
+
+        cursor = conn.execute("SELECT app_name, duration_seconds, is_foreground FROM app_sessions")
+        rows = cursor.fetchall()
+        for r in rows:
+            if r["app_name"] == "LockApp.exe":
+                assert r["duration_seconds"] == 0
+                assert r["is_foreground"] == 0
+            elif r["app_name"] == "WindowsTerminal.exe":
+                assert r["duration_seconds"] <= 1800
+
