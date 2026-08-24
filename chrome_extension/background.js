@@ -433,11 +433,58 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+// Domain limits state and sync
+let blockedDomainRules = [];
+
+async function syncBlockedDomains() {
+  try {
+    const res = await fetch('http://127.0.0.1:8787/api/v1/limits');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.data?.limits) {
+        blockedDomainRules = data.data.limits.filter(
+          (l) => l.target_type === 'domain' && l.is_active && (l.status === 'exceeded') && l.is_hard_block
+        );
+        await chrome.storage.local.set({ blockedDomains: blockedDomainRules });
+      }
+    }
+  } catch (e) {
+    const stored = await chrome.storage.local.get(['blockedDomains']);
+    blockedDomainRules = stored.blockedDomains || [];
+  }
+}
+
+function checkDomainBlocked(tabId, url) {
+  if (!isValidTrackableUrl(url)) return;
+  const domain = extractDomain(url);
+  if (!domain) return;
+
+  const matched = blockedDomainRules.find(
+    (r) => domain.toLowerCase().includes(r.target_identifier.toLowerCase()) || r.target_identifier.toLowerCase().includes(domain.toLowerCase())
+  );
+
+  if (matched) {
+    const blockedUrl = chrome.runtime.getURL(`blocked.html?domain=${encodeURIComponent(domain)}&limit_id=${matched.id}&url=${encodeURIComponent(url)}`);
+    chrome.tabs.update(tabId, { url: blockedUrl });
+  }
+}
+
+// Alarms: Keepalive Heartbeat (1 min) to flush buffers and sync limits
+chrome.alarms.create('mindledger_heartbeat', { periodInMinutes: 1 });
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === 'mindledger_heartbeat') {
+    await flushBuffer();
+    await syncBlockedDomains();
+  }
+});
+
 // Initialize tracking on service worker startup
 chrome.tabs.query({ active: true, lastFocusedWindow: true }).then((tabs) => {
   if (tabs && tabs.length > 0) {
     startTrackingTab(tabs[0]);
   }
 });
+syncBlockedDomains();
 
-console.log('[MindLedger] Background service worker initialized with generation token blur protection.');
+console.log('[MindLedger] Background service worker initialized with keepalive alarms & domain limit blocker.');
+
