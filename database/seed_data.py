@@ -30,11 +30,14 @@ logger = get_logger(__name__)
 # Default Category Rules (rule_type, pattern, category, subcategory, productivity, priority)
 DEFAULT_CATEGORY_RULES: List[Tuple[str, str, str, str, str, int]] = [
     # Application Rules (process name exact/contains match)
+    ("app", "mindledger.exe", CATEGORY_CODING, "development", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("app", "mindledger", CATEGORY_CODING, "development", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "code.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "code", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "cursor.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "cursor", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "antigravity.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("app", "antigravity ide.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "devenv.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "pycharm.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "pycharm64.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
@@ -62,6 +65,8 @@ DEFAULT_CATEGORY_RULES: List[Tuple[str, str, str, str, str, int]] = [
     ("app", "notepad.exe", CATEGORY_SYSTEM, "other", PRODUCTIVITY_NEUTRAL, 40),
 
     # Domain Rules
+    ("domain", "localhost", CATEGORY_CODING, "development", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("domain", "127.0.0.1", CATEGORY_CODING, "development", PRODUCTIVITY_PRODUCTIVE, 100),
     ("domain", "github.com", CATEGORY_CODING, "git", PRODUCTIVITY_PRODUCTIVE, 100),
     ("domain", "gitlab.com", CATEGORY_CODING, "git", PRODUCTIVITY_PRODUCTIVE, 100),
     ("domain", "stackoverflow.com", CATEGORY_CODING, "debugging", PRODUCTIVITY_PRODUCTIVE, 100),

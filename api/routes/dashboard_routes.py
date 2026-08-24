@@ -100,11 +100,11 @@ async def get_dashboard_index_page():
     """Serve main React dashboard SPA index.html."""
     dist_index = DIST_DIR / "index.html"
     if dist_index.exists():
-        return FileResponse(dist_index)
+        return FileResponse(dist_index, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
     index_path = TEMPLATES_DIR / "index.html"
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="Dashboard index.html not found.")
-    return FileResponse(index_path)
+    return FileResponse(index_path, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 
 @page_router.get("/logo.png", response_class=FileResponse, include_in_schema=False)
@@ -132,12 +132,12 @@ async def get_dashboard_subpage(page_name: str):
     """Serve subpages or fallback to main SPA index.html."""
     dist_index = DIST_DIR / "index.html"
     if dist_index.exists():
-        return FileResponse(dist_index)
+        return FileResponse(dist_index, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
     clean_name = page_name.replace(".html", "")
     target_path = TEMPLATES_DIR / f"{clean_name}.html"
     if not target_path.exists():
         index_path = TEMPLATES_DIR / "index.html"
-        return FileResponse(index_path)
+        return FileResponse(index_path, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
     return FileResponse(target_path)
 
 
