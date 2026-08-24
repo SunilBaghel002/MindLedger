@@ -199,6 +199,8 @@ class SessionManager:
                     updated = self.repo.update_duration(
                         self.current_session.id, self.current_session.duration_seconds
                     )
+                    if self.db_conn:
+                        self.db_conn.commit()
                     if not updated:
                         logger.warning(
                             f"Session duration update returned False for session_id={self.current_session.id}"

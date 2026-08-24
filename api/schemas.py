@@ -71,6 +71,7 @@ class DashboardTodayData(BaseModel):
     date: str
     total_screen_time_seconds: int = 0
     productive_time_seconds: int = 0
+    learning_time_seconds: int = 0
     unproductive_time_seconds: int = 0
     neutral_time_seconds: int = 0
     productivity_score: float = 0.0

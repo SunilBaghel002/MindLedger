@@ -338,16 +338,11 @@ async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="da
         total_app_sec = sum(s.duration_seconds for s in sessions)
         total_browser_sec = sum(b.duration_seconds for b in browser_sessions)
 
-        if total_browser_sec > total_app_sec:
-            total_seconds = total_browser_sec
-            productive_seconds = sum(b.duration_seconds for b in browser_sessions if b.productivity == "productive")
-            unproductive_seconds = sum(b.duration_seconds for b in browser_sessions if b.productivity == "unproductive")
-            neutral_seconds = sum(b.duration_seconds for b in browser_sessions if b.productivity == "neutral")
-        else:
-            total_seconds = total_app_sec
-            productive_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "productive")
-            unproductive_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "unproductive")
-            neutral_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "neutral")
+        total_seconds = max(total_app_sec, total_browser_sec)
+        productive_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "productive")
+        learning_seconds = sum(s.duration_seconds for s in sessions if s.category == "learning")
+        unproductive_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "unproductive")
+        neutral_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "neutral")
 
         score = (
             round((productive_seconds / total_seconds) * 100.0, 1)
@@ -390,7 +385,7 @@ async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="da
             if s.started_at:
                 idx = s.started_at.hour
                 if 0 <= idx < 24:
-                    mins = s.duration_seconds // 60
+                    mins = max(1, s.duration_seconds // 60) if s.duration_seconds >= 30 else 0
                     if s.productivity == "productive":
                         prod_mins[idx] += mins
                     elif s.productivity == "unproductive":
@@ -423,6 +418,7 @@ async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="da
             date=today_str,
             total_screen_time_seconds=total_seconds,
             productive_time_seconds=productive_seconds,
+            learning_time_seconds=learning_seconds,
             unproductive_time_seconds=unproductive_seconds,
             neutral_time_seconds=neutral_seconds,
             productivity_score=score,

@@ -51,10 +51,12 @@ class EventProcessor:
         self.rules_engine = RulesEngine(db_conn=db_conn)
         self.is_idle_state: bool = False
         self._last_tick_time: float = time.time()
+        self._no_window_ticks: int = 0
 
     def start(self) -> None:
         """Start the tracking engine."""
         self._last_tick_time = time.time()
+        self._no_window_ticks = 0
         self.window_tracker.start()
         logger.info("EventProcessor tracking engine started.")
 
@@ -83,6 +85,7 @@ class EventProcessor:
             )
             self.session_manager.end_current_session(use_last_active=True)
             self.is_idle_state = True
+            self._no_window_ticks = 0
 
         # 2. Check Workstation Screen Lock Status
         if is_screen_locked():
@@ -112,9 +115,27 @@ class EventProcessor:
         # 4. Poll Active Foreground Window
         window_info = self.window_tracker.poll()
         if not window_info:
+            self._no_window_ticks += 1
+            # If user is active, allow a brief grace period before tearing down session
+            if self.session_manager.current_session and self._no_window_ticks < 4:
+                curr = self.session_manager.current_session
+                now_dt = datetime.now()
+                curr.duration_seconds = max(0, int((now_dt - curr.started_at).total_seconds()))
+                if self.session_manager.repo and curr.id:
+                    self.session_manager.repo.update_duration(curr.id, curr.duration_seconds)
+                    if self.session_manager.db_conn:
+                        self.session_manager.db_conn.commit()
+                return {
+                    "status": "active",
+                    "app_name": curr.app_name,
+                    "window_title": curr.window_title,
+                    "duration_seconds": curr.duration_seconds,
+                }
             if self.session_manager.current_session:
                 self.session_manager.end_current_session()
             return {"status": "no_window", "idle_seconds": 0}
+
+        self._no_window_ticks = 0
 
         # 5. Classify with RulesEngine
         category, subcategory, productivity = self.rules_engine.classify_app(

@@ -134,38 +134,45 @@ class AppSessionRepository:
             (date_str,),
         )
         rows = cursor.fetchall()
-        return [AppSession.from_row(row) for row in rows]
+        sessions = [AppSession.from_row(row) for row in rows]
+        now = datetime.now()
+        for s in sessions:
+            if s.ended_at is None and s.date == now.date().isoformat():
+                live_sec = max(0, int((now - s.started_at).total_seconds()))
+                if live_sec > s.duration_seconds:
+                    s.duration_seconds = live_sec
+        return sessions
 
     def get_top_apps(self, date_str: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Calculate top applications used on a given date by duration.
+        """Calculate top applications used on a given date by duration including active sessions.
 
         Args:
             date_str: Date string in YYYY-MM-DD format.
             limit: Maximum number of apps to return.
 
         Returns:
-            List of dicts containing app_name and total_seconds.
+            List of dicts containing app_name, category, productivity, and total_seconds.
         """
-        cursor = self.conn.execute(
-            """
-            SELECT app_name, MAX(category) as category, MAX(productivity) as productivity, SUM(duration_seconds) as total_seconds
-            FROM app_sessions
-            WHERE date = ? AND is_foreground = 1
-            GROUP BY app_name
-            ORDER BY total_seconds DESC
-            LIMIT ?
-            """,
-            (date_str, limit),
+        sessions = self.get_by_date(date_str)
+        app_aggregates: Dict[str, Dict[str, Any]] = {}
+        for s in sessions:
+            if not s.is_foreground:
+                continue
+            if s.app_name not in app_aggregates:
+                app_aggregates[s.app_name] = {
+                    "app_name": s.app_name,
+                    "category": s.category,
+                    "productivity": s.productivity,
+                    "total_seconds": 0,
+                }
+            app_aggregates[s.app_name]["total_seconds"] += s.duration_seconds
+
+        sorted_apps = sorted(
+            app_aggregates.values(),
+            key=lambda x: x["total_seconds"],
+            reverse=True,
         )
-        return [
-            {
-                "app_name": row["app_name"],
-                "category": row["category"],
-                "productivity": row["productivity"],
-                "total_seconds": row["total_seconds"],
-            }
-            for row in cursor.fetchall()
-        ]
+        return sorted_apps[:limit]
 
     def get_latest_session(self) -> Optional[AppSession]:
         """Fetch the most recent application session.
