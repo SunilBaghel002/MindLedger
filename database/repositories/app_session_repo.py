@@ -134,14 +134,7 @@ class AppSessionRepository:
             (date_str,),
         )
         rows = cursor.fetchall()
-        sessions = [AppSession.from_row(row) for row in rows]
-        now = datetime.now()
-        for s in sessions:
-            if s.ended_at is None and s.date == now.date().isoformat():
-                live_sec = max(0, int((now - s.started_at).total_seconds()))
-                if live_sec > s.duration_seconds:
-                    s.duration_seconds = live_sec
-        return sessions
+        return [AppSession.from_row(row) for row in rows]
 
     def get_top_apps(self, date_str: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Calculate top applications used on a given date by duration including active sessions.
@@ -329,6 +322,22 @@ class AppSessionRepository:
             UPDATE app_sessions
             SET duration_seconds = 0, is_foreground = 0
             WHERE LOWER(app_name) IN ('lockapp.exe', 'logonui.exe', 'screenclipper.exe')
+            """
+        )
+
+        # Close any orphaned sessions left open after unexpected sleep/shutdown
+        self.conn.execute(
+            """
+            UPDATE app_sessions
+            SET ended_at = datetime(started_at, '+' || duration_seconds || ' seconds')
+            WHERE ended_at IS NULL
+            """
+        )
+        self.conn.execute(
+            """
+            UPDATE browser_sessions
+            SET ended_at = datetime(started_at, '+' || duration_seconds || ' seconds')
+            WHERE ended_at IS NULL
             """
         )
 

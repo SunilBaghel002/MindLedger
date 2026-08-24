@@ -382,16 +382,36 @@ async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="da
         unprod_mins = [0] * 24
 
         for s in sessions:
-            if s.started_at:
-                idx = s.started_at.hour
-                if 0 <= idx < 24:
-                    mins = max(1, s.duration_seconds // 60) if s.duration_seconds >= 30 else 0
+            if s.started_at and s.duration_seconds > 0:
+                cur_dt = s.started_at
+                rem_sec = s.duration_seconds
+                temp_dt = cur_dt
+                while rem_sec > 0:
+                    h = temp_dt.hour
+                    if not (0 <= h < 24):
+                        break
+                    next_hour = (temp_dt + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+                    sec_in_this_hour = min(rem_sec, max(1, int((next_hour - temp_dt).total_seconds())))
+                    mins = max(1, sec_in_this_hour // 60) if sec_in_this_hour >= 30 else 0
+
                     if s.productivity == "productive":
-                        prod_mins[idx] += mins
+                        prod_mins[h] = min(60, prod_mins[h] + mins)
                     elif s.productivity == "unproductive":
-                        unprod_mins[idx] += mins
+                        unprod_mins[h] = min(60, unprod_mins[h] + mins)
                     else:
-                        neut_mins[idx] += mins
+                        neut_mins[h] = min(60, neut_mins[h] + mins)
+
+                    rem_sec -= sec_in_this_hour
+                    temp_dt = next_hour
+
+        # Ensure no hour bucket exceeds 60 minutes
+        for h in range(24):
+            tot = prod_mins[h] + neut_mins[h] + unprod_mins[h]
+            if tot > 60:
+                scale = 60.0 / tot
+                prod_mins[h] = int(round(prod_mins[h] * scale))
+                neut_mins[h] = int(round(neut_mins[h] * scale))
+                unprod_mins[h] = int(round(unprod_mins[h] * scale))
 
         timeline = HourlyActivityTimelineDTO(
             labels=labels,
