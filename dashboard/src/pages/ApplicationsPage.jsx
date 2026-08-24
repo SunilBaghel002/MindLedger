@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { FiAlertTriangle, FiAward, FiClock, FiLayers } from 'react-icons/fi';
+import {
+  FiAlertTriangle,
+  FiAward,
+  FiClock,
+  FiFilter,
+  FiLayers,
+  FiTrendingUp,
+  FiZap,
+} from 'react-icons/fi';
 import AppTrendChart from '../components/AppTrendChart';
 import CategoryDonut from '../components/CategoryDonut';
 import StatCard from '../components/StatCard';
@@ -30,7 +38,7 @@ export default function ApplicationsPage() {
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadAppData = (showLoading = false) => {
       if (showLoading && !analyticsData) {
         setLoading(true);
@@ -78,10 +86,12 @@ export default function ApplicationsPage() {
     };
   }, [rangePreset, categoryFilter]);
 
-  const totalTimeStr = secondsToHms(analyticsData?.total_screen_time_seconds || 0);
+  const totalSecs = analyticsData?.total_screen_time_seconds || 0;
+  const totalTimeStr = secondsToHms(totalSecs);
   const appsCount = analyticsData?.total_apps_count || 0;
   const appsList = analyticsData?.top_apps || [];
   const topAppName = appsList.length > 0 ? appsList[0].app_name : 'None';
+  const topAppDuration = appsList.length > 0 ? secondsToHms(appsList[0].total_seconds) : 'No data';
   const maxSecs = appsList.length > 0 ? Math.max(...appsList.map((a) => a.total_seconds || 1)) : 1;
 
   // Format category breakdown for donut chart
@@ -93,54 +103,49 @@ export default function ApplicationsPage() {
   };
 
   return (
-    <section className="page-section">
+    <section className="page-section" style={{ paddingBottom: 'var(--space-2xl)' }}>
       {/* Controls Bar: Preset Pills + Category Filter */}
       <div
+        className="card"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: 'var(--space-md)',
+          padding: '12px 18px',
           marginBottom: 'var(--space-xl)',
+          borderRadius: 'var(--radius-md)',
         }}
       >
-        <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+        <div className="btn-group-pill">
           {PRESETS.map((p) => (
             <button
               key={p.id}
               onClick={() => setRangePreset(p.id)}
-              aria-pressed={rangePreset === p.id}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-color)',
-                backgroundColor: rangePreset === p.id ? 'var(--primary-blue)' : 'var(--bg-card)',
-                color: rangePreset === p.id ? '#fff' : 'var(--text-secondary)',
-                fontWeight: rangePreset === p.id ? '600' : '500',
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
+              className={`pill-btn ${rangePreset === p.id ? 'active' : ''}`}
             >
               {p.label}
             </button>
           ))}
         </div>
 
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <FiFilter style={{ color: 'var(--text-muted)', fontSize: '14px' }} />
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
             aria-label="Filter applications by category"
             style={{
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-sm)',
+              padding: '6px 14px',
+              borderRadius: 'var(--radius-full)',
               border: '1px solid var(--border-color)',
-              backgroundColor: 'var(--bg-card)',
+              backgroundColor: 'var(--bg-surface)',
               color: 'var(--text-main)',
               fontSize: '13px',
-              fontWeight: '500',
+              fontWeight: '600',
               cursor: 'pointer',
+              outline: 'none',
             }}
           >
             {CATEGORIES.map((c) => (
@@ -153,78 +158,148 @@ export default function ApplicationsPage() {
       </div>
 
       {loading ? (
-        <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-          <div className="skeleton-loader" style={{ width: '60%', margin: '0 auto 12px' }}></div>
-          <p style={{ color: 'var(--text-muted)' }}>Loading application analytics...</p>
+        <div className="card timeline-shimmer-loader" style={{ height: '300px' }}>
+          <div className="shimmer-wave"></div>
+          <span className="shimmer-text">Loading application analytics...</span>
         </div>
       ) : error ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '32px', color: 'var(--color-unproductive)', marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
+          <div
+            style={{
+              fontSize: '36px',
+              color: 'var(--color-unproductive)',
+              marginBottom: '12px',
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+          >
             <FiAlertTriangle />
           </div>
-          <p style={{ color: 'var(--text-secondary)' }}>{error}</p>
+          <p style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>{error}</p>
         </div>
       ) : (
         <>
           {/* Stat Cards */}
-          <div className="grid-3">
+          <div className="grid-3" style={{ marginBottom: 'var(--space-xl)' }}>
             <StatCard
               label="Total Screen Time"
               icon={<FiClock />}
               value={totalTimeStr}
-              subtext={`Selected range (${rangePreset})`}
+              subtext={`Range: ${rangePreset.toUpperCase()}`}
               isPositive={true}
+              variant="indigo"
             />
             <StatCard
               label="Tracked Applications"
               icon={<FiLayers />}
               value={appsCount.toString()}
-              subtext="Distinct applications"
+              subtext="Distinct processes recorded"
               isPositive={true}
+              variant="emerald"
             />
             <StatCard
               label="Top Application"
               icon={<FiAward />}
               value={topAppName}
-              subtext={appsList.length > 0 ? secondsToHms(appsList[0].total_seconds) : 'No data'}
+              subtext={topAppDuration}
               isPositive={true}
+              variant="amber"
             />
           </div>
 
-          {/* Trend Chart */}
-          <AppTrendChart trend={analyticsData?.trend} />
+          {/* Upgraded Trend / Comparison Chart */}
+          <AppTrendChart trend={analyticsData?.trend || []} topApps={appsList} />
 
           {/* Apps List + Category Donut */}
-          <div className="grid-2">
-            <div className="card">
-              <div className="card-header">
+          <div className="grid-2" style={{ gap: 'var(--space-xl)', alignItems: 'start' }}>
+            <div className="card" style={{ padding: '20px 24px' }}>
+              <div className="card-header" style={{ marginBottom: '18px' }}>
                 <h2 className="card-title">
-                  <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiLayers /></span> Applications List
+                  <span className="card-icon text-indigo">
+                    <FiLayers />
+                  </span>{' '}
+                  Tracked Applications
                 </h2>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  {appsList.length} applications
+                <span className="badge badge-neutral" style={{ fontSize: '11px', fontWeight: '700' }}>
+                  {appsList.length} apps
                 </span>
               </div>
 
               {appsList.length > 0 ? (
-                <div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {appsList.map((app, idx) => {
-                    const pct = Math.round((app.total_seconds / maxSecs) * 100);
-                    const colorClass = app.productivity || 'neutral';
+                    const pct = Math.round((app.total_seconds / (totalSecs || 1)) * 100);
+                    const barPct = Math.round((app.total_seconds / maxSecs) * 100);
+                    const prod = (app.productivity || 'neutral').toLowerCase();
+                    const badgeClass =
+                      prod === 'productive'
+                        ? 'badge-productive'
+                        : prod === 'unproductive'
+                        ? 'badge-unproductive'
+                        : 'badge-neutral';
+
                     return (
-                      <div key={idx} className="usage-item">
-                        <div className="usage-meta">
-                          <span className="usage-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <FiLayers style={{ color: 'var(--primary-blue)' }} /> {app.app_name}
-                          </span>
-                          <span className="usage-duration">
-                            {secondsToHms(app.total_seconds)}
-                          </span>
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: 'var(--radius-md)',
+                          background: 'var(--bg-surface)',
+                          border: '1px solid var(--border-color)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                background: '#EEF2FF',
+                                color: '#4F46E5',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '14px',
+                                fontWeight: '700',
+                              }}
+                            >
+                              {app.app_name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-main)' }}>
+                                {app.app_name}
+                              </div>
+                              <span className={`badge ${badgeClass}`} style={{ fontSize: '10px', marginTop: '2px' }}>
+                                {app.category || app.productivity || 'Neutral'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontWeight: '800', fontSize: '14px', color: 'var(--text-main)' }}>
+                              {secondsToHms(app.total_seconds)}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
+                              {pct}% of total
+                            </div>
+                          </div>
                         </div>
-                        <div className="progress-track">
+
+                        <div className="progress-track" style={{ height: '6px', marginTop: '2px' }}>
                           <div
-                            className={`progress-fill ${colorClass}`}
-                            style={{ width: `${pct}%` }}
+                            className={`progress-fill ${prod}`}
+                            style={{ width: `${Math.max(barPct, 2)}%` }}
                           ></div>
                         </div>
                       </div>
@@ -233,7 +308,9 @@ export default function ApplicationsPage() {
                 </div>
               ) : (
                 <div className="empty-state">
-                  <div className="empty-icon"><FiLayers /></div>
+                  <div className="empty-icon">
+                    <FiLayers />
+                  </div>
                   <div className="empty-title">No applications found for selected filters</div>
                 </div>
               )}
@@ -246,3 +323,4 @@ export default function ApplicationsPage() {
     </section>
   );
 }
+

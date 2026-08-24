@@ -12,6 +12,10 @@ import psutil
 
 from api.schemas import (
     APIResponse,
+    AppTerminateRequest,
+    AppTerminateResponseData,
+    ChildProcessItemDTO,
+    GroupedAppDTO,
     ProcessItemDTO,
     ProcessListResponseData,
     ProcessOptimizeResponseData,
@@ -32,9 +36,17 @@ async def get_processes(
     filter_type: str = Query("user", alias="filter", description="Process filter: 'all', 'user', 'hogs', 'system'"),
     sort_by: str = Query("memory", description="Sort by: 'memory', 'cpu', 'hog_score', 'name'"),
 ) -> APIResponse[ProcessListResponseData]:
-    """Scan and list running OS processes with resource telemetry and hog scoring."""
+    """Scan and list running OS processes with resource telemetry and grouped application trees."""
     try:
         data = process_supervisor.scan_processes(filter_type=filter_type, sort_by=sort_by)
+
+        grouped_dto_list = []
+        for g in data.get("grouped_apps", []):
+            children_dtos = [ChildProcessItemDTO(**c) for c in g.get("children", [])]
+            g_copy = dict(g)
+            g_copy["children"] = children_dtos
+            grouped_dto_list.append(GroupedAppDTO(**g_copy))
+
         return APIResponse(
             success=True,
             data=ProcessListResponseData(
@@ -42,6 +54,7 @@ async def get_processes(
                 user_processes_count=data["user_processes_count"],
                 hog_count=data["hog_count"],
                 total_ram_used_mb=data["total_ram_used_mb"],
+                grouped_apps=grouped_dto_list,
                 processes=[ProcessItemDTO(**p) for p in data["processes"]],
             ),
             error=None,
@@ -51,6 +64,38 @@ async def get_processes(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to scan running processes: {e}",
+        ) from e
+
+
+@router.post("/terminate-app", response_model=APIResponse[AppTerminateResponseData])
+async def terminate_application(
+    req: AppTerminateRequest,
+) -> APIResponse[AppTerminateResponseData]:
+    """Safely terminate all worker processes of an application.
+
+    Returns HTTP 403 if the application is a protected Windows binary.
+    """
+    try:
+        result = process_supervisor.terminate_app(
+            binary_name=req.binary_name,
+            force=req.force,
+        )
+        return APIResponse(
+            success=True,
+            data=AppTerminateResponseData(**result),
+            error=None,
+        )
+    except PermissionError as perm_err:
+        logger.warning(f"Rejected kill request for protected app {req.binary_name}: {perm_err}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(perm_err),
+        ) from perm_err
+    except Exception as e:
+        logger.error(f"Failed to terminate app {req.binary_name}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to terminate application: {e}",
         ) from e
 
 

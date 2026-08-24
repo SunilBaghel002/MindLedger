@@ -30,11 +30,14 @@ logger = get_logger(__name__)
 # Default Category Rules (rule_type, pattern, category, subcategory, productivity, priority)
 DEFAULT_CATEGORY_RULES: List[Tuple[str, str, str, str, str, int]] = [
     # Application Rules (process name exact/contains match)
+    ("app", "mindledger.exe", CATEGORY_CODING, "development", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("app", "mindledger", CATEGORY_CODING, "development", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "code.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "code", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "cursor.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "cursor", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "antigravity.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("app", "antigravity ide.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "devenv.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "pycharm.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
     ("app", "pycharm64.exe", CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE, 100),
@@ -62,6 +65,8 @@ DEFAULT_CATEGORY_RULES: List[Tuple[str, str, str, str, str, int]] = [
     ("app", "notepad.exe", CATEGORY_SYSTEM, "other", PRODUCTIVITY_NEUTRAL, 40),
 
     # Domain Rules
+    ("domain", "localhost", CATEGORY_CODING, "development", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("domain", "127.0.0.1", CATEGORY_CODING, "development", PRODUCTIVITY_PRODUCTIVE, 100),
     ("domain", "github.com", CATEGORY_CODING, "git", PRODUCTIVITY_PRODUCTIVE, 100),
     ("domain", "gitlab.com", CATEGORY_CODING, "git", PRODUCTIVITY_PRODUCTIVE, 100),
     ("domain", "stackoverflow.com", CATEGORY_CODING, "debugging", PRODUCTIVITY_PRODUCTIVE, 100),
@@ -119,6 +124,10 @@ DEFAULT_CATEGORY_RULES: List[Tuple[str, str, str, str, str, int]] = [
     ("title_pattern", "gate smashers", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
     ("title_pattern", "neso academy", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
     ("title_pattern", "knowledge gate", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "knowledgegate", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "discrete maths", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "discrete mathematics", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
+    ("title_pattern", "sanchitsir", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
     ("title_pattern", "gate", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 110),
     ("title_pattern", "dsa", CATEGORY_LEARNING, "computer_science", PRODUCTIVITY_PRODUCTIVE, 110),
     ("title_pattern", "dbms", CATEGORY_LEARNING, "computer_science", PRODUCTIVITY_PRODUCTIVE, 110),
@@ -136,6 +145,8 @@ DEFAULT_CATEGORY_RULES: List[Tuple[str, str, str, str, str, int]] = [
     ("youtube_channel", "Gate Smashers", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
     ("youtube_channel", "Neso Academy", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
     ("youtube_channel", "Knowledge Gate", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("youtube_channel", "KnowledgeGATE", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
+    ("youtube_channel", "KnowledgeGATE by Sanchit Sir", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
     ("youtube_channel", "Unacademy Computer Science", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
     ("youtube_channel", "Physics Wallah", CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE, 100),
     ("youtube_channel", "GeeksforGeeks", CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE, 100),

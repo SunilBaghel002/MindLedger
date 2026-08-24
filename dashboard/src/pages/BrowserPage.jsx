@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { FiAlertTriangle, FiGlobe, FiLink, FiPieChart, FiSearch, FiStar, FiTrendingUp } from 'react-icons/fi';
+import {
+  FiAlertTriangle,
+  FiCompass,
+  FiExternalLink,
+  FiFilter,
+  FiGlobe,
+  FiLink,
+  FiPieChart,
+  FiSearch,
+  FiStar,
+  FiTrendingUp,
+} from 'react-icons/fi';
 import CategoryDonut from '../components/CategoryDonut';
 import StatCard from '../components/StatCard';
 import URLDetailModal from '../components/URLDetailModal';
@@ -84,7 +95,9 @@ export default function BrowserPage() {
   const domainsCount = analyticsData?.unique_domains_count || 0;
   const domainsList = analyticsData?.top_domains || [];
   const topSite = domainsList.length > 0 ? domainsList[0].domain : 'None';
+  const topSiteDuration = domainsList.length > 0 ? secondsToHms(domainsList[0].total_seconds) : 'No data';
   const topMostVisited = domainsList.slice(0, 5);
+  const maxDomainSecs = domainsList.length > 0 ? Math.max(...domainsList.map((d) => d.total_seconds || 1)) : 1;
 
   // Format category breakdown for donut chart
   const donutData = {
@@ -95,54 +108,49 @@ export default function BrowserPage() {
   };
 
   return (
-    <section className="page-section">
+    <section className="page-section" style={{ paddingBottom: 'var(--space-2xl)' }}>
       {/* Controls Bar: Preset Pills + Category Filter */}
       <div
+        className="card"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: 'var(--space-md)',
+          padding: '12px 18px',
           marginBottom: 'var(--space-xl)',
+          borderRadius: 'var(--radius-md)',
         }}
       >
-        <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+        <div className="btn-group-pill">
           {PRESETS.map((p) => (
             <button
               key={p.id}
               onClick={() => setRangePreset(p.id)}
-              aria-pressed={rangePreset === p.id}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-color)',
-                backgroundColor: rangePreset === p.id ? 'var(--primary-blue)' : 'var(--bg-card)',
-                color: rangePreset === p.id ? '#fff' : 'var(--text-secondary)',
-                fontWeight: rangePreset === p.id ? '600' : '500',
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
+              className={`pill-btn ${rangePreset === p.id ? 'active' : ''}`}
             >
               {p.label}
             </button>
           ))}
         </div>
 
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <FiFilter style={{ color: 'var(--text-muted)', fontSize: '14px' }} />
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
             aria-label="Filter websites by category"
             style={{
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-sm)',
+              padding: '6px 14px',
+              borderRadius: 'var(--radius-full)',
               border: '1px solid var(--border-color)',
-              backgroundColor: 'var(--bg-card)',
+              backgroundColor: 'var(--bg-surface)',
               color: 'var(--text-main)',
               fontSize: '13px',
-              fontWeight: '500',
+              fontWeight: '600',
               cursor: 'pointer',
+              outline: 'none',
             }}
           >
             {CATEGORIES.map((c) => (
@@ -155,27 +163,36 @@ export default function BrowserPage() {
       </div>
 
       {loading ? (
-        <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-          <div className="skeleton-loader" style={{ width: '60%', margin: '0 auto 12px' }}></div>
-          <p style={{ color: 'var(--text-muted)' }}>Loading browser analytics...</p>
+        <div className="card timeline-shimmer-loader" style={{ height: '300px' }}>
+          <div className="shimmer-wave"></div>
+          <span className="shimmer-text">Loading browser analytics...</span>
         </div>
       ) : error ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '32px', color: 'var(--color-unproductive)', marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
+          <div
+            style={{
+              fontSize: '36px',
+              color: 'var(--color-unproductive)',
+              marginBottom: '12px',
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+          >
             <FiAlertTriangle />
           </div>
-          <p style={{ color: 'var(--text-secondary)' }}>{error}</p>
+          <p style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>{error}</p>
         </div>
       ) : (
         <>
           {/* Stat Cards */}
-          <div className="grid-3">
+          <div className="grid-3" style={{ marginBottom: 'var(--space-xl)' }}>
             <StatCard
               label="Total Browsing Time"
               icon={<FiGlobe />}
               value={totalTimeStr}
-              subtext={`Selected range (${rangePreset})`}
+              subtext={`Range: ${rangePreset.toUpperCase()}`}
               isPositive={true}
+              variant="indigo"
             />
             <StatCard
               label="Unique Domains Visited"
@@ -183,61 +200,120 @@ export default function BrowserPage() {
               value={domainsCount.toString()}
               subtext="Distinct website domains"
               isPositive={true}
+              variant="emerald"
             />
             <StatCard
               label="Top Website"
               icon={<FiStar />}
               value={topSite}
-              subtext={domainsList.length > 0 ? secondsToHms(domainsList[0].total_seconds) : 'No data'}
+              subtext={topSiteDuration}
               isPositive={true}
+              variant="amber"
             />
           </div>
 
           {/* Grid: Most Visited Sites + Category Donut */}
-          <div className="grid-2">
-            <div className="card">
-              <div className="card-header">
+          <div className="grid-2" style={{ gap: 'var(--space-xl)', marginBottom: 'var(--space-xl)', alignItems: 'start' }}>
+            <div className="card" style={{ padding: '20px 24px' }}>
+              <div className="card-header" style={{ marginBottom: '18px' }}>
                 <h2 className="card-title">
-                  <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiTrendingUp /></span> Most Visited Websites
+                  <span className="card-icon text-indigo">
+                    <FiTrendingUp />
+                  </span>{' '}
+                  Most Visited Websites
                 </h2>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Top 5 sites
+                <span className="badge badge-neutral" style={{ fontSize: '11px', fontWeight: '700' }}>
+                  Top {topMostVisited.length} sites
                 </span>
               </div>
 
               {topMostVisited.length > 0 ? (
-                <div>
-                  {topMostVisited.map((item, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '10px 0',
-                        borderBottom: idx < topMostVisited.length - 1 ? '1px solid var(--border-light)' : 'none',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '14px', color: 'var(--primary-blue)', display: 'flex', alignItems: 'center' }}><FiGlobe /></span>
-                        <div>
-                          <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-main)' }}>
-                            {item.domain}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {topMostVisited.map((item, idx) => {
+                    const prod = (item.productivity || item.category || 'neutral').toLowerCase();
+                    const badgeClass =
+                      prod === 'productive'
+                        ? 'badge-productive'
+                        : prod === 'unproductive'
+                        ? 'badge-unproductive'
+                        : 'badge-neutral';
+                    const barPct = Math.round((item.total_seconds / maxDomainSecs) * 100);
+
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: 'var(--radius-md)',
+                          background: 'var(--bg-surface)',
+                          border: '1px solid var(--border-color)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                background: '#F0FDF4',
+                                color: '#16A34A',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '14px',
+                                fontWeight: '700',
+                              }}
+                            >
+                              <FiGlobe />
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-main)' }}>
+                                {item.domain}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                <span className={`badge ${badgeClass}`} style={{ fontSize: '10px' }}>
+                                  {item.category || item.productivity || 'Browsing'}
+                                </span>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
+                                  {item.visit_count} visits
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            {item.visit_count} visit sessions
+
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontWeight: '800', fontSize: '14px', color: 'var(--text-main)' }}>
+                              {secondsToHms(item.total_seconds)}
+                            </div>
                           </div>
                         </div>
+
+                        <div className="progress-track" style={{ height: '6px', marginTop: '2px' }}>
+                          <div
+                            className={`progress-fill ${prod}`}
+                            style={{ width: `${Math.max(barPct, 2)}%` }}
+                          ></div>
+                        </div>
                       </div>
-                      <span style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                        {secondsToHms(item.total_seconds)}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="empty-state">
-                  <div className="empty-icon"><FiGlobe /></div>
+                  <div className="empty-icon">
+                    <FiGlobe />
+                  </div>
                   <div className="empty-title">No top websites recorded</div>
                 </div>
               )}
@@ -247,84 +323,159 @@ export default function BrowserPage() {
           </div>
 
           {/* Detailed Domain List Table */}
-          <div className="card">
-            <div className="card-header">
+          <div className="card" style={{ padding: '22px 24px' }}>
+            <div className="card-header" style={{ marginBottom: '18px' }}>
               <h2 className="card-title">
-                <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiPieChart /></span> All Visited Domains
+                <span className="card-icon text-indigo">
+                  <FiPieChart />
+                </span>{' '}
+                All Visited Domains
               </h2>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              <span className="badge badge-neutral" style={{ fontSize: '11px', fontWeight: '700' }}>
                 {domainsList.length} domains
               </span>
             </div>
 
             {domainsList.length > 0 ? (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Domain</th>
-                    <th>Category</th>
-                    <th>Visits</th>
-                    <th>Usage Share</th>
-                    <th style={{ textAlign: 'right' }}>Time Spent</th>
-                    <th style={{ textAlign: 'center' }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {domainsList.map((item, idx) => {
-                    const pct = Math.min(100, Math.round((item.total_seconds / totalBrowsingSecs) * 100));
-                    const colorClass = item.productivity || 'neutral';
-                    return (
-                      <tr key={idx}>
-                        <td style={{ fontWeight: '600' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><FiGlobe style={{ color: 'var(--primary-blue)' }} /> {item.domain}</span>
-                        </td>
-                        <td>
-                          <span className={`badge badge-${colorClass}`}>
-                            {item.category || item.productivity || 'neutral'}
-                          </span>
-                        </td>
-                        <td style={{ color: 'var(--text-secondary)' }}>
-                          {item.visit_count}
-                        </td>
-                        <td style={{ width: '180px' }}>
-                          <div className="progress-track">
-                            <div
-                              className={`progress-fill ${colorClass}`}
-                              style={{ width: `${Math.max(pct, 2)}%` }}
-                            ></div>
-                          </div>
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: '600' }}>
-                          {secondsToHms(item.total_seconds)}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <button
-                            onClick={() => setSelectedDomainModal(item.domain)}
-                            style={{
-                              padding: '4px 10px',
-                              fontSize: '12px',
-                              borderRadius: 'var(--radius-sm)',
-                              border: '1px solid var(--border-color)',
-                              backgroundColor: 'var(--bg-page)',
-                              color: 'var(--primary-blue)',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
-                          >
-                            <FiSearch /> Inspect URLs
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div style={{ overflowX: 'auto' }}>
+                <table
+                  className="data-table"
+                  style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    textAlign: 'left',
+                  }}
+                >
+                  <thead>
+                    <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
+                      <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '700', color: '#475569' }}>
+                        Domain
+                      </th>
+                      <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '700', color: '#475569' }}>
+                        Category
+                      </th>
+                      <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '700', color: '#475569' }}>
+                        Visits
+                      </th>
+                      <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '700', color: '#475569', width: '200px' }}>
+                        Usage Share
+                      </th>
+                      <th
+                        style={{
+                          padding: '12px 16px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          color: '#475569',
+                          textAlign: 'right',
+                        }}
+                      >
+                        Time Spent
+                      </th>
+                      <th
+                        style={{
+                          padding: '12px 16px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          color: '#475569',
+                          textAlign: 'center',
+                        }}
+                      >
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {domainsList.map((item, idx) => {
+                      const pct = Math.min(100, Math.round((item.total_seconds / totalBrowsingSecs) * 100));
+                      const prod = (item.productivity || item.category || 'neutral').toLowerCase();
+                      const badgeClass =
+                        prod === 'productive'
+                          ? 'badge-productive'
+                          : prod === 'unproductive'
+                          ? 'badge-unproductive'
+                          : 'badge-neutral';
+
+                      return (
+                        <tr
+                          key={idx}
+                          style={{
+                            borderBottom: '1px solid #F1F5F9',
+                            transition: 'background-color 0.15s ease',
+                          }}
+                        >
+                          <td style={{ padding: '14px 16px', fontWeight: '600' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span
+                                style={{
+                                  width: '24px',
+                                  height: '24px',
+                                  borderRadius: '6px',
+                                  background: '#EEF2FF',
+                                  color: '#4F46E5',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '12px',
+                                }}
+                              >
+                                <FiGlobe />
+                              </span>
+                              <span style={{ color: 'var(--text-main)', fontSize: '13px' }}>{item.domain}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span className={`badge ${badgeClass}`} style={{ fontSize: '11px' }}>
+                              {item.category || item.productivity || 'browsing'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '600' }}>
+                            {item.visit_count}
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div className="progress-track" style={{ flex: 1, height: '6px' }}>
+                                <div
+                                  className={`progress-fill ${prod}`}
+                                  style={{ width: `${Math.max(pct, 2)}%` }}
+                                ></div>
+                              </div>
+                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', width: '32px' }}>
+                                {pct}%
+                              </span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: '700', fontSize: '13px', color: 'var(--text-main)' }}>
+                            {secondsToHms(item.total_seconds)}
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                            <button
+                              onClick={() => setSelectedDomainModal(item.domain)}
+                              className="btn-header-refresh"
+                              style={{
+                                padding: '5px 12px',
+                                fontSize: '12px',
+                                borderRadius: 'var(--radius-sm)',
+                                fontWeight: '600',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <FiSearch /> Inspect
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div className="empty-state">
-                <div className="empty-icon"><FiGlobe /></div>
+                <div className="empty-icon">
+                  <FiGlobe />
+                </div>
                 <div className="empty-title">No domain records found for selected filters</div>
               </div>
             )}
@@ -343,3 +494,4 @@ export default function BrowserPage() {
     </section>
   );
 }
+
