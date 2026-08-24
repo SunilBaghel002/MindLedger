@@ -120,6 +120,29 @@ class MindLedgerAPI {
         });
     }
 
+    async getWaterStatus(dateStr = '') {
+        const queryStr = dateStr ? `?date=${dateStr}` : '';
+        return this._request(`/water/status${queryStr}`);
+    }
+
+    async logWaterDrink(amountMl = 250, source = 'dashboard_widget') {
+        return this._request('/water/drink', {
+            method: 'POST',
+            body: JSON.stringify({ amount_ml: amountMl, source }),
+        });
+    }
+
+    async snoozeWater(minutes = 10) {
+        return this._request('/water/snooze', {
+            method: 'POST',
+            body: JSON.stringify({ minutes }),
+        });
+    }
+
+    async getWaterHistory(days = 7) {
+        return this._request(`/water/history?days=${days}`);
+    }
+
     async getTodayApps() {
         return this._request('/apps/today');
     }

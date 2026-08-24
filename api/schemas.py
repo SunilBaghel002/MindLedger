@@ -738,5 +738,66 @@ class AppLimitSnoozeResponseData(BaseModel):
     status: str
 
 
+class WaterStatusData(BaseModel):
+    """Payload for hydration status query."""
+
+    enabled: bool = True
+    mode: str = "smart"  # "smart" or "custom"
+    next_reminder_seconds: int = 0
+    next_reminder_formatted: str = "0m"
+    today_intake_ml: int = 0
+    daily_goal_ml: int = 2000
+    glasses_drank: int = 0
+    target_glasses: int = 8
+    percentage_completed: float = 0.0
+    last_drank_at: Optional[str] = None
+
+
+class WaterDrinkRequest(BaseModel):
+    """Request payload for logging a glass of water."""
+
+    amount_ml: int = Field(250, ge=50, le=2000)
+    source: str = "dashboard_widget"
+
+
+class WaterDrinkResponseData(BaseModel):
+    """Response payload for logging water drink."""
+
+    today_intake_ml: int
+    glasses_drank: int
+    percentage_completed: float
+    message: str = "Hydration logged successfully!"
+
+
+class WaterSnoozeRequest(BaseModel):
+    """Request payload for snoozing water reminder."""
+
+    minutes: int = Field(10, ge=1, le=120)
+
+
+class WaterSnoozeResponseData(BaseModel):
+    """Response payload for snoozing water reminder."""
+
+    snoozed_minutes: int
+    next_reminder_formatted: str
+
+
+class WaterHistoryPointDTO(BaseModel):
+    """Data point representation for daily hydration intake history."""
+
+    date: str
+    total_ml: int
+    drink_count: int
+    daily_goal_ml: int
+
+
+class WaterHistoryData(BaseModel):
+    """Payload for water history query."""
+
+    days_logged: int
+    history: List[WaterHistoryPointDTO] = Field(default_factory=list)
+
+
+
 
 

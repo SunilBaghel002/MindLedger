@@ -130,7 +130,17 @@ export default function TopBar() {
         {hydration && (
           <div
             className="vital-pill hydration-pill"
-            title={`Hydration: ${hydration.count}/${hydration.goal} Glasses logged today. Next reminder in ${hydration.next_reminder_minutes}m`}
+            style={{ cursor: 'pointer' }}
+            onClick={async () => {
+              try {
+                await api.logWaterDrink(250, 'topbar');
+                const updated = await api.getVitals();
+                setVitals(updated);
+              } catch (e) {
+                console.warn('Hydration quick log failed:', e);
+              }
+            }}
+            title={`Hydration: ${hydration.count}/${hydration.goal} Glasses logged today. Click to log +250ml! Next reminder in ${hydration.next_reminder_minutes}m`}
           >
             <FiDroplet className="vital-icon text-cyan" />
             <span>
