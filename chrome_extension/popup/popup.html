@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MindLedger Tracker</title>
+  <title>MindLedger Browser Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -11,10 +14,10 @@
     <!-- Header -->
     <header class="header">
       <div class="brand">
-        <div class="logo-icon"></div>
+        <img src="../icons/icon48.png" alt="MindLedger" class="logo-img">
         <div class="brand-text">
           <h1>MindLedger</h1>
-          <span class="sub-text">Browser & YouTube</span>
+          <span class="sub-text">Digital Wellbeing</span>
         </div>
       </div>
       <div id="status-badge" class="badge badge-offline">
@@ -23,18 +26,17 @@
       </div>
     </header>
 
-    <!-- Active Tab Card -->
+    <!-- Active Tab Live Focus Card -->
     <section class="card active-card">
-      <div class="card-label">CURRENT ACTIVE TAB</div>
+      <div class="card-header-sm">
+        <span class="card-label">CURRENT ACTIVE TAB</span>
+        <span id="active-timer" class="timer-pill">00m 00s</span>
+      </div>
       <div id="active-domain" class="active-domain">No Active Tab</div>
       <div id="active-title" class="active-title">Open an HTTP/HTTPS webpage to start tracking</div>
-      <div class="timer-container">
-        <span class="timer-icon">⏱️</span>
-        <span id="active-timer" class="timer-text">00m 00s</span>
-      </div>
     </section>
 
-    <!-- Stats Grid -->
+    <!-- Quick Stats Grid -->
     <section class="stats-grid">
       <div class="stat-card">
         <div id="stat-switches" class="stat-value">0</div>
@@ -44,22 +46,35 @@
         <div id="stat-youtube" class="stat-value">0</div>
         <div class="stat-label">YouTube Videos</div>
       </div>
-      <div class="stat-card stat-card-full">
+      <div class="stat-card">
         <div id="stat-buffered" class="stat-value">0</div>
-        <div class="stat-label">Buffered Offline Events</div>
+        <div class="stat-label">Buffered Offline</div>
       </div>
     </section>
 
-    <!-- Action Section -->
+    <!-- Limits / Focus Notice (Dynamic) -->
+    <section id="limits-section" class="card limits-card" style="display: none;">
+      <div class="limits-header">
+        <span>⏳ Active Domain Quotas</span>
+      </div>
+      <div id="limits-list" class="limits-list">
+        <!-- Injected via JS -->
+      </div>
+    </section>
+
+    <!-- Actions Section -->
     <div class="action-container">
-      <button id="btn-sync" class="btn btn-primary" disabled>
-        <span class="btn-icon">🔄</span> Sync Offline Events
+      <button id="btn-sync" class="btn btn-secondary" style="display: none;">
+        <span>🔄</span> Sync <span id="sync-count">0</span> Buffered Events
       </button>
+      <a href="http://127.0.0.1:8787/dashboard" target="_blank" class="btn btn-primary">
+        <span>📊</span> Open Full Dashboard
+      </a>
     </div>
 
     <!-- Footer -->
     <footer class="footer">
-      <span>v0.1.0 • MindLedger Local-First</span>
+      <span>MindLedger v1.0.0 • Local-First & Private</span>
     </footer>
   </div>
 

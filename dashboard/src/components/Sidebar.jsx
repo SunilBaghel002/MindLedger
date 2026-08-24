@@ -1,5 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FiActivity, FiFileText, FiGlobe, FiGrid, FiLayers, FiSliders, FiYoutube } from 'react-icons/fi';
+import {
+  FiActivity,
+  FiBatteryCharging,
+  FiCpu,
+  FiFileText,
+  FiGlobe,
+  FiGrid,
+  FiLayers,
+  FiShield,
+  FiSliders,
+  FiYoutube,
+} from 'react-icons/fi';
+import logoImg from '../assets/logo.png';
 import { api } from '../services/api';
 import { secondsToHms } from '../utils/formatters';
 
@@ -8,6 +20,9 @@ const NAV_ITEMS = [
   { id: 'apps', label: 'Applications', icon: <FiLayers /> },
   { id: 'browser', label: 'Browser', icon: <FiGlobe /> },
   { id: 'youtube', label: 'YouTube', icon: <FiYoutube /> },
+  { id: 'processes', label: 'Processes', icon: <FiCpu /> },
+  { id: 'battery', label: 'Battery & Power', icon: <FiBatteryCharging /> },
+  { id: 'limits', label: 'App Limits', icon: <FiShield /> },
   { id: 'reports', label: 'Reports', icon: <FiFileText /> },
   { id: 'settings', label: 'Settings', icon: <FiSliders /> },
 ];
@@ -25,16 +40,20 @@ export default function Sidebar({ activeSection, onSelectSection }) {
       isFetchingRef.current = true;
       try {
         const data = await api.getLiveStatus({ signal: abortController.signal });
-        if (isMounted) setLiveStatus(data);
+        if (isMounted) {
+          setLiveStatus(data);
+        }
       } catch (e) {
-        if (isMounted && e.name !== 'AbortError') setLiveStatus(null);
+        if (isMounted && e.name !== 'AbortError') {
+          // keep previous
+        }
       } finally {
         isFetchingRef.current = false;
       }
     };
 
     fetchLive();
-    const interval = setInterval(fetchLive, 3000);
+    const interval = setInterval(fetchLive, 2000);
 
     return () => {
       isMounted = false;
@@ -47,7 +66,7 @@ export default function Sidebar({ activeSection, onSelectSection }) {
     <aside className="sidebar">
       <div>
         <div className="sidebar-header">
-          <span className="logo-icon-svg"><FiActivity /></span>
+          <img src={logoImg} alt="MindLedger" className="brand-logo-img" />
           <div className="brand-info">
             <span className="brand-title">MindLedger</span>
             <span className="brand-subtitle">Digital Wellbeing</span>

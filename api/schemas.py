@@ -71,6 +71,7 @@ class DashboardTodayData(BaseModel):
     date: str
     total_screen_time_seconds: int = 0
     productive_time_seconds: int = 0
+    learning_time_seconds: int = 0
     unproductive_time_seconds: int = 0
     neutral_time_seconds: int = 0
     productivity_score: float = 0.0
@@ -89,6 +90,58 @@ class LiveTrackingStatusData(BaseModel):
     started_at: Optional[str] = None
     duration_seconds: int = 0
     is_idle: bool = False
+
+
+class BatteryVitalsDTO(BaseModel):
+    """Payload for battery hardware status."""
+
+    percent: Optional[int] = 100
+    is_charging: bool = True
+    power_plugged: bool = True
+    discharge_rate_hr: Optional[float] = None
+    status_text: str = "Plugged In"
+
+
+class MemoryVitalsDTO(BaseModel):
+    """Payload for system memory utilization."""
+
+    used_gb: float = 0.0
+    total_gb: float = 0.0
+    percent: float = 0.0
+
+
+class HydrationVitalsDTO(BaseModel):
+    """Payload for hydration telemetry in TopBar."""
+
+    count: int = 0
+    goal: int = 8
+    volume_ml: int = 0
+    next_reminder_minutes: int = 30
+
+
+class LimitWarningDTO(BaseModel):
+    """Payload for approaching or breached app/domain limits."""
+
+    target_name: str
+    used_seconds: int = 0
+    limit_seconds: int = 0
+    percent_used: float = 0.0
+    is_breached: bool = False
+
+
+class DashboardVitalsData(BaseModel):
+    """Payload for TopBar real-time vitals telemetry."""
+
+    is_tracking: bool = True
+    current_app: Optional[str] = None
+    active_session_seconds: int = 0
+    screen_time_today_seconds: int = 0
+    productivity_score: float = 0.0
+    battery: BatteryVitalsDTO = Field(default_factory=BatteryVitalsDTO)
+    memory: MemoryVitalsDTO = Field(default_factory=MemoryVitalsDTO)
+    hydration: HydrationVitalsDTO = Field(default_factory=HydrationVitalsDTO)
+    limits_warning: List[LimitWarningDTO] = Field(default_factory=list)
+
 
 
 class AppSessionDTO(BaseModel):
@@ -511,4 +564,241 @@ class ReclassifyResultData(BaseModel):
     reclassified_browser_sessions: int = 0
     reclassified_youtube_activities: int = 0
     updated_daily_summaries: int = 0
+
+
+class ProcessItemDTO(BaseModel):
+    """Data transfer object for individual OS process telemetry."""
+
+    pid: int
+    name: str
+    title: Optional[str] = None
+    type: str = "user"  # "user" or "system"
+    cpu_percent: float = 0.0
+    memory_mb: float = 0.0
+    is_background: bool = True
+    background_duration_seconds: int = 0
+    is_protected: bool = False
+    hog_score: float = 0.0
+    is_hog: bool = False
+    power_impact: str = "Low"
+
+
+class ProcessListResponseData(BaseModel):
+    """Payload response for process scanner query."""
+
+    total_processes: int = 0
+    user_processes_count: int = 0
+    hog_count: int = 0
+    total_ram_used_mb: float = 0.0
+    processes: List[ProcessItemDTO] = Field(default_factory=list)
+
+
+class ProcessTerminateRequest(BaseModel):
+    """Request payload for terminating an active process."""
+
+    pid: int
+    process_name: Optional[str] = None
+    force: bool = False
+
+
+class ProcessTerminateResponseData(BaseModel):
+    """Response payload for process termination."""
+
+    pid: int
+    process_name: str
+    memory_freed_mb: float = 0.0
+    status: str = "terminated"
+
+
+class ProcessOptimizeResponseData(BaseModel):
+    """Response payload for automated background hog optimization."""
+
+    optimized_count: int = 0
+    total_memory_freed_mb: float = 0.0
+    terminated_processes: List[ProcessTerminateResponseData] = Field(default_factory=list)
+
+
+class BatteryStatusData(BaseModel):
+    """Payload for battery status query."""
+
+    is_battery_present: bool = True
+    percent: int = 100
+    is_plugged: bool = True
+    charging_status: str = "Plugged In"
+    time_remaining_formatted: str = "Unlimited"
+    seconds_left: Optional[int] = None
+    discharge_rate_percent_per_hour: Optional[float] = None
+
+
+class BatteryHealthData(BaseModel):
+    """Payload for battery hardware health query."""
+
+    is_battery_present: bool = True
+    current_percentage: int = 100
+    is_charging: bool = True
+    design_capacity_mwh: Optional[int] = None
+    full_charge_capacity_mwh: Optional[int] = None
+    wear_level_percent: float = 0.0
+    cycle_count: Optional[int] = None
+    power_profile: str = "Balanced"
+
+
+class BatteryHistoryPointDTO(BaseModel):
+    """Data point representation for battery discharge time-series."""
+
+    timestamp: str
+    percent: int
+    is_plugged: bool
+    discharge_rate: Optional[float] = None
+    top_drainer: Optional[str] = None
+
+
+class BatteryHistoryData(BaseModel):
+    """Payload for battery history time-series query."""
+
+    date: str
+    points: List[BatteryHistoryPointDTO] = Field(default_factory=list)
+
+
+class PowerDrainerDTO(BaseModel):
+    """Data transfer object for energy consuming application."""
+
+    pid: int
+    name: str
+    cpu_percent: float = 0.0
+    memory_mb: float = 0.0
+    energy_score: float = 0.0
+    power_impact: str = "Low"
+
+
+class PowerDrainersData(BaseModel):
+    """Payload for energy drainers leaderboard."""
+
+    count: int = 0
+    drainers: List[PowerDrainerDTO] = Field(default_factory=list)
+
+
+class AppLimitDTO(BaseModel):
+    """Data transfer object for application or domain limit configuration and status."""
+
+    id: int
+    target_type: str  # "app" or "domain"
+    target_identifier: str
+    display_name: str
+    daily_limit_minutes: int
+    warning_threshold_minutes: Optional[int] = None
+    is_hard_block: bool = False
+    is_active: bool = True
+    max_snoozes_per_day: int = 2
+    effective_limit_minutes: int = 0
+    used_seconds: int = 0
+    used_minutes: float = 0.0
+    remaining_minutes: int = 0
+    percentage_used: float = 0.0
+    status: str = "normal"  # "normal", "warning", "critical", "exceeded"
+    snoozes_used: int = 0
+    snoozes_remaining: int = 2
+
+
+class AppLimitCreateRequest(BaseModel):
+    """Request payload for creating a new usage limit rule."""
+
+    target_type: str  # "app" or "domain"
+    target_identifier: str
+    display_name: str
+    daily_limit_minutes: int = Field(ge=1, le=1440)
+    is_hard_block: bool = False
+    warning_threshold_minutes: Optional[int] = None
+
+
+class AppLimitUpdateRequest(BaseModel):
+    """Request payload for updating limit rule properties."""
+
+    daily_limit_minutes: Optional[int] = Field(None, ge=1, le=1440)
+    warning_threshold_minutes: Optional[int] = None
+    is_hard_block: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+
+class AppLimitListResponseData(BaseModel):
+    """Payload for listing all configured limits."""
+
+    count: int = 0
+    limits: List[AppLimitDTO] = Field(default_factory=list)
+
+
+class AppLimitSnoozeResponseData(BaseModel):
+    """Response payload for snooze emergency pass."""
+
+    limit_id: int
+    display_name: str
+    added_minutes: int = 5
+    effective_limit_minutes: int
+    snoozes_used: int
+    snoozes_remaining: int
+    status: str
+
+
+class WaterStatusData(BaseModel):
+    """Payload for hydration status query."""
+
+    enabled: bool = True
+    mode: str = "smart"  # "smart" or "custom"
+    next_reminder_seconds: int = 0
+    next_reminder_formatted: str = "0m"
+    today_intake_ml: int = 0
+    daily_goal_ml: int = 2000
+    glasses_drank: int = 0
+    target_glasses: int = 8
+    percentage_completed: float = 0.0
+    last_drank_at: Optional[str] = None
+
+
+class WaterDrinkRequest(BaseModel):
+    """Request payload for logging a glass of water."""
+
+    amount_ml: int = Field(250, ge=50, le=2000)
+    source: str = "dashboard_widget"
+
+
+class WaterDrinkResponseData(BaseModel):
+    """Response payload for logging water drink."""
+
+    today_intake_ml: int
+    glasses_drank: int
+    percentage_completed: float
+    message: str = "Hydration logged successfully!"
+
+
+class WaterSnoozeRequest(BaseModel):
+    """Request payload for snoozing water reminder."""
+
+    minutes: int = Field(10, ge=1, le=120)
+
+
+class WaterSnoozeResponseData(BaseModel):
+    """Response payload for snoozing water reminder."""
+
+    snoozed_minutes: int
+    next_reminder_formatted: str
+
+
+class WaterHistoryPointDTO(BaseModel):
+    """Data point representation for daily hydration intake history."""
+
+    date: str
+    total_ml: int
+    drink_count: int
+    daily_goal_ml: int
+
+
+class WaterHistoryData(BaseModel):
+    """Payload for water history query."""
+
+    days_logged: int
+    history: List[WaterHistoryPointDTO] = Field(default_factory=list)
+
+
+
+
 

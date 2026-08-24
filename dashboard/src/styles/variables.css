@@ -1,4 +1,5 @@
 /* MindLedger CSS Design System - Custom Properties (White Theme) */
+@import './tokens.css';
 
 :root {
   /* Color Palette - Primary Theme */

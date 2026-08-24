@@ -21,6 +21,10 @@ from api.routes.browser_routes import router as browser_router
 from api.routes.category_routes import router as category_router
 from api.routes.data_routes import router as data_router
 from api.routes.dashboard_routes import page_router, router as dashboard_router
+from api.routes.process_routes import router as process_router
+from api.routes.battery_routes import router as battery_router
+from api.routes.limit_routes import router as limit_router
+from api.routes.water_routes import router as water_router
 from config.constants import APP_NAME, APP_VERSION
 from config.settings import settings
 from utils.logger import get_logger
@@ -64,6 +68,10 @@ def create_app() -> FastAPI:
 
     # Mount Route Modules
     app.include_router(dashboard_router)
+    app.include_router(process_router)
+    app.include_router(battery_router)
+    app.include_router(limit_router)
+    app.include_router(water_router)
     app.include_router(browser_router)
     app.include_router(category_router)
     app.include_router(data_router)

@@ -54,8 +54,7 @@ def open_native_desktop_window(url: Optional[str] = None) -> None:
 
 
 def create_default_tray_image(width: int = 64, height: int = 64) -> Image.Image:
-
-    """Generate a clean 64x64 RGBA icon image for system tray.
+    """Load or generate the clean RGBA icon image for system tray.
 
     Args:
         width: Icon pixel width.
@@ -64,6 +63,23 @@ def create_default_tray_image(width: int = 64, height: int = 64) -> Image.Image:
     Returns:
         PIL Image object.
     """
+    from pathlib import Path
+
+    icon_paths = [
+        Path(__file__).resolve().parent / "assets" / "icon_64x64.png",
+        Path(__file__).resolve().parent / "assets" / "logo.png",
+        Path(__file__).resolve().parent / "app.ico",
+    ]
+
+    for p in icon_paths:
+        if p.exists():
+            try:
+                img = Image.open(p).convert("RGBA")
+                return img.resize((width, height), Image.Resampling.LANCZOS)
+            except Exception as e:
+                logger.debug(f"Could not load tray icon from {p}: {e}")
+
+    # Fallback if image asset is not found
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     dc = ImageDraw.Draw(image)
 
@@ -94,6 +110,7 @@ def create_default_tray_image(width: int = 64, height: int = 64) -> Image.Image:
     )
 
     return image
+
 
 
 class SystemTrayApp:

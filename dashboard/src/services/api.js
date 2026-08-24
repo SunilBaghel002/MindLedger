@@ -46,6 +46,103 @@ class MindLedgerAPI {
         return this._request('/dashboard/live', options);
     }
 
+    async getVitals(options = {}) {
+        return this._request('/dashboard/vitals', options);
+    }
+
+    async getProcesses(filter = 'user', sortBy = 'memory', options = {}) {
+        const queryParams = new URLSearchParams({ filter, sort_by: sortBy });
+        return this._request(`/processes?${queryParams.toString()}`, options);
+    }
+
+    async terminateProcess(pid, processName = '', force = false) {
+        return this._request('/processes/terminate', {
+            method: 'POST',
+            body: JSON.stringify({
+                pid,
+                process_name: processName || undefined,
+                force,
+            }),
+        });
+    }
+
+    async optimizeProcesses(minScore = 15.0) {
+        return this._request(`/processes/optimize?min_score=${minScore}`, {
+            method: 'POST',
+        });
+    }
+
+    async getBatteryStatus() {
+        return this._request('/battery/status');
+    }
+
+    async getBatteryHealth() {
+        return this._request('/battery/health');
+    }
+
+    async getBatteryDrainers(limit = 10) {
+        return this._request(`/battery/drainers?limit=${limit}`);
+    }
+
+    async getBatteryHistory(dateStr = '') {
+        const queryStr = dateStr ? `?date=${dateStr}` : '';
+        return this._request(`/battery/history${queryStr}`);
+    }
+
+    async getLimits(dateStr = '') {
+        const queryStr = dateStr ? `?date=${dateStr}` : '';
+        return this._request(`/limits${queryStr}`);
+    }
+
+    async createLimit(limitData) {
+        return this._request('/limits', {
+            method: 'POST',
+            body: JSON.stringify(limitData),
+        });
+    }
+
+    async updateLimit(limitId, updateData) {
+        return this._request(`/limits/${limitId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updateData),
+        });
+    }
+
+    async deleteLimit(limitId) {
+        return this._request(`/limits/${limitId}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async snoozeLimit(limitId) {
+        return this._request(`/limits/${limitId}/snooze`, {
+            method: 'POST',
+        });
+    }
+
+    async getWaterStatus(dateStr = '') {
+        const queryStr = dateStr ? `?date=${dateStr}` : '';
+        return this._request(`/water/status${queryStr}`);
+    }
+
+    async logWaterDrink(amountMl = 250, source = 'dashboard_widget') {
+        return this._request('/water/drink', {
+            method: 'POST',
+            body: JSON.stringify({ amount_ml: amountMl, source }),
+        });
+    }
+
+    async snoozeWater(minutes = 10) {
+        return this._request('/water/snooze', {
+            method: 'POST',
+            body: JSON.stringify({ minutes }),
+        });
+    }
+
+    async getWaterHistory(days = 7) {
+        return this._request(`/water/history?days=${days}`);
+    }
+
     async getTodayApps() {
         return this._request('/apps/today');
     }

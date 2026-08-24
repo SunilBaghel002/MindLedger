@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+import psutil
 from fastapi.responses import FileResponse, HTMLResponse
 
 from api.schemas import (
@@ -21,15 +22,20 @@ from api.schemas import (
     AppsTodayData,
     AppTrendItem,
     AppUsageSummaryItem,
+    BatteryVitalsDTO,
     BrowserAnalyticsData,
     BrowserDomainSummaryItem,
     CategoryRuleCreateRequest,
     CategoryRuleItem,
     DashboardTodayData,
+    DashboardVitalsData,
     DomainSummaryItem,
     HealthData,
     HourlyActivityTimelineDTO,
+    HydrationVitalsDTO,
+    LimitWarningDTO,
     LiveTrackingStatusData,
+    MemoryVitalsDTO,
     QuickStatsDTO,
     ReportGenerateRequest,
     ReportHistoryData,
@@ -99,6 +105,26 @@ async def get_dashboard_index_page():
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="Dashboard index.html not found.")
     return FileResponse(index_path)
+
+
+@page_router.get("/logo.png", response_class=FileResponse, include_in_schema=False)
+@page_router.get("/dashboard/logo.png", response_class=FileResponse, include_in_schema=False)
+async def get_dashboard_logo():
+    """Serve brand logo image."""
+    logo_path = DIST_DIR / "logo.png"
+    if not logo_path.exists():
+        logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo.png"
+    return FileResponse(logo_path)
+
+
+@page_router.get("/favicon.ico", response_class=FileResponse, include_in_schema=False)
+@page_router.get("/dashboard/favicon.ico", response_class=FileResponse, include_in_schema=False)
+async def get_dashboard_favicon():
+    """Serve brand favicon."""
+    fav_path = DIST_DIR / "favicon.ico"
+    if not fav_path.exists():
+        fav_path = Path(__file__).resolve().parent.parent.parent / "app.ico"
+    return FileResponse(fav_path)
 
 
 @page_router.get("/dashboard/{page_name}", response_class=FileResponse, include_in_schema=False)
@@ -184,6 +210,117 @@ async def get_live_tracking_status() -> APIResponse[LiveTrackingStatusData]:
         raise HTTPException(status_code=500, detail="Failed to fetch live tracking status") from e
 
 
+@router.get("/dashboard/vitals", response_model=APIResponse[DashboardVitalsData])
+@router.get("/vitals", response_model=APIResponse[DashboardVitalsData])
+async def get_dashboard_vitals() -> APIResponse[DashboardVitalsData]:
+    """Get real-time telemetry vitals (battery, memory, active app, hydration, limits) for TopBar."""
+    try:
+        # 1. Idle and Live App Session
+        is_user_idle = IdleDetector().is_idle()
+        current_app = None
+        active_session_seconds = 0
+
+        with db_manager.connection() as conn:
+            app_repo = AppSessionRepository(conn)
+            latest = app_repo.get_latest_active_session()
+            if latest:
+                current_app = latest.app_name
+                active_session_seconds = latest.duration_seconds
+
+            summary_repo = SummaryRepository(conn)
+            today_str = date.today().isoformat()
+            today_summary = summary_repo.get_daily_summary(today_str)
+            if today_summary:
+                screen_time_today = today_summary.total_screen_time_seconds
+                productivity_score = today_summary.productivity_score
+            else:
+                screen_time_today = 0
+                productivity_score = 0.0
+
+        # 2. System Memory (RAM)
+        try:
+            mem = psutil.virtual_memory()
+            used_gb = round((mem.total - mem.available) / (1024 ** 3), 1)
+            total_gb = round(mem.total / (1024 ** 3), 1)
+            mem_vitals = MemoryVitalsDTO(
+                used_gb=used_gb,
+                total_gb=total_gb,
+                percent=mem.percent,
+            )
+        except Exception as mem_err:
+            logger.warning(f"Failed to read memory metrics: {mem_err}")
+            mem_vitals = MemoryVitalsDTO(used_gb=0.0, total_gb=0.0, percent=0.0)
+
+        # 3. Hardware Battery Status
+        try:
+            battery_sensors = psutil.sensors_battery()
+            if battery_sensors is not None:
+                percent = int(battery_sensors.percent)
+                power_plugged = bool(battery_sensors.power_plugged)
+                status_text = "Plugged In" if power_plugged else f"{percent}% Battery"
+                secsleft = battery_sensors.secsleft
+                discharge_rate = None
+                if not power_plugged and secsleft > 0 and secsleft != getattr(psutil, "POWER_TIME_UNLIMITED", -2):
+                    hours_left = secsleft / 3600.0
+                    if hours_left > 0:
+                        discharge_rate = round(percent / hours_left, 1)
+                        status_text = f"Discharging ({discharge_rate}%/h)"
+                elif power_plugged:
+                    status_text = "Plugged In" if percent >= 99 else "Charging"
+
+                battery_vitals = BatteryVitalsDTO(
+                    percent=percent,
+                    is_charging=power_plugged and percent < 99,
+                    power_plugged=power_plugged,
+                    discharge_rate_hr=discharge_rate,
+                    status_text=status_text,
+                )
+            else:
+                battery_vitals = BatteryVitalsDTO(
+                    percent=100,
+                    is_charging=False,
+                    power_plugged=True,
+                    discharge_rate_hr=None,
+                    status_text="AC Power",
+                )
+        except Exception as bat_err:
+            logger.warning(f"Failed to read battery sensors: {bat_err}")
+            battery_vitals = BatteryVitalsDTO(
+                percent=100,
+                is_charging=False,
+                power_plugged=True,
+                discharge_rate_hr=None,
+                status_text="AC Power",
+            )
+
+        # 4. Hydration status
+        hydration_vitals = HydrationVitalsDTO(
+            count=0,
+            goal=8,
+            volume_ml=0,
+            next_reminder_minutes=30,
+        )
+
+        # 5. Limits Warning
+        limits_warning: List[LimitWarningDTO] = []
+
+        data = DashboardVitalsData(
+            is_tracking=not is_user_idle,
+            current_app=current_app or "MindLedger Active",
+            active_session_seconds=active_session_seconds,
+            screen_time_today_seconds=screen_time_today,
+            productivity_score=productivity_score,
+            battery=battery_vitals,
+            memory=mem_vitals,
+            hydration=hydration_vitals,
+            limits_warning=limits_warning,
+        )
+        return APIResponse(success=True, data=data, error=None)
+    except Exception as e:
+        logger.error(f"Failed to fetch dashboard vitals: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch dashboard vitals: {e}") from e
+
+
 @router.get("/dashboard/today", response_model=APIResponse[DashboardTodayData])
 async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="date", description="Date in YYYY-MM-DD format")) -> APIResponse[DashboardTodayData]:
     """Get dashboard overview data for target date (defaults to today)."""
@@ -201,16 +338,11 @@ async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="da
         total_app_sec = sum(s.duration_seconds for s in sessions)
         total_browser_sec = sum(b.duration_seconds for b in browser_sessions)
 
-        if total_browser_sec > total_app_sec:
-            total_seconds = total_browser_sec
-            productive_seconds = sum(b.duration_seconds for b in browser_sessions if b.productivity == "productive")
-            unproductive_seconds = sum(b.duration_seconds for b in browser_sessions if b.productivity == "unproductive")
-            neutral_seconds = sum(b.duration_seconds for b in browser_sessions if b.productivity == "neutral")
-        else:
-            total_seconds = total_app_sec
-            productive_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "productive")
-            unproductive_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "unproductive")
-            neutral_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "neutral")
+        total_seconds = max(total_app_sec, total_browser_sec)
+        productive_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "productive")
+        learning_seconds = sum(s.duration_seconds for s in sessions if s.category == "learning")
+        unproductive_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "unproductive")
+        neutral_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "neutral")
 
         score = (
             round((productive_seconds / total_seconds) * 100.0, 1)
@@ -253,7 +385,7 @@ async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="da
             if s.started_at:
                 idx = s.started_at.hour
                 if 0 <= idx < 24:
-                    mins = s.duration_seconds // 60
+                    mins = max(1, s.duration_seconds // 60) if s.duration_seconds >= 30 else 0
                     if s.productivity == "productive":
                         prod_mins[idx] += mins
                     elif s.productivity == "unproductive":
@@ -286,6 +418,7 @@ async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="da
             date=today_str,
             total_screen_time_seconds=total_seconds,
             productive_time_seconds=productive_seconds,
+            learning_time_seconds=learning_seconds,
             unproductive_time_seconds=unproductive_seconds,
             neutral_time_seconds=neutral_seconds,
             productivity_score=score,

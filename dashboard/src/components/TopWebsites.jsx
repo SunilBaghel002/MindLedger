@@ -6,34 +6,43 @@ export default function TopWebsites({ websites = [] }) {
   const maxSecs = websites.length > 0 ? Math.max(...websites.map((w) => w.total_seconds || 1)) : 1;
 
   return (
-    <div className="card">
+    <div className="card website-list-card">
       <div className="card-header">
         <h2 className="card-title">
-          <span className="card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><FiGlobe /></span> Top Websites
+          <span className="card-icon text-cyan">
+            <FiGlobe />
+          </span>
+          Top Websites & Domains
         </h2>
         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-          Browse time
+          Active Web Browsing
         </span>
       </div>
 
       {websites.length > 0 ? (
-        <div>
+        <div className="website-usage-list">
           {websites.map((site, idx) => {
             const pct = Math.round((site.total_seconds / maxSecs) * 100);
             const colorClass = site.productivity || 'neutral';
             return (
-              <div key={idx} className="usage-item">
-                <div className="usage-meta">
-                  <span className="usage-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <FiGlobe style={{ color: 'var(--primary-blue)' }} /> {site.domain}
-                  </span>
-                  <span className="usage-duration">
+              <div key={idx} className="usage-item-modern">
+                <div className="usage-info-row">
+                  <div className="usage-app-badge">
+                    <span className="app-icon-avatar icon-cyan">
+                      <FiGlobe />
+                    </span>
+                    <span className="usage-name">{site.domain}</span>
+                    <span className={`badge-pill badge-${colorClass}`}>
+                      {site.productivity || 'neutral'}
+                    </span>
+                  </div>
+                  <span className="usage-duration-text">
                     {secondsToHms(site.total_seconds)}
                   </span>
                 </div>
-                <div className="progress-track">
+                <div className="app-progress-track">
                   <div
-                    className={`progress-fill ${colorClass}`}
+                    className={`app-progress-fill fill-${colorClass}`}
                     style={{ width: `${pct}%` }}
                   ></div>
                 </div>
@@ -42,9 +51,9 @@ export default function TopWebsites({ websites = [] }) {
           })}
         </div>
       ) : (
-        <div className="empty-state">
-          <div className="empty-icon"><FiGlobe /></div>
-          <div className="empty-title">No web browsing recorded yet</div>
+        <div className="empty-state-modern">
+          <FiGlobe className="empty-icon text-muted" />
+          <p>No browser domain visits recorded yet today.</p>
         </div>
       )}
     </div>
