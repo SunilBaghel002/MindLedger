@@ -11,6 +11,7 @@ import {
   FiSliders,
   FiYoutube,
 } from 'react-icons/fi';
+import logoImg from '../assets/logo.png';
 import { api } from '../services/api';
 import { secondsToHms } from '../utils/formatters';
 
@@ -39,16 +40,20 @@ export default function Sidebar({ activeSection, onSelectSection }) {
       isFetchingRef.current = true;
       try {
         const data = await api.getLiveStatus({ signal: abortController.signal });
-        if (isMounted) setLiveStatus(data);
+        if (isMounted) {
+          setLiveStatus(data);
+        }
       } catch (e) {
-        if (isMounted && e.name !== 'AbortError') setLiveStatus(null);
+        if (isMounted && e.name !== 'AbortError') {
+          // keep previous
+        }
       } finally {
         isFetchingRef.current = false;
       }
     };
 
     fetchLive();
-    const interval = setInterval(fetchLive, 3000);
+    const interval = setInterval(fetchLive, 2000);
 
     return () => {
       isMounted = false;
@@ -61,7 +66,7 @@ export default function Sidebar({ activeSection, onSelectSection }) {
     <aside className="sidebar">
       <div>
         <div className="sidebar-header">
-          <img src="/logo.png" alt="MindLedger" className="brand-logo-img" />
+          <img src={logoImg} alt="MindLedger" className="brand-logo-img" />
           <div className="brand-info">
             <span className="brand-title">MindLedger</span>
             <span className="brand-subtitle">Digital Wellbeing</span>

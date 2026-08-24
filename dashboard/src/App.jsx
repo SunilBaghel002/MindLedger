@@ -33,23 +33,33 @@ export default function App() {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [dashboardData, setDashboardData] = useState(null);
   const [dashboardError, setDashboardError] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchDashboard = (isInitial = false) => {
+  const fetchDashboard = async (isInitial = false) => {
     if (isInitial && !dashboardData) {
       setDashboardError(null);
     }
-    api
-      .getTodayDashboard()
-      .then((data) => {
-        setDashboardData(data);
-        setDashboardError(null);
-      })
-      .catch((err) => {
-        console.warn('Dashboard data fetch failed:', err);
-        if (!dashboardData) {
-          setDashboardError(err.message || 'Failed to fetch dashboard data');
-        }
-      });
+    try {
+      const data = await api.getTodayDashboard();
+      setDashboardData(data);
+      setDashboardError(null);
+    } catch (err) {
+      console.warn('Dashboard data fetch failed:', err);
+      if (!dashboardData) {
+        setDashboardError(err.message || 'Failed to fetch dashboard data');
+      }
+    }
+  };
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchDashboard(false);
+      // Brief artificial delay for smooth visual feedback
+      await new Promise((res) => setTimeout(res, 400));
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -81,7 +91,8 @@ export default function App() {
           <DashboardHome
             data={dashboardData}
             error={dashboardError}
-            onRetry={fetchDashboard}
+            onRetry={handleManualRefresh}
+            isRefreshing={isRefreshing}
           />
         );
       case 'apps':
@@ -105,7 +116,8 @@ export default function App() {
           <DashboardHome
             data={dashboardData}
             error={dashboardError}
-            onRetry={fetchDashboard}
+            onRetry={handleManualRefresh}
+            isRefreshing={isRefreshing}
           />
         );
     }
@@ -119,7 +131,11 @@ export default function App() {
       />
       <div className="main-wrapper">
         <TopBar />
-        <Header title={TITLES[activeSection] || 'Dashboard'} />
+        <Header
+          title={TITLES[activeSection] || 'Dashboard'}
+          onRefresh={handleManualRefresh}
+          isRefreshing={isRefreshing}
+        />
         <main className="content-body">{renderContent()}</main>
       </div>
     </div>

@@ -107,6 +107,26 @@ async def get_dashboard_index_page():
     return FileResponse(index_path)
 
 
+@page_router.get("/logo.png", response_class=FileResponse, include_in_schema=False)
+@page_router.get("/dashboard/logo.png", response_class=FileResponse, include_in_schema=False)
+async def get_dashboard_logo():
+    """Serve brand logo image."""
+    logo_path = DIST_DIR / "logo.png"
+    if not logo_path.exists():
+        logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo.png"
+    return FileResponse(logo_path)
+
+
+@page_router.get("/favicon.ico", response_class=FileResponse, include_in_schema=False)
+@page_router.get("/dashboard/favicon.ico", response_class=FileResponse, include_in_schema=False)
+async def get_dashboard_favicon():
+    """Serve brand favicon."""
+    fav_path = DIST_DIR / "favicon.ico"
+    if not fav_path.exists():
+        fav_path = Path(__file__).resolve().parent.parent.parent / "app.ico"
+    return FileResponse(fav_path)
+
+
 @page_router.get("/dashboard/{page_name}", response_class=FileResponse, include_in_schema=False)
 async def get_dashboard_subpage(page_name: str):
     """Serve subpages or fallback to main SPA index.html."""
