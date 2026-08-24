@@ -182,10 +182,17 @@ def calculate_power_impact(cpu_percent: float, memory_mb: float) -> str:
 
 
 def get_chrome_profiles() -> List[str]:
-    """Extract registered Chrome user profiles from Chrome's Local State file."""
+    """Extract registered Chrome user profiles, filtered to active primary profiles."""
     local_state_path = os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\User Data\Local State")
-    primary_profiles = []
-    other_profiles = []
+    active_keywords = [
+        "sunilbaghel93100",
+        "officialsunil93100",
+        "paydesk",
+        "forgeweb",
+        "sunilnp@acem.edu.in",
+        "sunilnp",
+    ]
+    matched_profiles = []
     if os.path.exists(local_state_path):
         try:
             with open(local_state_path, "r", encoding="utf-8") as f:
@@ -194,21 +201,16 @@ def get_chrome_profiles() -> List[str]:
                 for dir_name, pinfo in info_cache.items():
                     name = pinfo.get("name") or ""
                     email = pinfo.get("user_name") or ""
-                    if email or name:
+                    combined = f"{name} {email} {dir_name}".lower()
+                    if any(kw in combined for kw in active_keywords):
                         label = f"{name} ({email})" if email and name != email else (name or email)
-                        # Check if matches primary user profiles
-                        if "officialsunil93100" in email.lower() or "sunilbaghel93100" in email.lower():
-                            primary_profiles.append(label)
-                        elif "sunil" in name.lower() or "work" in name.lower():
-                            primary_profiles.append(label)
-                        else:
-                            other_profiles.append(label)
+                        matched_profiles.append(label)
         except Exception:
             pass
-    # Deduplicate and return primary active profiles first
+    # Deduplicate while preserving order
     seen = set()
     result = []
-    for p in (primary_profiles + other_profiles):
+    for p in matched_profiles:
         if p not in seen:
             seen.add(p)
             result.append(p)
@@ -227,7 +229,7 @@ class ProcessSupervisor:
         )
         self._cached_result: Optional[Dict[str, Any]] = None
         self._cache_timestamp: float = 0.0
-        self._cache_ttl_seconds: float = 2.5
+        self._cache_ttl_seconds: float = 6.0
         self._chrome_profiles_cache: List[str] = []
         self._chrome_profiles_last_read: float = 0.0
 

@@ -80,7 +80,7 @@ export default function ProcessesPage() {
     fetchProcesses(true);
     const interval = setInterval(() => {
       fetchProcesses(false);
-    }, 5000);
+    }, 8000);
 
     const handleVisibility = () => {
       if (!document.hidden) fetchProcesses(false);
@@ -508,20 +508,11 @@ export default function ProcessesPage() {
                             <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
                               Active Profiles:
                             </span>
-                            {app.profile_info.slice(0, 2).map((prof, idx) => (
+                            {app.profile_info.map((prof, idx) => (
                               <span key={idx} className="proc-profile-pill">
                                 👤 {prof}
                               </span>
                             ))}
-                            {app.profile_info.length > 2 && (
-                              <span
-                                className="proc-profile-pill"
-                                style={{ backgroundColor: '#F1F5F9', color: '#64748B', borderColor: '#CBD5E1' }}
-                                title={app.profile_info.slice(2).join('\n')}
-                              >
-                                +{app.profile_info.length - 2} other profiles
-                              </span>
-                            )}
                           </div>
                         )}
                       </div>
