@@ -6,6 +6,7 @@ Author: MindLedger Team
 Created: 2026-08-08
 """
 
+from datetime import datetime
 import sqlite3
 import time
 from typing import Optional
@@ -78,7 +79,7 @@ class EventProcessor:
 
         # 1. System Sleep / Suspend / Time Gap Detection
         poll_int = self.window_tracker.poll_interval
-        max_allowed_gap = max(10.0, poll_int * 3)
+        max_allowed_gap = max(60.0, poll_int * 10)
         if gap_seconds > max_allowed_gap:
             logger.warning(
                 f"System sleep/gap detected ({gap_seconds:.1f}s between ticks). Finalizing active session at last active time."

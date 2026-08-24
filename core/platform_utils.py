@@ -6,6 +6,8 @@ Author: MindLedger Team
 Created: 2026-08-08
 """
 
+import ctypes
+from ctypes import wintypes
 import os
 import sys
 from typing import Any, Dict, Optional
@@ -14,8 +16,10 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Try importing pywin32 modules on Windows
+# Operating system identification flags
 IS_WINDOWS = sys.platform == "win32"
+IS_MAC = sys.platform == "darwin"
+IS_LINUX = sys.platform.startswith("linux")
 
 if IS_WINDOWS:
     try:
@@ -33,12 +37,28 @@ def is_windows() -> bool:
 
 def is_mac() -> bool:
     """Check if operating system is macOS."""
-    return sys.platform == "darwin"
+    return IS_MAC
 
 
 def is_linux() -> bool:
     """Check if operating system is Linux."""
-    return sys.platform.startswith("linux")
+    return IS_LINUX
+
+
+def ensure_desktop_access() -> None:
+    """Ensure the calling thread is attached to the active interactive Windows desktop."""
+    if not IS_WINDOWS:
+        return
+    try:
+        user32 = ctypes.windll.user32
+        hwinsta = user32.OpenWindowStationW("WinSta0", False, 0x037F)
+        if hwinsta:
+            user32.SetProcessWindowStation(hwinsta)
+            hdesk = user32.OpenDesktopW("Default", 0, False, 0x01FF)
+            if hdesk:
+                user32.SetThreadDesktop(hdesk)
+    except Exception as e:
+        logger.debug(f"Could not attach to desktop station: {e}")
 
 
 def is_screen_locked() -> bool:
@@ -51,9 +71,7 @@ def is_screen_locked() -> bool:
         return False
 
     try:
-        import ctypes
         user32 = ctypes.windll.user32
-        # DESKTOP_SWITCHDESKTOP = 0x0100
         hdesk = user32.OpenInputDesktop(0, False, 0x0100)
         if not hdesk:
             return True
@@ -80,16 +98,27 @@ def get_active_window_info() -> Optional[Dict[str, Any]]:
         return None
 
     try:
-        hwnd = win32gui.GetForegroundWindow()
-        if not hwnd:
+        ensure_desktop_access()
+        user32 = ctypes.windll.user32
+
+        hwnd = user32.GetForegroundWindow()
+        if not hwnd or hwnd == 0:
             logger.debug("No active foreground window handle found.")
             return None
 
-        # Get Window Title
-        window_title = win32gui.GetWindowText(hwnd) or "Unknown Window"
+        # Extract Unicode Window Title via ctypes
+        length = user32.GetWindowTextLengthW(hwnd)
+        if length > 0:
+            buff = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buff, length + 1)
+            window_title = buff.value or "Unknown Window"
+        else:
+            window_title = "Unknown Window"
 
         # Get Process ID
-        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        pid_val = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid_val))
+        pid = pid_val.value
         if not pid or pid == 0:
             return None
 
@@ -97,7 +126,10 @@ def get_active_window_info() -> Optional[Dict[str, Any]]:
         try:
             process = psutil.Process(pid)
             app_name = process.name()
-            app_path = process.exe()
+            try:
+                app_path = process.exe()
+            except Exception:
+                app_path = None
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as e:
             logger.debug(f"Could not inspect process pid={pid}: {e}")
             app_name = "System"
