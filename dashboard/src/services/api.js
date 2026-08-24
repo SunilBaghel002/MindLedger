@@ -72,6 +72,23 @@ class MindLedgerAPI {
         });
     }
 
+    async getBatteryStatus() {
+        return this._request('/battery/status');
+    }
+
+    async getBatteryHealth() {
+        return this._request('/battery/health');
+    }
+
+    async getBatteryDrainers(limit = 10) {
+        return this._request(`/battery/drainers?limit=${limit}`);
+    }
+
+    async getBatteryHistory(dateStr = '') {
+        const queryStr = dateStr ? `?date=${dateStr}` : '';
+        return this._request(`/battery/history${queryStr}`);
+    }
+
     async getTodayApps() {
         return this._request('/apps/today');
     }

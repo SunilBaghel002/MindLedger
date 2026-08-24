@@ -617,3 +617,64 @@ class ProcessOptimizeResponseData(BaseModel):
     terminated_processes: List[ProcessTerminateResponseData] = Field(default_factory=list)
 
 
+class BatteryStatusData(BaseModel):
+    """Payload for battery status query."""
+
+    is_battery_present: bool = True
+    percent: int = 100
+    is_plugged: bool = True
+    charging_status: str = "Plugged In"
+    time_remaining_formatted: str = "Unlimited"
+    seconds_left: Optional[int] = None
+    discharge_rate_percent_per_hour: Optional[float] = None
+
+
+class BatteryHealthData(BaseModel):
+    """Payload for battery hardware health query."""
+
+    is_battery_present: bool = True
+    current_percentage: int = 100
+    is_charging: bool = True
+    design_capacity_mwh: Optional[int] = None
+    full_charge_capacity_mwh: Optional[int] = None
+    wear_level_percent: float = 0.0
+    cycle_count: Optional[int] = None
+    power_profile: str = "Balanced"
+
+
+class BatteryHistoryPointDTO(BaseModel):
+    """Data point representation for battery discharge time-series."""
+
+    timestamp: str
+    percent: int
+    is_plugged: bool
+    discharge_rate: Optional[float] = None
+    top_drainer: Optional[str] = None
+
+
+class BatteryHistoryData(BaseModel):
+    """Payload for battery history time-series query."""
+
+    date: str
+    points: List[BatteryHistoryPointDTO] = Field(default_factory=list)
+
+
+class PowerDrainerDTO(BaseModel):
+    """Data transfer object for energy consuming application."""
+
+    pid: int
+    name: str
+    cpu_percent: float = 0.0
+    memory_mb: float = 0.0
+    energy_score: float = 0.0
+    power_impact: str = "Low"
+
+
+class PowerDrainersData(BaseModel):
+    """Payload for energy drainers leaderboard."""
+
+    count: int = 0
+    drainers: List[PowerDrainerDTO] = Field(default_factory=list)
+
+
+
