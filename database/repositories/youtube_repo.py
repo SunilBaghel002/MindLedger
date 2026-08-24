@@ -62,6 +62,57 @@ class YouTubeRepository:
         self.conn.commit()
         return cursor.lastrowid
 
+    def upsert(self, activity: YouTubeActivity) -> int:
+        """Insert or update a YouTube activity record for the same video on the same date.
+
+        Args:
+            activity: YouTubeActivity model instance.
+
+        Returns:
+            Row ID of the inserted or updated record.
+        """
+        # Look for existing record today with same video_id or video_url
+        query = (
+            "SELECT id, watch_duration_seconds FROM youtube_activity WHERE date = ? AND (video_id = ? OR video_url = ?) ORDER BY id DESC LIMIT 1"
+        )
+        cursor = self.conn.execute(query, (activity.date, activity.video_id, activity.video_url))
+        row = cursor.fetchone()
+
+        if row:
+            row_id = row[0]
+            existing_dur = row[1] or 0
+            new_duration = existing_dur + activity.watch_duration_seconds
+            ended_at_str = activity.ended_at.isoformat() if activity.ended_at else datetime.now().isoformat()
+            self.conn.execute(
+                """
+                UPDATE youtube_activity
+                SET watch_duration_seconds = ?,
+                    video_title = COALESCE(?, video_title),
+                    channel_name = CASE WHEN ? IS NOT NULL AND ? != 'Unknown Channel' THEN ? ELSE channel_name END,
+                    channel_url = COALESCE(?, channel_url),
+                    video_category = COALESCE(?, video_category),
+                    is_productive = COALESCE(?, is_productive),
+                    ended_at = ?
+                WHERE id = ?
+                """,
+                (
+                    new_duration,
+                    activity.video_title,
+                    activity.channel_name,
+                    activity.channel_name,
+                    activity.channel_name,
+                    activity.channel_url,
+                    activity.video_category,
+                    1 if activity.is_productive is True else (0 if activity.is_productive is False else None),
+                    ended_at_str,
+                    row_id,
+                ),
+            )
+            self.conn.commit()
+            return row_id
+        else:
+            return self.save(activity)
+
     def get_by_id(self, activity_id: int) -> Optional[YouTubeActivity]:
         """Fetch a YouTube activity record by its ID.
 

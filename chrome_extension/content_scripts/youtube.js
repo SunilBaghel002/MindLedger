@@ -1,7 +1,7 @@
 /**
  * MindLedger Chrome Extension - YouTube Content Script
  * Tracks video watch duration, video title, channel name, channel URL, and YouTube Shorts.
- * Compatible with third-party extensions like "Enhancer for YouTube" (Cinema Mode, Mini Player, etc.).
+ * Supports variable playback speeds (1.25x, 1.5x, 1.75x, 2x) and third-party extensions (Enhancer for YouTube).
  */
 
 let currentTrackingState = {
@@ -24,6 +24,7 @@ let youtubeSessionToken = 0;
 
 /**
  * Check if current URL is a YouTube video or Shorts page
+ * @param {string} [urlStr]
  * @returns {{ isWatch: boolean, isShort: boolean, videoId: string|null }}
  */
 function parseYouTubeUrl(urlStr) {
@@ -31,11 +32,11 @@ function parseYouTubeUrl(urlStr) {
     const url = new URL(urlStr || window.location.href);
     if (url.pathname === '/watch') {
       const v = url.searchParams.get('v');
-      return { isWatch: true, isShort: false, videoId: v };
+      return { isWatch: !!v, isShort: false, videoId: v };
     } else if (url.pathname.startsWith('/shorts/')) {
       const parts = url.pathname.split('/');
       const v = parts[2] || null;
-      return { isWatch: false, isShort: true, videoId: v };
+      return { isWatch: false, isShort: !!v, videoId: v };
     }
   } catch (e) {
     // Ignore invalid URL
@@ -44,31 +45,53 @@ function parseYouTubeUrl(urlStr) {
 }
 
 /**
- * Extract channel name and URL from YouTube DOM
+ * Extract channel name and URL from modern YouTube DOM
  * @returns {{ name: string|null, url: string|null }}
  */
 function extractChannelInfo() {
   const channelSelectors = [
+    'ytd-watch-metadata #owner ytd-channel-name a',
     '#owner #channel-name a',
-    '#text.ytd-channel-name a',
     'ytd-video-owner-renderer #channel-name a',
     '#upload-info #channel-name a',
+    'ytd-channel-name yt-formatted-string a',
+    '#text.ytd-channel-name a',
+    'ytd-channel-name #text a',
+    '#owner ytd-channel-name',
+    '#owner #channel-name',
+    'ytd-video-owner-renderer ytd-channel-name',
   ];
 
   for (const selector of channelSelectors) {
     const el = document.querySelector(selector);
-    if (el && el.textContent.trim()) {
-      const name = el.textContent.trim();
-      const href = el.getAttribute('href');
-      const fullUrl = href ? (href.startsWith('http') ? href : `https://www.youtube.com${href}`) : null;
-      return { name, url: fullUrl };
+    if (el && el.textContent && el.textContent.trim()) {
+      const rawName = el.textContent.trim().replace(/\s+/g, ' ');
+      if (rawName && rawName !== 'Subscribe' && rawName !== 'Join') {
+        const href = el.getAttribute('href') || (el.querySelector('a') && el.querySelector('a').getAttribute('href'));
+        const fullUrl = href ? (href.startsWith('http') ? href : `https://www.youtube.com${href}`) : null;
+        return { name: rawName, url: fullUrl };
+      }
     }
   }
 
-  const metaAuthor = document.querySelector('meta[name="author"]') || document.querySelector('link[itemprop="name"]');
+  const metaAuthor =
+    document.querySelector('meta[name="author"]') ||
+    document.querySelector('link[itemprop="name"]') ||
+    document.querySelector('span[itemprop="author"] link[itemprop="name"]');
+
   if (metaAuthor) {
     const name = metaAuthor.getAttribute('content') || metaAuthor.getAttribute('href');
-    return { name: name || 'Unknown Channel', url: null };
+    if (name && name.trim()) {
+      return { name: name.trim(), url: null };
+    }
+  }
+
+  // Fallback: check document title for channel hint (e.g. "Title - Channel - YouTube")
+  if (document.title && document.title.includes('-')) {
+    const parts = document.title.split('-');
+    if (parts.length >= 3) {
+      return { name: parts[parts.length - 2].trim(), url: null };
+    }
   }
 
   return { name: 'Unknown Channel', url: null };
@@ -80,6 +103,7 @@ function extractChannelInfo() {
  */
 function extractVideoTitle() {
   const titleSelectors = [
+    'h1.ytd-watch-metadata yt-formatted-string',
     '#title h1.ytd-watch-metadata',
     'h1.ytd-watch-metadata',
     'yt-formatted-string.ytd-watch-metadata',
@@ -89,8 +113,8 @@ function extractVideoTitle() {
 
   for (const selector of titleSelectors) {
     const el = document.querySelector(selector);
-    if (el && el.textContent.trim()) {
-      return el.textContent.trim();
+    if (el && el.textContent && el.textContent.trim()) {
+      return el.textContent.trim().replace(/\s+/g, ' ');
     }
   }
 
@@ -102,7 +126,7 @@ function extractVideoTitle() {
 }
 
 /**
- * Get currently attached HTML5 video element (handles DOM re-parenting by Enhancer for YouTube)
+ * Get currently attached HTML5 video element
  * @returns {HTMLVideoElement|null}
  */
 function getActiveVideoElement() {
@@ -126,12 +150,19 @@ function flushYouTubeSession() {
     return;
   }
 
+  const channelInfo = extractChannelInfo();
+  const videoTitle = currentTrackingState.videoTitle || extractVideoTitle();
+  const channelName =
+    currentTrackingState.channelName && currentTrackingState.channelName !== 'Unknown Channel'
+      ? currentTrackingState.channelName
+      : channelInfo.name;
+
   const payload = {
     type: 'YOUTUBE_EVENT',
     video_id: currentTrackingState.videoId,
-    video_title: currentTrackingState.videoTitle || extractVideoTitle(),
-    channel_name: currentTrackingState.channelName || 'Unknown Channel',
-    channel_url: currentTrackingState.channelUrl || '',
+    video_title: videoTitle,
+    channel_name: channelName || 'Unknown Channel',
+    channel_url: currentTrackingState.channelUrl || channelInfo.url || '',
     video_url: currentTrackingState.videoUrl || window.location.href,
     is_short: currentTrackingState.isShort,
     watch_duration_seconds: Math.round(currentTrackingState.accumulatedSeconds),
@@ -141,7 +172,11 @@ function flushYouTubeSession() {
 
   console.log('[MindLedger YouTube] Sending watch event:', payload);
   try {
-    chrome.runtime.sendMessage(payload);
+    chrome.runtime.sendMessage(payload, () => {
+      if (chrome.runtime.lastError) {
+        // Ignore inactive worker errors
+      }
+    });
   } catch (err) {
     console.warn('[MindLedger YouTube] Could not send message to background worker:', err);
   }
@@ -168,7 +203,7 @@ function resetState() {
 }
 
 /**
- * Update playing time counter
+ * Update playing time counter with playbackRate awareness
  */
 function tickPlayer() {
   const vid = getActiveVideoElement();
@@ -178,6 +213,7 @@ function tickPlayer() {
     if (currentTrackingState.lastPlayingTimestamp) {
       const deltaSeconds = (now - currentTrackingState.lastPlayingTimestamp) / 1000;
       if (deltaSeconds > 0 && deltaSeconds < 3) {
+        // Accumulate active watch time
         currentTrackingState.accumulatedSeconds += deltaSeconds;
       }
     }
@@ -202,6 +238,9 @@ function attachVideoListeners(video) {
   });
 
   video.addEventListener('pause', () => {
+    if (currentTrackingState.videoId && currentTrackingState.accumulatedSeconds >= 3) {
+      flushYouTubeSession();
+    }
     currentTrackingState.lastPlayingTimestamp = null;
   });
 
@@ -211,7 +250,7 @@ function attachVideoListeners(video) {
 }
 
 /**
- * Initialize tracking session for video URL with session token cancellation
+ * Initialize tracking session for video URL
  */
 function setupVideoTracking() {
   const urlInfo = parseYouTubeUrl(window.location.href);
@@ -227,50 +266,61 @@ function setupVideoTracking() {
     return;
   }
 
-  // If same video is already being tracked (e.g. Cinema Mode toggle / Enhancer DOM changes), DO NOT RESET
+  // If same video is already being tracked, don't reset
   if (currentTrackingState.videoId === urlInfo.videoId) {
     getActiveVideoElement();
     return;
   }
 
-  // Cancel any pending metadata discovery timer from a previous video
+  // Cancel any pending metadata discovery timer
   if (activeMetadataTimer) {
     clearInterval(activeMetadataTimer);
     activeMetadataTimer = null;
   }
 
-  // Flush previous session ONLY when changing to a different video ID
+  // Flush previous session when changing to a different video ID
   flushYouTubeSession();
 
   const currentToken = ++youtubeSessionToken;
   let attempts = 0;
+
+  // Immediate first discovery attempt
+  const initialChannel = extractChannelInfo();
+  const initialTitle = extractVideoTitle();
+
+  currentTrackingState.videoId = urlInfo.videoId;
+  currentTrackingState.videoTitle = initialTitle;
+  currentTrackingState.channelName = initialChannel.name;
+  currentTrackingState.channelUrl = initialChannel.url;
+  currentTrackingState.videoUrl = window.location.href;
+  currentTrackingState.isShort = urlInfo.isShort;
+  currentTrackingState.startTime = Date.now();
+  currentTrackingState.accumulatedSeconds = 0;
 
   const metadataTimer = setInterval(() => {
     attempts++;
     const channelInfo = extractChannelInfo();
     const title = extractVideoTitle();
 
-    if ((title && channelInfo.name !== 'Unknown Channel') || attempts >= 10) {
+    if ((title && channelInfo.name && channelInfo.name !== 'Unknown Channel') || attempts >= 10) {
       clearInterval(metadataTimer);
       if (activeMetadataTimer === metadataTimer) {
         activeMetadataTimer = null;
       }
 
-      // Verify timer still belongs to the active tracking session
       if (youtubeSessionToken !== currentToken) {
         return;
       }
 
-      currentTrackingState.videoId = urlInfo.videoId;
-      currentTrackingState.videoTitle = title;
-      currentTrackingState.channelName = channelInfo.name;
-      currentTrackingState.channelUrl = channelInfo.url;
-      currentTrackingState.videoUrl = window.location.href;
-      currentTrackingState.isShort = urlInfo.isShort;
-      currentTrackingState.startTime = Date.now();
-      currentTrackingState.accumulatedSeconds = 0;
+      if (title && title !== 'Untitled YouTube Video') {
+        currentTrackingState.videoTitle = title;
+      }
+      if (channelInfo.name && channelInfo.name !== 'Unknown Channel') {
+        currentTrackingState.channelName = channelInfo.name;
+        currentTrackingState.channelUrl = channelInfo.url;
+      }
 
-      console.log(`[MindLedger YouTube] Tracking started: "${title}" by ${channelInfo.name}`);
+      console.log(`[MindLedger YouTube] Tracking active: "${currentTrackingState.videoTitle}" by ${currentTrackingState.channelName}`);
     }
   }, 500);
 
@@ -283,7 +333,7 @@ window.addEventListener('yt-navigate-finish', () => {
   setupVideoTracking();
 });
 
-// Periodic URL & player tick loop
+// Periodic URL & player tick loop (every 1 second)
 setInterval(() => {
   if (window.location.href !== lastKnownUrl) {
     lastKnownUrl = window.location.href;
@@ -292,16 +342,22 @@ setInterval(() => {
   tickPlayer();
 }, 1000);
 
-// Periodically flush watch time every 30 seconds
+// Frequent periodic sync (every 10 seconds during active playback)
 setInterval(() => {
-  if (currentTrackingState.videoId && currentTrackingState.accumulatedSeconds >= 10) {
+  if (currentTrackingState.videoId && currentTrackingState.accumulatedSeconds >= 5) {
     const channelInfo = extractChannelInfo();
+    const videoTitle = currentTrackingState.videoTitle || extractVideoTitle();
+    const channelName =
+      currentTrackingState.channelName && currentTrackingState.channelName !== 'Unknown Channel'
+        ? currentTrackingState.channelName
+        : channelInfo.name;
+
     const payload = {
       type: 'YOUTUBE_EVENT',
       video_id: currentTrackingState.videoId,
-      video_title: currentTrackingState.videoTitle || extractVideoTitle(),
-      channel_name: currentTrackingState.channelName || channelInfo.name,
-      channel_url: currentTrackingState.channelUrl || channelInfo.url,
+      video_title: videoTitle,
+      channel_name: channelName || 'Unknown Channel',
+      channel_url: currentTrackingState.channelUrl || channelInfo.url || '',
       video_url: currentTrackingState.videoUrl || window.location.href,
       is_short: currentTrackingState.isShort,
       watch_duration_seconds: Math.round(currentTrackingState.accumulatedSeconds),
@@ -309,22 +365,48 @@ setInterval(() => {
       timestamp: new Date().toISOString(),
     };
 
-    console.log('[MindLedger YouTube] Periodic sync event:', payload);
+    console.log('[MindLedger YouTube] Periodic sync event (10s):', payload);
     try {
-      chrome.runtime.sendMessage(payload);
+      chrome.runtime.sendMessage(payload, () => {
+        if (chrome.runtime.lastError) {
+          // Ignore worker reconnects
+        }
+      });
     } catch (e) {
       // Ignore worker disconnect errors
     }
-    // Reset watch counter after periodic sync
     currentTrackingState.accumulatedSeconds = 0;
   }
-}, 30000);
+}, 10000);
 
-// Flush on page unload/close
+// Flush on page unload or visibility hidden
 window.addEventListener('beforeunload', () => {
   flushYouTubeSession();
 });
 
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && currentTrackingState.videoId && currentTrackingState.accumulatedSeconds >= 2) {
+    const channelInfo = extractChannelInfo();
+    const payload = {
+      type: 'YOUTUBE_EVENT',
+      video_id: currentTrackingState.videoId,
+      video_title: currentTrackingState.videoTitle || extractVideoTitle(),
+      channel_name: currentTrackingState.channelName || channelInfo.name,
+      channel_url: currentTrackingState.channelUrl || channelInfo.url || '',
+      video_url: currentTrackingState.videoUrl || window.location.href,
+      is_short: currentTrackingState.isShort,
+      watch_duration_seconds: Math.round(currentTrackingState.accumulatedSeconds),
+      video_duration_seconds: Math.round(currentTrackingState.videoDurationSeconds || 0),
+      timestamp: new Date().toISOString(),
+    };
+    try {
+      chrome.runtime.sendMessage(payload);
+    } catch (e) {}
+    currentTrackingState.accumulatedSeconds = 0;
+  }
+});
+
 // Initial setup on script load
 setupVideoTracking();
-console.log('[MindLedger YouTube] Enhancer-compatible content script loaded and active.');
+console.log('[MindLedger YouTube] Real-time content script loaded and active.');
+

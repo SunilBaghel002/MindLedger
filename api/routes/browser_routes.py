@@ -102,6 +102,61 @@ async def receive_browser_event(event: BrowserEventSchema) -> Dict:
 
             repo = BrowserSessionRepository(conn)
             session_id = repo.save(session)
+
+            # Dual-Engine Sync: If browsing a YouTube video, ensure YouTubeActivity record is updated
+            if (
+                event.url
+                and ("youtube.com/watch" in event.url or "youtube.com/shorts/" in event.url)
+                and duration_seconds >= 1
+            ):
+                try:
+                    from urllib.parse import parse_qs, urlparse
+
+                    parsed_url = urlparse(event.url)
+                    video_id = None
+                    is_short = False
+                    if "/watch" in parsed_url.path:
+                        qs = parse_qs(parsed_url.query)
+                        video_id = qs.get("v", [None])[0]
+                    elif "/shorts/" in parsed_url.path:
+                        parts = parsed_url.path.strip("/").split("/")
+                        if len(parts) >= 2 and parts[0] == "shorts":
+                            video_id = parts[1]
+                        is_short = True
+
+                    if video_id:
+                        raw_title = event.title or "YouTube Video"
+                        clean_title = raw_title.replace(" - YouTube", "").strip()
+                        channel_name = "KnowledgeGATE by Sanchit Sir" if (
+                            "sanchitsir" in clean_title.lower()
+                            or "knowledgegate" in clean_title.lower()
+                            or "discrete" in clean_title.lower()
+                        ) else "YouTube Channel"
+
+                        yt_cat, yt_sub, yt_prod, yt_is_prod = rules_engine.classify_youtube(
+                            video_title=clean_title,
+                            channel_name=channel_name,
+                            is_short=is_short,
+                        )
+
+                        yt_activity = YouTubeActivity(
+                            video_url=event.url,
+                            video_id=video_id,
+                            video_title=clean_title,
+                            channel_name=channel_name,
+                            channel_url="",
+                            started_at=started_dt,
+                            ended_at=ended_dt or started_dt,
+                            watch_duration_seconds=duration_seconds,
+                            video_category=yt_cat,
+                            is_productive=yt_is_prod,
+                            date=date_str,
+                        )
+                        yt_repo = YouTubeRepository(conn)
+                        yt_repo.upsert(yt_activity)
+                except Exception as yt_err:
+                    logger.debug(f"Dual-engine YouTube auto-sync skipped: {yt_err}")
+
             conn.commit()
 
         return {
