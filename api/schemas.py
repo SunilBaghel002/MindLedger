@@ -581,6 +581,41 @@ class ProcessItemDTO(BaseModel):
     hog_score: float = 0.0
     is_hog: bool = False
     power_impact: str = "Low"
+    category: str = "Application"
+    description: str = ""
+
+
+class ChildProcessItemDTO(BaseModel):
+    """Data transfer object for child/worker sub-process inside a grouped application."""
+
+    pid: int
+    name: str
+    role: str = "Worker Process"
+    memory_mb: float = 0.0
+    cpu_percent: float = 0.0
+    power_impact: str = "Low"
+    is_protected: bool = False
+    hog_score: float = 0.0
+
+
+class GroupedAppDTO(BaseModel):
+    """Data transfer object representing a grouped parent application with multiple child processes."""
+
+    app_name: str
+    binary_name: str
+    category: str = "Application"
+    description: str = ""
+    total_memory_mb: float = 0.0
+    total_cpu_percent: float = 0.0
+    process_count: int = 1
+    power_impact: str = "Low"
+    hog_score: float = 0.0
+    is_hog: bool = False
+    is_protected: bool = False
+    type: str = "user"  # "user" or "system"
+    profile_info: List[str] = Field(default_factory=list)
+    pids: List[int] = Field(default_factory=list)
+    children: List[ChildProcessItemDTO] = Field(default_factory=list)
 
 
 class ProcessListResponseData(BaseModel):
@@ -590,6 +625,7 @@ class ProcessListResponseData(BaseModel):
     user_processes_count: int = 0
     hog_count: int = 0
     total_ram_used_mb: float = 0.0
+    grouped_apps: List[GroupedAppDTO] = Field(default_factory=list)
     processes: List[ProcessItemDTO] = Field(default_factory=list)
 
 
@@ -607,6 +643,23 @@ class ProcessTerminateResponseData(BaseModel):
     pid: int
     process_name: str
     memory_freed_mb: float = 0.0
+    status: str = "terminated"
+
+
+class AppTerminateRequest(BaseModel):
+    """Request payload for terminating all worker processes of an application."""
+
+    binary_name: str
+    force: bool = False
+
+
+class AppTerminateResponseData(BaseModel):
+    """Response payload for application termination."""
+
+    app_name: str
+    binary_name: str
+    terminated_pids_count: int
+    memory_freed_mb: float
     status: str = "terminated"
 
 

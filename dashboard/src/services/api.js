@@ -66,6 +66,16 @@ class MindLedgerAPI {
         });
     }
 
+    async terminateApp(binaryName, force = false) {
+        return this._request('/processes/terminate-app', {
+            method: 'POST',
+            body: JSON.stringify({
+                binary_name: binaryName,
+                force,
+            }),
+        });
+    }
+
     async optimizeProcesses(minScore = 15.0) {
         return this._request(`/processes/optimize?min_score=${minScore}`, {
             method: 'POST',
