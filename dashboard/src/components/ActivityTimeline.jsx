@@ -46,17 +46,17 @@ export default function ActivityTimeline({ timeline, isLoading = false }) {
   const allNeutral = timeline?.neutral || new Array(24).fill(0);
   const allUnproductive = timeline?.unproductive || new Array(24).fill(0);
 
-  // Filter for Active Hours (8 AM - 8 PM: indices 8 through 20)
+  // Filter for Active Focus Hours (4 AM - 11 PM: indices 4 through 23)
   let labels = allLabels;
   let productive = allProductive;
   let neutral = allNeutral;
   let unproductive = allUnproductive;
 
   if (rangeMode === 'active' && allLabels.length === 24) {
-    labels = allLabels.slice(6, 22); // 6 AM to 9 PM
-    productive = allProductive.slice(6, 22);
-    neutral = allNeutral.slice(6, 22);
-    unproductive = allUnproductive.slice(6, 22);
+    labels = allLabels.slice(4, 24); // 4 AM to 11 PM
+    productive = allProductive.slice(4, 24);
+    neutral = allNeutral.slice(4, 24);
+    unproductive = allUnproductive.slice(4, 24);
   }
 
   // Calculate Peak Hour and Total Active Time
@@ -281,7 +281,7 @@ export default function ActivityTimeline({ timeline, isLoading = false }) {
             <button
               className={`pill-btn ${rangeMode === 'active' ? 'active' : ''}`}
               onClick={() => setRangeMode('active')}
-              title="Show 6 AM to 9 PM"
+              title="Show 4 AM to 11 PM"
             >
               Focus Hours
             </button>
