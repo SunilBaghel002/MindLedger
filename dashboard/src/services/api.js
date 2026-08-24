@@ -89,6 +89,37 @@ class MindLedgerAPI {
         return this._request(`/battery/history${queryStr}`);
     }
 
+    async getLimits(dateStr = '') {
+        const queryStr = dateStr ? `?date=${dateStr}` : '';
+        return this._request(`/limits${queryStr}`);
+    }
+
+    async createLimit(limitData) {
+        return this._request('/limits', {
+            method: 'POST',
+            body: JSON.stringify(limitData),
+        });
+    }
+
+    async updateLimit(limitId, updateData) {
+        return this._request(`/limits/${limitId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updateData),
+        });
+    }
+
+    async deleteLimit(limitId) {
+        return this._request(`/limits/${limitId}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async snoozeLimit(limitId) {
+        return this._request(`/limits/${limitId}/snooze`, {
+            method: 'POST',
+        });
+    }
+
     async getTodayApps() {
         return this._request('/apps/today');
     }

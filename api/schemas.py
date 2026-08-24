@@ -677,4 +677,66 @@ class PowerDrainersData(BaseModel):
     drainers: List[PowerDrainerDTO] = Field(default_factory=list)
 
 
+class AppLimitDTO(BaseModel):
+    """Data transfer object for application or domain limit configuration and status."""
+
+    id: int
+    target_type: str  # "app" or "domain"
+    target_identifier: str
+    display_name: str
+    daily_limit_minutes: int
+    warning_threshold_minutes: Optional[int] = None
+    is_hard_block: bool = False
+    is_active: bool = True
+    max_snoozes_per_day: int = 2
+    effective_limit_minutes: int = 0
+    used_seconds: int = 0
+    used_minutes: float = 0.0
+    remaining_minutes: int = 0
+    percentage_used: float = 0.0
+    status: str = "normal"  # "normal", "warning", "critical", "exceeded"
+    snoozes_used: int = 0
+    snoozes_remaining: int = 2
+
+
+class AppLimitCreateRequest(BaseModel):
+    """Request payload for creating a new usage limit rule."""
+
+    target_type: str  # "app" or "domain"
+    target_identifier: str
+    display_name: str
+    daily_limit_minutes: int = Field(ge=1, le=1440)
+    is_hard_block: bool = False
+    warning_threshold_minutes: Optional[int] = None
+
+
+class AppLimitUpdateRequest(BaseModel):
+    """Request payload for updating limit rule properties."""
+
+    daily_limit_minutes: Optional[int] = Field(None, ge=1, le=1440)
+    warning_threshold_minutes: Optional[int] = None
+    is_hard_block: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+
+class AppLimitListResponseData(BaseModel):
+    """Payload for listing all configured limits."""
+
+    count: int = 0
+    limits: List[AppLimitDTO] = Field(default_factory=list)
+
+
+class AppLimitSnoozeResponseData(BaseModel):
+    """Response payload for snooze emergency pass."""
+
+    limit_id: int
+    display_name: str
+    added_minutes: int = 5
+    effective_limit_minutes: int
+    snoozes_used: int
+    snoozes_remaining: int
+    status: str
+
+
+
 
