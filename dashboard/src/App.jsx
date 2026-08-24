@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+import TopBar from './components/TopBar';
 import DashboardHome from './pages/DashboardHome';
 import ApplicationsPage from './pages/ApplicationsPage';
 import BrowserPage from './pages/BrowserPage';
 import YoutubePage from './pages/YoutubePage';
+import ProcessesPage from './pages/ProcessesPage';
+import BatteryPage from './pages/BatteryPage';
+import LimitsPage from './pages/LimitsPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import { api } from './services/api';
+import './styles/tokens.css';
 import './styles/variables.css';
 import './styles/main.css';
 import './styles/components.css';
@@ -17,6 +22,9 @@ const TITLES = {
   apps: 'Applications',
   browser: 'Browser',
   youtube: 'YouTube Analytics',
+  processes: 'Process Supervisor',
+  battery: 'Battery & Power',
+  limits: 'App & Website Limits',
   reports: 'Reports',
   settings: 'Settings',
 };
@@ -82,6 +90,12 @@ export default function App() {
         return <BrowserPage />;
       case 'youtube':
         return <YoutubePage />;
+      case 'processes':
+        return <ProcessesPage />;
+      case 'battery':
+        return <BatteryPage />;
+      case 'limits':
+        return <LimitsPage />;
       case 'reports':
         return <ReportsPage />;
       case 'settings':
@@ -104,6 +118,7 @@ export default function App() {
         onSelectSection={setActiveSection}
       />
       <div className="main-wrapper">
+        <TopBar />
         <Header title={TITLES[activeSection] || 'Dashboard'} />
         <main className="content-body">{renderContent()}</main>
       </div>

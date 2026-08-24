@@ -1,10 +1,35 @@
 /* MindLedger - React Dashboard Main Styles */
+@import './tokens.css';
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
 
 body {
   font-family: var(--font-family);
@@ -50,6 +75,14 @@ body {
   gap: var(--space-sm);
   margin-bottom: var(--space-xl);
   padding-left: var(--space-xs);
+}
+
+.brand-logo-img {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .logo-icon {
@@ -182,21 +215,113 @@ body {
   min-width: 0;
 }
 
+/* TopBar Real-Time Telemetry Bar */
+.topbar-vitals-container {
+  min-height: 46px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  padding: 6px var(--space-xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  position: sticky;
+  top: 0;
+  z-index: 95;
+  font-size: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.topbar-left, .topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.vital-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.vital-pill:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--text-muted);
+}
+
+.vital-pill.tracking-pill.active {
+  background-color: var(--emerald-50);
+  border-color: #A7F3D0;
+  color: #047857;
+}
+
+.vital-pill.tracking-pill.standby {
+  background-color: var(--amber-50);
+  border-color: #FDE68A;
+  color: #B45309;
+}
+
+.vital-pill.limit-warning-pill {
+  background-color: var(--rose-50);
+  border-color: #FECDD3;
+  color: #BE123C;
+  animation: pulse-amber 2s infinite;
+}
+
+.vital-app-name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.vital-separator {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.vital-icon {
+  font-size: 14px;
+}
+
+.vital-subtext {
+  font-size: 10px;
+  opacity: 0.85;
+}
+
+/* Color utilities */
+.text-emerald { color: var(--emerald-500); }
+.text-blue { color: var(--primary-500); }
+.text-amber { color: var(--amber-500); }
+.text-rose { color: var(--rose-500); }
+.text-cyan { color: var(--cyan-500); }
+.text-purple { color: var(--purple-500); }
+
 .top-header {
-  height: 72px;
-  background-color: var(--bg-sidebar);
+  height: 64px;
+  background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-color);
   padding: 0 var(--space-xl);
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: sticky;
-  top: 0;
+  top: 46px;
   z-index: 90;
 }
 
 .page-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--text-main);
 }
@@ -213,9 +338,9 @@ body {
   gap: var(--space-xs);
   background-color: var(--bg-page);
   border: 1px solid var(--border-color);
-  padding: 8px 16px;
+  padding: 6px 14px;
   border-radius: var(--radius-sm);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
 }

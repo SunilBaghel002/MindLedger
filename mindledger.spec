@@ -14,12 +14,15 @@ block_cipher = None
 project_root = Path('.').resolve()
 
 datas = [
+    (str(project_root / 'assets'), 'assets'),
+    (str(project_root / 'app.ico'), '.'),
     (str(project_root / 'dashboard' / 'dist'), 'dashboard/dist'),
     (str(project_root / 'dashboard' / 'static'), 'dashboard/static'),
     (str(project_root / 'dashboard' / 'templates'), 'dashboard/templates'),
     (str(project_root / 'reports' / 'templates'), 'reports/templates'),
     (str(project_root / 'chrome_extension'), 'chrome_extension'),
 ]
+
 
 
 # Collect submodules and data files for dynamic imports
@@ -99,6 +102,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=str(project_root / 'app.ico'),
 )
 
 coll = COLLECT(

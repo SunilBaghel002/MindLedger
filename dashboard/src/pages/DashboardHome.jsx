@@ -61,20 +61,49 @@ export default function DashboardHome({ data, error, onRetry }) {
       <div className="grid-3">
         <StatCard
           label="Total Screen Time"
-          icon={<FiClock />}
+          icon={<FiClock className="text-blue" />}
           value={totalScreenTime}
           subtext="Active tracking today"
           isPositive={true}
         />
         <StatCard
           label="Productive Time"
-          icon={<FiCheckCircle />}
+          icon={<FiCheckCircle className="text-emerald" />}
           value={productiveTime}
           subtext={`${prodPct}% of total screen time`}
           isPositive={prodPct >= 50}
         />
         <ScoreWidget score={data?.productivity_score || 0} />
       </div>
+
+      {/* Category Breakdown Chips */}
+      {data && (
+        <div
+          style={{
+            display: 'flex',
+            gap: '10px',
+            flexWrap: 'wrap',
+            marginBottom: 'var(--space-lg)',
+          }}
+        >
+          <div className="vital-pill" style={{ background: 'var(--emerald-50)', borderColor: '#A7F3D0', color: '#047857' }}>
+            <span>● Productive:</span>
+            <strong>{secondsToHms(data.productive_time_seconds || 0)}</strong>
+          </div>
+          <div className="vital-pill" style={{ background: 'var(--cyan-50)', borderColor: '#A5F3FC', color: '#0E7490' }}>
+            <span>● Learning:</span>
+            <strong>{secondsToHms(data.learning_time_seconds || 0)}</strong>
+          </div>
+          <div className="vital-pill" style={{ background: 'var(--amber-50)', borderColor: '#FDE68A', color: '#B45309' }}>
+            <span>● Neutral:</span>
+            <strong>{secondsToHms(data.neutral_time_seconds || 0)}</strong>
+          </div>
+          <div className="vital-pill" style={{ background: 'var(--rose-50)', borderColor: '#FECDD3', color: '#BE123C' }}>
+            <span>● Leisure:</span>
+            <strong>{secondsToHms(data.unproductive_time_seconds || 0)}</strong>
+          </div>
+        </div>
+      )}
 
       {/* Quick Stats / AI Insights */}
       <QuickStats quickStats={data?.quick_stats} />

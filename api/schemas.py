@@ -91,6 +91,58 @@ class LiveTrackingStatusData(BaseModel):
     is_idle: bool = False
 
 
+class BatteryVitalsDTO(BaseModel):
+    """Payload for battery hardware status."""
+
+    percent: Optional[int] = 100
+    is_charging: bool = True
+    power_plugged: bool = True
+    discharge_rate_hr: Optional[float] = None
+    status_text: str = "Plugged In"
+
+
+class MemoryVitalsDTO(BaseModel):
+    """Payload for system memory utilization."""
+
+    used_gb: float = 0.0
+    total_gb: float = 0.0
+    percent: float = 0.0
+
+
+class HydrationVitalsDTO(BaseModel):
+    """Payload for hydration telemetry in TopBar."""
+
+    count: int = 0
+    goal: int = 8
+    volume_ml: int = 0
+    next_reminder_minutes: int = 30
+
+
+class LimitWarningDTO(BaseModel):
+    """Payload for approaching or breached app/domain limits."""
+
+    target_name: str
+    used_seconds: int = 0
+    limit_seconds: int = 0
+    percent_used: float = 0.0
+    is_breached: bool = False
+
+
+class DashboardVitalsData(BaseModel):
+    """Payload for TopBar real-time vitals telemetry."""
+
+    is_tracking: bool = True
+    current_app: Optional[str] = None
+    active_session_seconds: int = 0
+    screen_time_today_seconds: int = 0
+    productivity_score: float = 0.0
+    battery: BatteryVitalsDTO = Field(default_factory=BatteryVitalsDTO)
+    memory: MemoryVitalsDTO = Field(default_factory=MemoryVitalsDTO)
+    hydration: HydrationVitalsDTO = Field(default_factory=HydrationVitalsDTO)
+    limits_warning: List[LimitWarningDTO] = Field(default_factory=list)
+
+
+
 class AppSessionDTO(BaseModel):
     """Data transfer object for individual application tracking session."""
 

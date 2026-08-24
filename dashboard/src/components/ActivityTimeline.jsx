@@ -26,19 +26,19 @@ export default function ActivityTimeline({ timeline }) {
       {
         label: 'Productive',
         data: productiveMins,
-        backgroundColor: '#48BB78',
+        backgroundColor: '#10B981',
         borderRadius: 4,
       },
       {
         label: 'Neutral',
         data: neutralMins,
-        backgroundColor: '#ED8936',
+        backgroundColor: '#F59E0B',
         borderRadius: 4,
       },
       {
         label: 'Unproductive',
         data: unproductiveMins,
-        backgroundColor: '#FC8181',
+        backgroundColor: '#F43F5E',
         borderRadius: 4,
       },
     ],

@@ -46,6 +46,10 @@ class MindLedgerAPI {
         return this._request('/dashboard/live', options);
     }
 
+    async getVitals(options = {}) {
+        return this._request('/dashboard/vitals', options);
+    }
+
     async getTodayApps() {
         return this._request('/apps/today');
     }

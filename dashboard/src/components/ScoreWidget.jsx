@@ -20,7 +20,7 @@ export default function ScoreWidget({ score = 0 }) {
       <div className="score-widget">
         <div className="score-circle-container">
           <svg className="score-circle-svg" width="90" height="90" viewBox="0 0 90 90">
-            <circle class="score-circle-bg" cx="45" cy="45" r="36"></circle>
+            <circle className="score-circle-bg" cx="45" cy="45" r="36"></circle>
             <circle
               className="score-circle-bar"
               cx="45"

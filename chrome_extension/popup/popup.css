@@ -64,24 +64,14 @@ body {
   gap: 8px;
 }
 
-.logo-icon {
+.logo-img {
   width: 28px;
   height: 28px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   border-radius: var(--radius-sm);
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  object-fit: contain;
+  box-shadow: var(--shadow-sm);
 }
 
-.logo-icon::after {
-  content: '';
-  width: 12px;
-  height: 12px;
-  background-color: #FFFFFF;
-  border-radius: 2px;
-}
 
 .brand-text h1 {
   font-size: 15px;

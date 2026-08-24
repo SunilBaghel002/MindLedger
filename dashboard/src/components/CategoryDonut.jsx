@@ -16,7 +16,7 @@ export default function CategoryDonut({ breakdown }) {
     datasets: [
       {
         data: [productiveMins, learningMins, neutralMins, unproductiveMins],
-        backgroundColor: ['#48BB78', '#4299E1', '#ED8936', '#FC8181'],
+        backgroundColor: ['#10B981', '#06B6D4', '#F59E0B', '#F43F5E'],
         borderWidth: 2,
         borderColor: '#FFFFFF',
         hoverOffset: 4,
