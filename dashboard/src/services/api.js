@@ -50,6 +50,28 @@ class MindLedgerAPI {
         return this._request('/dashboard/vitals', options);
     }
 
+    async getProcesses(filter = 'user', sortBy = 'memory', options = {}) {
+        const queryParams = new URLSearchParams({ filter, sort_by: sortBy });
+        return this._request(`/processes?${queryParams.toString()}`, options);
+    }
+
+    async terminateProcess(pid, processName = '', force = false) {
+        return this._request('/processes/terminate', {
+            method: 'POST',
+            body: JSON.stringify({
+                pid,
+                process_name: processName || undefined,
+                force,
+            }),
+        });
+    }
+
+    async optimizeProcesses(minScore = 15.0) {
+        return this._request(`/processes/optimize?min_score=${minScore}`, {
+            method: 'POST',
+        });
+    }
+
     async getTodayApps() {
         return this._request('/apps/today');
     }

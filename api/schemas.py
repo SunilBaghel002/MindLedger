@@ -564,3 +564,56 @@ class ReclassifyResultData(BaseModel):
     reclassified_youtube_activities: int = 0
     updated_daily_summaries: int = 0
 
+
+class ProcessItemDTO(BaseModel):
+    """Data transfer object for individual OS process telemetry."""
+
+    pid: int
+    name: str
+    title: Optional[str] = None
+    type: str = "user"  # "user" or "system"
+    cpu_percent: float = 0.0
+    memory_mb: float = 0.0
+    is_background: bool = True
+    background_duration_seconds: int = 0
+    is_protected: bool = False
+    hog_score: float = 0.0
+    is_hog: bool = False
+    power_impact: str = "Low"
+
+
+class ProcessListResponseData(BaseModel):
+    """Payload response for process scanner query."""
+
+    total_processes: int = 0
+    user_processes_count: int = 0
+    hog_count: int = 0
+    total_ram_used_mb: float = 0.0
+    processes: List[ProcessItemDTO] = Field(default_factory=list)
+
+
+class ProcessTerminateRequest(BaseModel):
+    """Request payload for terminating an active process."""
+
+    pid: int
+    process_name: Optional[str] = None
+    force: bool = False
+
+
+class ProcessTerminateResponseData(BaseModel):
+    """Response payload for process termination."""
+
+    pid: int
+    process_name: str
+    memory_freed_mb: float = 0.0
+    status: str = "terminated"
+
+
+class ProcessOptimizeResponseData(BaseModel):
+    """Response payload for automated background hog optimization."""
+
+    optimized_count: int = 0
+    total_memory_freed_mb: float = 0.0
+    terminated_processes: List[ProcessTerminateResponseData] = Field(default_factory=list)
+
+

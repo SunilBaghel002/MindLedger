@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   FiActivity,
   FiAlertCircle,
+  FiAlertTriangle,
+  FiCheckCircle,
   FiCpu,
   FiFilter,
   FiLayers,
@@ -12,91 +14,136 @@ import {
   FiZap,
 } from 'react-icons/fi';
 import Modal from '../components/Modal';
+import Toast from '../components/Toast';
+import { api } from '../services/api';
 
 export default function ProcessesPage() {
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('user');
+  const [sortBy, setSortBy] = useState('memory');
   const [searchTerm, setSearchTerm] = useState('');
+  const [processData, setProcessData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [selectedProcess, setSelectedProcess] = useState(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isTerminating, setIsTerminating] = useState(false);
+  const [toasts, setToasts] = useState([]);
 
-  // Sample process preview data representing active system & background state
-  const mockProcesses = [
-    {
-      id: 1,
-      name: 'Code.exe',
-      title: 'MindLedger — Visual Studio Code',
-      type: 'user',
-      cpu: 1.8,
-      memoryMb: 384,
-      powerImpact: 'Low',
-      isHog: false,
-      isProtected: false,
-    },
-    {
-      id: 2,
-      name: 'chrome.exe',
-      title: 'MindLedger Dashboard — Google Chrome',
-      type: 'user',
-      cpu: 2.4,
-      memoryMb: 612,
-      powerImpact: 'Moderate',
-      isHog: false,
-      isProtected: false,
-    },
-    {
-      id: 3,
-      name: 'Discord.exe',
-      title: 'Discord (Background Idle)',
-      type: 'user',
-      cpu: 3.8,
-      memoryMb: 420,
-      powerImpact: 'High',
-      isHog: true,
-      isProtected: false,
-    },
-    {
-      id: 4,
-      name: 'explorer.exe',
-      title: 'Windows Explorer',
-      type: 'system',
-      cpu: 0.2,
-      memoryMb: 110,
-      powerImpact: 'Minimal',
-      isHog: false,
-      isProtected: true,
-    },
-    {
-      id: 5,
-      name: 'Spotify.exe',
-      title: 'Spotify Free',
-      type: 'user',
-      cpu: 0.9,
-      memoryMb: 245,
-      powerImpact: 'Low',
-      isHog: false,
-      isProtected: false,
-    },
-  ];
+  const isFetchingRef = useRef(false);
 
-  const filtered = mockProcesses.filter((proc) => {
-    if (filter === 'user' && proc.type !== 'user') return false;
-    if (filter === 'hogs' && !proc.isHog) return false;
-    if (filter === 'system' && proc.type !== 'system') return false;
-    if (searchTerm) {
-      const matchName = proc.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchTitle = proc.title.toLowerCase().includes(searchTerm.toLowerCase());
+  const addToast = (type, message, title = '') => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, type, message, title }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4500);
+  };
+
+  const removeToast = (id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const fetchProcesses = async (showLoading = false) => {
+    if (isFetchingRef.current || document.hidden) return;
+    if (showLoading && !processData) setIsLoading(true);
+    isFetchingRef.current = true;
+
+    try {
+      const data = await api.getProcesses(filter, sortBy);
+      setProcessData(data);
+      setError(null);
+    } catch (err) {
+      console.warn('Process fetch failed:', err);
+      if (!processData) {
+        setError(err.message || 'Failed to scan active processes');
+      }
+    } finally {
+      setIsLoading(false);
+      isFetchingRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    fetchProcesses(true);
+    const interval = setInterval(() => {
+      fetchProcesses(false);
+    }, 4000);
+
+    const handleVisibility = () => {
+      if (!document.hidden) fetchProcesses(false);
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [filter, sortBy]);
+
+  const handleEndTaskPrompt = (proc) => {
+    setSelectedProcess(proc);
+    setIsConfirmOpen(true);
+  };
+
+  const handleConfirmTerminate = async () => {
+    if (!selectedProcess) return;
+    setIsTerminating(true);
+
+    try {
+      const res = await api.terminateProcess(
+        selectedProcess.pid,
+        selectedProcess.name,
+        false
+      );
+      addToast(
+        'success',
+        `Terminated ${res.process_name} (PID: ${res.pid}) and freed ~${res.memory_freed_mb} MB RAM.`,
+        'Process Terminated'
+      );
+      setIsConfirmOpen(false);
+      setSelectedProcess(null);
+      fetchProcesses(false);
+    } catch (err) {
+      addToast('danger', err.message || 'Failed to terminate process', 'Action Denied');
+    } finally {
+      setIsTerminating(false);
+    }
+  };
+
+  const handleOptimizeHogs = async () => {
+    try {
+      const res = await api.optimizeProcesses(15.0);
+      if (res.optimized_count > 0) {
+        addToast(
+          'success',
+          `Cleaned up ${res.optimized_count} background hog(s), freeing ~${res.total_memory_freed_mb} MB RAM.`,
+          'Optimization Complete'
+        );
+        fetchProcesses(false);
+      } else {
+        addToast('info', 'No background resource hogs found to optimize.', 'System Clean');
+      }
+    } catch (err) {
+      addToast('danger', err.message || 'Failed to optimize processes', 'Error');
+    }
+  };
+
+  const processes = processData?.processes || [];
+  const filtered = processes.filter((proc) => {
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      const matchName = proc.name.toLowerCase().includes(q);
+      const matchTitle = (proc.title || '').toLowerCase().includes(q);
       if (!matchName && !matchTitle) return false;
     }
     return true;
   });
 
-  const handleEndTask = (proc) => {
-    setSelectedProcess(proc);
-    setIsConfirmOpen(true);
-  };
-
   return (
     <section className="page-section">
+      <Toast toasts={toasts} onDismiss={removeToast} />
+
       {/* Top Banner */}
       <div
         className="card"
@@ -106,29 +153,37 @@ export default function ProcessesPage() {
           borderLeft: '4px solid var(--primary-500)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span className="badge badge-blue">Phase 8: Background Supervisor</span>
-              <span className="badge badge-emerald">Active Scanner</span>
+              <span className="badge badge-blue">Process Supervisor</span>
+              <span className="badge badge-emerald">Active Real-Time Scanner</span>
             </div>
-            <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-main)' }}>
-              Process & Resource Hog Manager
+            <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-main)' }}>
+              Background Process Manager & Resource Optimizer
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              Live background process tracking, memory leak detection, and protected process termination.
+              Monitor background RAM & CPU consumers, detect resource hogs, and safely terminate inactive memory drains.
             </p>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: '24px', fontWeight: '700', color: 'var(--primary-600)' }}>
-              {mockProcesses.length}
-            </span>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Monitored Apps</div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--primary-600)' }}>
+                {processData?.hog_count ?? 0}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Resource Hogs</div>
+            </div>
+            {processData?.hog_count > 0 && (
+              <button className="btn btn-sm btn-danger" onClick={handleOptimizeHogs}>
+                <FiZap /> Clean Up Hogs
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Control Bar: Filter Tabs & Search */}
+      {/* Control Bar: Filter Tabs, Sort, and Search */}
       <div
         className="card"
         style={{
@@ -141,28 +196,56 @@ export default function ProcessesPage() {
           gap: '12px',
         }}
       >
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setFilter('all')}
-          >
-            All ({mockProcesses.length})
-          </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
             className={`btn btn-sm ${filter === 'user' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setFilter('user')}
           >
-            User Apps (4)
+            User Apps ({processData?.user_processes_count ?? 0})
           </button>
           <button
             className={`btn btn-sm ${filter === 'hogs' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setFilter('hogs')}
           >
-            Resource Hogs (1)
+            Resource Hogs ({processData?.hog_count ?? 0})
+          </button>
+          <button
+            className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setFilter('all')}
+          >
+            All Processes ({processData?.total_processes ?? 0})
+          </button>
+          <button
+            className={`btn btn-sm ${filter === 'system' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setFilter('system')}
+          >
+            System Protected
           </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+            <FiFilter /> Sort:
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-xs)',
+                padding: '4px 8px',
+                fontSize: '12px',
+                background: 'var(--bg-surface)',
+                color: 'var(--text-main)',
+                outline: 'none',
+              }}
+            >
+              <option value="memory">RAM Memory (MB)</option>
+              <option value="cpu">CPU % Usage</option>
+              <option value="hog_score">Hog Impact Score</option>
+              <option value="name">Process Name</option>
+            </select>
+          </div>
+
           <div
             style={{
               display: 'flex',
@@ -193,100 +276,160 @@ export default function ProcessesPage() {
         </div>
       </div>
 
+      {/* Error state */}
+      {error && (
+        <div className="card" style={{ textAlign: 'center', padding: '30px', marginBottom: 'var(--space-lg)' }}>
+          <FiAlertTriangle className="text-rose" style={{ fontSize: '28px', marginBottom: '8px' }} />
+          <div style={{ fontWeight: 600, marginBottom: '6px' }}>{error}</div>
+          <button className="btn btn-sm btn-primary" onClick={() => fetchProcesses(true)}>
+            <FiRefreshCw /> Retry Scan
+          </button>
+        </div>
+      )}
+
       {/* Process Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <table className="data-table">
           <thead>
             <tr>
               <th>Process Name</th>
-              <th>Window / App Title</th>
+              <th>PID</th>
+              <th>State</th>
               <th>CPU %</th>
               <th>RAM Usage</th>
               <th>Power Impact</th>
+              <th>Hog Score</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((proc) => (
-              <tr key={proc.id}>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600' }}>
-                    <FiLayers style={{ color: 'var(--primary-blue)' }} />
-                    {proc.name}
-                    {proc.isProtected && (
-                      <span className="badge badge-blue" style={{ fontSize: '10px', padding: '2px 6px' }}>
-                        <FiShield style={{ marginRight: '2px' }} /> Protected
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td style={{ color: 'var(--text-secondary)' }}>{proc.title}</td>
-                <td>
-                  <span
-                    className={`badge ${
-                      proc.cpu > 3 ? 'badge-rose' : proc.cpu > 1 ? 'badge-amber' : 'badge-emerald'
-                    }`}
-                  >
-                    {proc.cpu}%
-                  </span>
-                </td>
-                <td style={{ fontWeight: '500' }}>{proc.memoryMb} MB</td>
-                <td>
-                  <span
-                    className={`badge ${
-                      proc.powerImpact === 'High'
-                        ? 'badge-rose'
-                        : proc.powerImpact === 'Moderate'
-                        ? 'badge-amber'
-                        : 'badge-emerald'
-                    }`}
-                  >
-                    {proc.powerImpact}
-                  </span>
-                </td>
-                <td>
-                  {proc.isProtected ? (
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Protected</span>
-                  ) : (
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => handleEndTask(proc)}
+            {filtered.length > 0 ? (
+              filtered.map((proc) => (
+                <tr key={`${proc.pid}-${proc.name}`}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600' }}>
+                      <FiLayers style={{ color: 'var(--primary-blue)' }} />
+                      <span title={proc.title || proc.name}>{proc.name}</span>
+                      {proc.is_protected && (
+                        <span className="badge badge-blue" style={{ fontSize: '10px', padding: '1px 6px' }}>
+                          <FiShield style={{ marginRight: '2px' }} /> Protected
+                        </span>
+                      )}
+                      {proc.is_hog && (
+                        <span className="badge badge-rose" style={{ fontSize: '10px', padding: '1px 6px' }}>
+                          ⚠️ Resource Hog
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{proc.pid}</td>
+                  <td>
+                    <span className={`badge ${proc.is_background ? 'badge-neutral' : 'badge-emerald'}`}>
+                      {proc.is_background ? 'Background' : 'Foreground'}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className={`badge ${
+                        proc.cpu_percent > 5
+                          ? 'badge-rose'
+                          : proc.cpu_percent > 1.5
+                          ? 'badge-amber'
+                          : 'badge-emerald'
+                      }`}
                     >
-                      <FiTrash2 /> End Task
-                    </button>
-                  )}
+                      {proc.cpu_percent}%
+                    </span>
+                  </td>
+                  <td style={{ fontWeight: '600' }}>{proc.memory_mb} MB</td>
+                  <td>
+                    <span
+                      className={`badge ${
+                        proc.power_impact === 'High'
+                          ? 'badge-rose'
+                          : proc.power_impact === 'Moderate'
+                          ? 'badge-amber'
+                          : 'badge-emerald'
+                      }`}
+                    >
+                      {proc.power_impact}
+                    </span>
+                  </td>
+                  <td>
+                    <span style={{ fontWeight: '600', color: proc.hog_score >= 15 ? 'var(--rose-500)' : 'var(--text-main)' }}>
+                      {proc.hog_score}
+                    </span>
+                  </td>
+                  <td>
+                    {proc.is_protected ? (
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Protected</span>
+                    ) : (
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleEndTaskPrompt(proc)}
+                      >
+                        <FiTrash2 /> End Task
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  {isLoading ? 'Scanning processes...' : 'No matching processes found.'}
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
 
-      {/* Confirmation Modal */}
+      {/* Safe Process Termination Confirmation Modal */}
       <Modal
         isOpen={isConfirmOpen}
-        onClose={() => setIsConfirmOpen(false)}
+        onClose={() => !isTerminating && setIsConfirmOpen(false)}
         title="Confirm Process Termination"
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setIsConfirmOpen(false)}>
+            <button
+              className="btn btn-secondary"
+              disabled={isTerminating}
+              onClick={() => setIsConfirmOpen(false)}
+            >
               Cancel
             </button>
             <button
               className="btn btn-danger"
-              onClick={() => {
-                setIsConfirmOpen(false);
-              }}
+              disabled={isTerminating}
+              onClick={handleConfirmTerminate}
             >
-              Terminate Process
+              {isTerminating ? 'Terminating...' : 'Terminate Task'}
             </button>
           </>
         }
       >
-        <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-          Are you sure you want to terminate <strong>{selectedProcess?.name}</strong>?
-          Any unsaved work inside this application will be lost.
-        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <p style={{ fontSize: '14px', color: 'var(--text-main)' }}>
+            Are you sure you want to end process <strong>{selectedProcess?.name}</strong> (PID:{' '}
+            {selectedProcess?.pid})?
+          </p>
+          <div
+            style={{
+              padding: '10px 14px',
+              backgroundColor: 'var(--amber-50)',
+              border: '1px solid var(--amber-100)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px',
+              color: 'var(--amber-600)',
+            }}
+          >
+            ⚠️ Any unsaved application state or documents in this process will be lost immediately.
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+            Memory to release: <strong>~{selectedProcess?.memory_mb} MB</strong>
+          </div>
+        </div>
       </Modal>
     </section>
   );
