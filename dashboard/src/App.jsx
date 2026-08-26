@@ -8,6 +8,7 @@ import BrowserPage from './pages/BrowserPage';
 import YoutubePage from './pages/YoutubePage';
 import ProcessesPage from './pages/ProcessesPage';
 import BatteryPage from './pages/BatteryPage';
+import HydrationPage from './pages/HydrationPage';
 import LimitsPage from './pages/LimitsPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
@@ -24,6 +25,7 @@ const TITLES = {
   youtube: 'YouTube Analytics',
   processes: 'Process Supervisor',
   battery: 'Battery & Power',
+  hydration: 'Hydration & Wellness',
   limits: 'App & Website Limits',
   reports: 'Reports',
   settings: 'Settings',
@@ -105,6 +107,8 @@ export default function App() {
         return <ProcessesPage />;
       case 'battery':
         return <BatteryPage />;
+      case 'hydration':
+        return <HydrationPage />;
       case 'limits':
         return <LimitsPage />;
       case 'reports':
