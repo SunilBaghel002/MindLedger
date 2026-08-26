@@ -1,9 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { FiCheckCircle, FiDatabase, FiDownload, FiLock, FiMail, FiPauseCircle, FiPlus, FiSave, FiSend, FiShield, FiSliders, FiTag, FiTrash2 } from 'react-icons/fi';
+import {
+  FiActivity,
+  FiCheckCircle,
+  FiDatabase,
+  FiDownload,
+  FiHeadphones,
+  FiLayers,
+  FiLock,
+  FiMail,
+  FiMonitor,
+  FiMusic,
+  FiPauseCircle,
+  FiPlus,
+  FiSave,
+  FiSend,
+  FiShield,
+  FiSliders,
+  FiTag,
+  FiTrash2,
+  FiZap,
+} from 'react-icons/fi';
 import { api } from '../services/api';
 
 const TABS = [
   { id: 'general', label: 'General & Tracking', icon: <FiSliders /> },
+  { id: 'tracking_mode', label: 'Screen Time Modes', icon: <FiMonitor /> },
   { id: 'email', label: 'Email & SMTP', icon: <FiMail /> },
   { id: 'rules', label: 'Category Rules', icon: <FiTag /> },
   { id: 'data', label: 'Data & Privacy', icon: <FiLock /> },
@@ -18,6 +39,7 @@ export default function SettingsPage() {
     smtp_password: '',
     recipient_email: '',
     tracking_enabled: true,
+    tracking_mode: 'ignore_background',
     idle_threshold_seconds: 300,
     theme: 'light',
   });
@@ -295,6 +317,174 @@ export default function SettingsPage() {
                     <FiSave /> {saving ? 'Saving...' : 'Save General Preferences'}
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: Screen Time Modes */}
+          {activeTab === 'tracking_mode' && (
+            <div className="card" style={{ maxWidth: '820px' }}>
+              <div style={{ marginBottom: '22px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <FiMonitor style={{ color: '#3B82F6' }} /> Screen Time & Background Activity Modes
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+                  Choose how MindLedger treats background music (YouTube / YouTube Music / Spotify) and multi-tasking windows when computing your active screen time and productivity score.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px' }}>
+                {/* Mode 1: Ignore Background Tasks & Media (Recommended) */}
+                <div
+                  onClick={() => {
+                    const updated = 'ignore_background';
+                    setSettingsData((p) => ({ ...p, tracking_mode: updated }));
+                    handleSaveSettings({ ...settingsData, tracking_mode: updated });
+                  }}
+                  style={{
+                    border: settingsData.tracking_mode === 'ignore_background' ? '2px solid #3B82F6' : '1px solid #E2E8F0',
+                    backgroundColor: settingsData.tracking_mode === 'ignore_background' ? '#EFF6FF' : '#FFFFFF',
+                    borderRadius: '12px',
+                    padding: '18px 20px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '16px',
+                    boxShadow: settingsData.tracking_mode === 'ignore_background' ? '0 4px 14px rgba(59, 130, 246, 0.12)' : 'none',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '50%',
+                      border: settingsData.tracking_mode === 'ignore_background' ? '6px solid #3B82F6' : '2px solid #CBD5E1',
+                      backgroundColor: '#FFFFFF',
+                      flexShrink: 0,
+                      marginTop: '2px',
+                      transition: 'all 0.2s ease',
+                    }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
+                      <span style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FiMusic style={{ color: '#10B981', fontSize: '17px' }} /> Ignore Background Tasks & Media
+                      </span>
+                      <span style={{ fontSize: '11px', fontWeight: 800, padding: '3px 10px', borderRadius: '9999px', backgroundColor: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0' }}>
+                        ★ Recommended for Music & Coding
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.5, margin: 0 }}>
+                      When you play YouTube songs, study playlists, or videos in the background while coding in <strong>Antigravity IDE</strong> or browsing other tabs, background media is recognized as background audio and <strong>will NOT</strong> overwrite or inflate your active screen time. Your current active foreground task gets 100% credit for your productive work time.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Mode 2: Record Background & Current Screen */}
+                <div
+                  onClick={() => {
+                    const updated = 'record_both';
+                    setSettingsData((p) => ({ ...p, tracking_mode: updated }));
+                    handleSaveSettings({ ...settingsData, tracking_mode: updated });
+                  }}
+                  style={{
+                    border: settingsData.tracking_mode === 'record_both' ? '2px solid #3B82F6' : '1px solid #E2E8F0',
+                    backgroundColor: settingsData.tracking_mode === 'record_both' ? '#EFF6FF' : '#FFFFFF',
+                    borderRadius: '12px',
+                    padding: '18px 20px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '16px',
+                    boxShadow: settingsData.tracking_mode === 'record_both' ? '0 4px 14px rgba(59, 130, 246, 0.12)' : 'none',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '50%',
+                      border: settingsData.tracking_mode === 'record_both' ? '6px solid #3B82F6' : '2px solid #CBD5E1',
+                      backgroundColor: '#FFFFFF',
+                      flexShrink: 0,
+                      marginTop: '2px',
+                      transition: 'all 0.2s ease',
+                    }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
+                      <span style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FiLayers style={{ color: '#3B82F6', fontSize: '17px' }} /> Record Background & Current Screen Together
+                      </span>
+                      <span style={{ fontSize: '11px', fontWeight: 800, padding: '3px 10px', borderRadius: '9999px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+                        Dual Multi-Tasking
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.5, margin: 0 }}>
+                      Simultaneously records both active foreground applications and background YouTube media sessions. Total screen time includes both your active window and the full duration of background media playback.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Mode 3: Record Current Screen Task Only */}
+                <div
+                  onClick={() => {
+                    const updated = 'foreground_only';
+                    setSettingsData((p) => ({ ...p, tracking_mode: updated }));
+                    handleSaveSettings({ ...settingsData, tracking_mode: updated });
+                  }}
+                  style={{
+                    border: settingsData.tracking_mode === 'foreground_only' ? '2px solid #3B82F6' : '1px solid #E2E8F0',
+                    backgroundColor: settingsData.tracking_mode === 'foreground_only' ? '#EFF6FF' : '#FFFFFF',
+                    borderRadius: '12px',
+                    padding: '18px 20px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '16px',
+                    boxShadow: settingsData.tracking_mode === 'foreground_only' ? '0 4px 14px rgba(59, 130, 246, 0.12)' : 'none',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '50%',
+                      border: settingsData.tracking_mode === 'foreground_only' ? '6px solid #3B82F6' : '2px solid #CBD5E1',
+                      backgroundColor: '#FFFFFF',
+                      flexShrink: 0,
+                      marginTop: '2px',
+                      transition: 'all 0.2s ease',
+                    }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
+                      <span style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FiMonitor style={{ color: '#8B5CF6', fontSize: '17px' }} /> Record Current Screen Task Only
+                      </span>
+                      <span style={{ fontSize: '11px', fontWeight: 800, padding: '3px 10px', borderRadius: '9999px', backgroundColor: '#F5F3FF', color: '#6D28D9', border: '1px solid #DDD6FE' }}>
+                        Strict Single-Focus
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.5, margin: 0 }}>
+                      Strict single-window mode. Only tracks the specific application window currently focused and receiving keyboard/mouse input. Completely ignores background browser media and hidden tabs.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Status Callout */}
+              <div style={{ padding: '14px 18px', borderRadius: '10px', background: '#F8FAFC', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FiCheckCircle style={{ color: '#10B981', fontSize: '16px' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+                    Active Mode: <strong>{settingsData.tracking_mode === 'ignore_background' ? 'Ignore Background Tasks & Media' : settingsData.tracking_mode === 'record_both' ? 'Record Both Together' : 'Record Current Task Only'}</strong>
+                  </span>
+                </div>
+                <span style={{ fontSize: '11px', color: '#64748B' }}>Changes apply immediately</span>
               </div>
             </div>
           )}

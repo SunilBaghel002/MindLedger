@@ -320,16 +320,35 @@ class SummaryRepository:
         total_domains = browser_data["total_domains"] if browser_data else 0
         total_browser_time = browser_data["total_browser_time"] if browser_data else 0
 
-        # Combine app and browser totals so browser tracking is fully reflected
-        if total_browser_time > total_screen_time:
-            total_screen_time = total_browser_time
-            active_time = max(active_time, total_browser_time)
-            coding_seconds = max(coding_seconds, browser_data["b_coding_time"])
-            learning_seconds = max(learning_seconds, browser_data["b_learning_time"])
-            browsing_seconds = max(browsing_seconds, browser_data["b_browsing_time"])
-            prod_seconds = max(prod_seconds, browser_data["b_prod_time"])
-            neutral_seconds = max(neutral_seconds, browser_data["b_neutral_time"])
-            unprod_seconds = max(unprod_seconds, browser_data["b_unprod_time"])
+        # Fetch tracking_mode preference ('ignore_background', 'record_both', 'foreground_only')
+        try:
+            mode_row = self.conn.execute("SELECT value FROM settings WHERE key = 'tracking_mode'").fetchone()
+            tracking_mode = mode_row[0] if mode_row and mode_row[0] else "ignore_background"
+        except Exception:
+            tracking_mode = "ignore_background"
+
+        # Combine app and browser totals based on selected tracking_mode
+        if tracking_mode == "record_both":
+            if total_browser_time > total_screen_time:
+                total_screen_time = total_browser_time
+                active_time = max(active_time, total_browser_time)
+                coding_seconds = max(coding_seconds, browser_data["b_coding_time"])
+                learning_seconds = max(learning_seconds, browser_data["b_learning_time"])
+                browsing_seconds = max(browsing_seconds, browser_data["b_browsing_time"])
+                prod_seconds = max(prod_seconds, browser_data["b_prod_time"])
+                neutral_seconds = max(neutral_seconds, browser_data["b_neutral_time"])
+                unprod_seconds = max(unprod_seconds, browser_data["b_unprod_time"])
+        elif tracking_mode == "ignore_background":
+            # Primary screen time is foreground active apps. Add browser coding/learning only if not already counted
+            if total_screen_time == 0 and total_browser_time > 0:
+                total_screen_time = total_browser_time
+                active_time = total_browser_time
+            coding_seconds = max(coding_seconds, browser_data["b_coding_time"] if browser_data else 0)
+            learning_seconds = max(learning_seconds, browser_data["b_learning_time"] if browser_data else 0)
+            # Do NOT allow background YouTube music to inflate total_screen_time beyond active apps!
+        elif tracking_mode == "foreground_only":
+            # Strictly foreground app sessions
+            pass
 
         # 3. Aggregate youtube_activity
         cursor = self.conn.execute(

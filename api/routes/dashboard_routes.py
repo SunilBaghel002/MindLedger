@@ -957,6 +957,7 @@ async def get_settings() -> APIResponse[SettingsData]:
             smtp_password=all_s["smtp_password"].value if "smtp_password" in all_s and all_s["smtp_password"].value is not None else getattr(settings, "smtp_password", None),
             recipient_email=all_s["recipient_email"].value if "recipient_email" in all_s and all_s["recipient_email"].value is not None else getattr(settings, "report_recipient_email", ""),
             tracking_enabled=all_s["tracking_enabled"].value.lower() == "true" if "tracking_enabled" in all_s and all_s["tracking_enabled"].value is not None else True,
+            tracking_mode=all_s["tracking_mode"].value if "tracking_mode" in all_s and all_s["tracking_mode"].value is not None else "ignore_background",
             idle_threshold_seconds=int(all_s["idle_threshold_seconds"].value) if "idle_threshold_seconds" in all_s and all_s["idle_threshold_seconds"].value is not None else getattr(settings, "idle_threshold_seconds", 300),
             theme=all_s["theme"].value if "theme" in all_s and all_s["theme"].value is not None else "light",
         )
@@ -986,6 +987,8 @@ async def update_settings(req: SettingsUpdateRequest) -> APIResponse[SettingsDat
                 repo.set("recipient_email", req.recipient_email)
             if req.tracking_enabled is not None:
                 repo.set("tracking_enabled", str(req.tracking_enabled).lower(), "boolean")
+            if req.tracking_mode is not None:
+                repo.set("tracking_mode", req.tracking_mode)
             if req.idle_threshold_seconds is not None:
                 repo.set("idle_threshold_seconds", req.idle_threshold_seconds, "integer")
             if req.theme is not None:
