@@ -747,40 +747,79 @@ export default function ProcessesPage() {
         </div>
       )}
 
-      {/* Confirmation Modal */}
+      {/* Floating Confirmation Modal */}
       <Modal
         isOpen={isConfirmOpen}
-        onClose={() => setIsConfirmOpen(false)}
+        onClose={() => !isTerminating && setIsConfirmOpen(false)}
+        size="md"
         title={
-          terminateTarget?.type === 'app'
-            ? `End Application: ${terminateTarget?.name}`
-            : `Terminate Process: ${terminateTarget?.name}`
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '8px', background: '#FFF1F2', color: '#E11D48', fontSize: '15px' }}>
+              <FiAlertTriangle />
+            </span>
+            <span>
+              {terminateTarget?.type === 'app' ? 'End Application Process Tree' : 'Terminate Worker Process'}
+            </span>
+          </div>
         }
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ padding: '14px 16px', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-            <FiAlertTriangle style={{ color: '#D97706', fontSize: '20px', marginTop: '2px', shrink: 0 }} />
-            <div style={{ fontSize: '12px', color: '#92400E', lineHeight: 1.5 }}>
-              <div style={{ fontWeight: 700, marginBottom: '2px', fontSize: '13px' }}>
+        <div className="modal-end-task-card">
+          {/* Target App / Process Overview Card */}
+          <div className="modal-app-preview">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#F1F5F9', border: '1px solid #CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', color: '#334155' }}>
+                <FiLayers />
+              </div>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.01em' }}>
+                  {terminateTarget?.name}
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748B', fontFamily: 'var(--font-mono)' }}>
+                  {terminateTarget?.type === 'app' ? terminateTarget?.binary_name : `PID: ${terminateTarget?.pid}`}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="modal-stat-pill" title="Memory to be freed">
+                <FiCpu style={{ color: '#10B981' }} />
+                <span>{formatMemory(terminateTarget?.memory_mb || 0)} RAM</span>
+              </div>
+              {terminateTarget?.type === 'app' && terminateTarget?.count > 1 && (
+                <div className="modal-stat-pill" style={{ background: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' }}>
+                  <span>{terminateTarget?.count} PIDs</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Danger Warning Alert */}
+          <div className="modal-danger-banner">
+            <div className="modal-danger-icon">
+              <FiTrash2 />
+            </div>
+            <div style={{ fontSize: '12px', color: '#881337', lineHeight: 1.5 }}>
+              <div style={{ fontWeight: 800, marginBottom: '3px', fontSize: '13px', color: '#9F1239' }}>
                 Are you sure you want to end {terminateTarget?.name}?
               </div>
               <div>
                 {terminateTarget?.type === 'app'
-                  ? `This will safely terminate all ${terminateTarget?.count} worker processes and free ~${formatMemory(
+                  ? `This will immediately terminate all ${terminateTarget?.count} background worker processes, release ~${formatMemory(
                       terminateTarget?.memory_mb || 0
-                    )} of RAM.`
-                  : `This will terminate PID ${terminateTarget?.pid} and free ~${formatMemory(
+                    )} of RAM, and stop battery consumption. Any unsaved changes in this application will be closed.`
+                  : `This will forcefully terminate worker process PID ${terminateTarget?.pid} and release ~${formatMemory(
                       terminateTarget?.memory_mb || 0
                     )} of RAM.`}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', paddingTop: '8px' }}>
+          {/* Action Button Footer */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', paddingTop: '6px' }}>
             <button
               onClick={() => setIsConfirmOpen(false)}
               className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 16px', borderRadius: '8px' }}
+              style={{ fontSize: '13px', padding: '9px 18px', borderRadius: '10px', fontWeight: 600 }}
               disabled={isTerminating}
             >
               Cancel
@@ -792,20 +831,22 @@ export default function ProcessesPage() {
                 backgroundColor: '#E11D48',
                 borderColor: '#E11D48',
                 color: '#FFFFFF',
-                fontSize: '12px',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                fontWeight: 700,
+                fontSize: '13px',
+                padding: '9px 20px',
+                borderRadius: '10px',
+                fontWeight: 800,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)',
+                cursor: isTerminating ? 'not-allowed' : 'pointer',
               }}
               disabled={isTerminating}
             >
               {isTerminating ? (
                 <>
                   <FiRefreshCw className="spin" />
-                  Terminating...
+                  Ending Task...
                 </>
               ) : (
                 <>
