@@ -153,6 +153,25 @@ class MindLedgerAPI {
         return this._request(`/water/history?days=${days}`);
     }
 
+    async getWaterLogs(dateStr = '') {
+        const queryStr = dateStr ? `?date=${dateStr}` : '';
+        return this._request(`/water/logs${queryStr}`);
+    }
+
+    async updateWaterConfig(configData) {
+        return this._request('/water/config', {
+            method: 'POST',
+            body: JSON.stringify(configData),
+        });
+    }
+
+    async testWaterNotification() {
+        return this._request('/water/test-notification', {
+            method: 'POST',
+            body: JSON.stringify({}),
+        });
+    }
+
     async getTodayApps() {
         return this._request('/apps/today');
     }

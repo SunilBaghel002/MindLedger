@@ -60,7 +60,7 @@ export default function HydrationPage() {
   const isFetchingRef = useRef(false);
 
   const addToast = (type, message, title = '') => {
-    const id = Date.now();
+    const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, type, message, title }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -71,15 +71,15 @@ export default function HydrationPage() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const fetchData = async () => {
-    if (isFetchingRef.current || document.hidden) return;
+  const fetchData = async (force = false) => {
+    if (!force && (isFetchingRef.current || document.hidden)) return;
     isFetchingRef.current = true;
 
     try {
       const [statusRes, historyRes, logsRes] = await Promise.all([
         api.getWaterStatus(),
         api.getWaterHistory(7),
-        fetch('http://127.0.0.1:8787/api/v1/water/logs').then((r) => r.json()).catch(() => null),
+        api.getWaterLogs(),
       ]);
 
       if (statusRes) {
@@ -92,7 +92,7 @@ export default function HydrationPage() {
         });
       }
       if (historyRes) setHistory(historyRes);
-      if (logsRes?.data?.logs) setLogs(logsRes.data.logs);
+      if (logsRes?.logs) setLogs(logsRes.logs);
     } catch (err) {
       console.warn('Hydration fetch error:', err);
     } finally {
@@ -102,11 +102,11 @@ export default function HydrationPage() {
   };
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
+    fetchData(true);
+    const interval = setInterval(() => fetchData(false), 5000);
 
     const handleVisibility = () => {
-      if (!document.hidden) fetchData();
+      if (!document.hidden) fetchData(true);
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
@@ -117,17 +117,44 @@ export default function HydrationPage() {
   }, []);
 
   const handleDrinkWater = async (amount = 250, source = 'dashboard_widget') => {
+    // 1. Instant Optimistic UI Update
+    const nowIso = new Date().toISOString();
+    const newLogItem = {
+      id: Date.now(),
+      timestamp: nowIso,
+      amount_ml: amount,
+      source: source || 'dashboard_widget',
+      daily_goal_ml: status?.daily_goal_ml || 2000,
+    };
+
+    setStatus((prev) => {
+      const curIntake = (prev?.today_intake_ml || 0) + amount;
+      const curGoal = prev?.daily_goal_ml || 2000;
+      const curGlasses = Math.floor(curIntake / 250);
+      return {
+        ...prev,
+        today_intake_ml: curIntake,
+        glasses_drank: curGlasses,
+        percentage_completed: Math.min(100, Math.round((curIntake / curGoal) * 100)),
+        last_drank_at: nowIso,
+      };
+    });
+
+    setLogs((prev) => [newLogItem, ...prev]);
+
     setLogging(true);
     try {
-      const res = await api.logWaterDrink(amount, source);
+      const res = await api.logWaterDrink(amount, source || 'dashboard_widget');
       addToast(
         'success',
         `Logged +${amount} ml of water! Today's Total: ${res.today_intake_ml} ml (${res.glasses_drank} glasses).`,
         'Hydration Recorded 💧'
       );
-      fetchData();
+      // Authoritative sync
+      fetchData(true);
     } catch (err) {
       addToast('danger', err.message || 'Failed to record drink', 'Logging Error');
+      fetchData(true);
     } finally {
       setLogging(false);
     }
@@ -141,7 +168,7 @@ export default function HydrationPage() {
         `Hydration reminder snoozed by ${mins} minutes. Next nudge at ~${res.next_reminder_formatted}.`,
         'Reminder Snoozed'
       );
-      fetchData();
+      fetchData(true);
     } catch (err) {
       addToast('danger', err.message || 'Failed to snooze reminder', 'Action Error');
     }
@@ -149,8 +176,8 @@ export default function HydrationPage() {
 
   const handleTestNotification = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8787/api/v1/water/test-notification', { method: 'POST' }).then((r) => r.json());
-      if (res.success) {
+      const res = await api.testWaterNotification();
+      if (res?.sent) {
         addToast(
           'success',
           'Dispatched Windows Toast Notification! Look at the bottom-right corner of your screen.',
@@ -165,15 +192,11 @@ export default function HydrationPage() {
   const handleSaveConfig = async () => {
     setSavingConfig(true);
     try {
-      const res = await fetch('http://127.0.0.1:8787/api/v1/water/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      }).then((r) => r.json());
-
-      if (res.success) {
-        setStatus(res.data);
+      const res = await api.updateWaterConfig(config);
+      if (res) {
+        setStatus(res);
         addToast('success', 'Hydration preferences and daily goals saved successfully!', 'Preferences Saved');
+        fetchData(true);
       }
     } catch (err) {
       addToast('danger', err.message || 'Failed to save configuration', 'Error');
@@ -292,7 +315,7 @@ export default function HydrationPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <button
-              onClick={() => handleDrinkWater(250, 'header_button')}
+              onClick={() => handleDrinkWater(250, 'dashboard_widget')}
               disabled={logging}
               className="btn btn-primary"
               style={{
@@ -394,7 +417,7 @@ export default function HydrationPage() {
               return (
                 <button
                   key={idx}
-                  onClick={() => handleDrinkWater(250, 'glass_grid')}
+                  onClick={() => handleDrinkWater(250, 'dashboard_widget')}
                   style={{
                     width: '46px',
                     height: '56px',
@@ -425,7 +448,7 @@ export default function HydrationPage() {
         {/* Quick Action Drink Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <button
-            onClick={() => handleDrinkWater(250, 'quick_btn')}
+            onClick={() => handleDrinkWater(250, 'dashboard_widget')}
             disabled={logging}
             style={{
               padding: '10px 18px',
@@ -445,7 +468,7 @@ export default function HydrationPage() {
             <FiDroplet /> +250 ml (Standard Glass)
           </button>
           <button
-            onClick={() => handleDrinkWater(500, 'quick_btn')}
+            onClick={() => handleDrinkWater(500, 'dashboard_widget')}
             disabled={logging}
             style={{
               padding: '10px 18px',
@@ -465,7 +488,7 @@ export default function HydrationPage() {
             <FiDroplet /> +500 ml (Water Bottle)
           </button>
           <button
-            onClick={() => handleDrinkWater(150, 'quick_btn')}
+            onClick={() => handleDrinkWater(150, 'dashboard_widget')}
             disabled={logging}
             style={{
               padding: '10px 18px',
