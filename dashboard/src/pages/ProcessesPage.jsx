@@ -17,13 +17,25 @@ import {
   FiRefreshCw,
   FiSearch,
   FiShield,
+  FiSliders,
   FiTrash2,
+  FiTrendingUp,
   FiUser,
+  FiX,
   FiZap,
 } from 'react-icons/fi';
 import Modal from '../components/Modal';
+import StatCard from '../components/StatCard';
 import Toast from '../components/Toast';
 import { api } from '../services/api';
+import { secondsToHms } from '../utils/formatters';
+
+const FILTER_TABS = [
+  { id: 'user', label: 'User Apps', icon: FiUser },
+  { id: 'hogs', label: 'Resource Hogs', icon: FiAlertTriangle },
+  { id: 'all', label: 'All Processes', icon: FiLayers },
+  { id: 'system', label: 'System Protected', icon: FiShield },
+];
 
 export default function ProcessesPage() {
   const [filter, setFilter] = useState('user');
@@ -207,7 +219,7 @@ export default function ProcessesPage() {
   };
 
   return (
-    <div style={{ paddingBottom: '48px' }}>
+    <section className="page-section" style={{ paddingBottom: 'var(--space-2xl)' }}>
       {/* Toast Notification Container */}
       <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {toasts.map((toast) => (
@@ -221,212 +233,212 @@ export default function ProcessesPage() {
         ))}
       </div>
 
-      {/* Top Banner & Stats Overview */}
-      <div className="proc-hero-banner">
-        <div style={{ maxWidth: '620px' }}>
-          <div className="proc-hero-tag">
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#34D399', display: 'inline-block' }} />
-            Active Real-Time Process Supervisor
-          </div>
-          <h1 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 6px 0', letterSpacing: '-0.02em', color: '#FFFFFF' }}>
-            Background Process Manager & Resource Optimizer
-          </h1>
-          <p style={{ fontSize: '13px', color: '#CBD5E1', margin: 0, lineHeight: 1.5 }}>
-            Grouped application trees, multi-process Chromium & IDE inspectors, and safe task termination for optimized battery & RAM.
-          </p>
-        </div>
-
-        <div className="proc-stat-grid">
-          <div className="proc-stat-chip">
-            <div className="proc-stat-chip-icon" style={{ backgroundColor: 'rgba(99, 102, 241, 0.2)', color: '#818CF8' }}>
-              <FiLayers />
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>Applications</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF' }}>
-                {processData?.grouped_apps?.length || 0}{' '}
-                <span style={{ fontSize: '11px', fontWeight: 400, color: '#94A3B8' }}>
-                  ({processData?.total_processes || 0} PIDs)
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="proc-stat-chip">
-            <div className="proc-stat-chip-icon" style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)', color: '#FBBF24' }}>
-              <FiZap />
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>Resource Hogs</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: '#FCD34D' }}>
-                {processData?.hog_count || 0}
-              </div>
-            </div>
-          </div>
-
-          <div className="proc-stat-chip">
-            <div className="proc-stat-chip-icon" style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34D399' }}>
-              <FiCpu />
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>RAM In Use</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: '#6EE7B7' }}>
-                {formatMemory(processData?.total_ram_used_mb || 0)}
-              </div>
-            </div>
-          </div>
-
-          {processData?.hog_count > 0 && (
-            <button
-              onClick={handleOptimizeHogs}
-              className="btn-end-app"
-              style={{ background: '#F59E0B', borderColor: '#F59E0B', color: '#0F172A', padding: '10px 18px', fontWeight: 800 }}
-            >
-              <FiTrash2 />
-              Clean Up Hogs ({processData.hog_count})
-            </button>
-          )}
-        </div>
+      {/* Top 3 Stat Cards (Unified SaaS Design Grid) */}
+      <div className="grid-3">
+        <StatCard
+          label="Active Applications"
+          icon={<FiLayers />}
+          value={`${processData?.grouped_apps?.length || 0} Apps`}
+          subtext={`${processData?.total_processes || 0} active worker PIDs`}
+          isPositive={true}
+          accentColor="blue"
+          badgeText="Real-Time"
+        />
+        <StatCard
+          label="RAM Footprint"
+          icon={<FiCpu />}
+          value={formatMemory(processData?.total_ram_used_mb || 0)}
+          subtext="Active system memory in use"
+          isPositive={true}
+          accentColor="emerald"
+          badgeText="Active Memory"
+        />
+        <StatCard
+          label="Resource Hogs"
+          icon={<FiZap />}
+          value={processData?.hog_count || 0}
+          subtext={
+            processData?.hog_count > 0
+              ? 'Heavy background processes detected'
+              : 'Zero background resource hogs'
+          }
+          isPositive={processData?.hog_count === 0}
+          accentColor={processData?.hog_count > 0 ? 'rose' : 'emerald'}
+          badgeText={processData?.hog_count > 0 ? 'Action Needed' : 'Optimized'}
+        />
       </div>
 
-      {/* Explanatory Task Guide Banner */}
-      {showInfoBanner && (
-        <div className="proc-info-box">
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-            <div style={{ padding: '6px', backgroundColor: '#E0E7FF', color: '#4F46E5', borderRadius: '8px', marginTop: '2px' }}>
-              <FiHelpCircle size={18} />
-            </div>
-            <div style={{ fontSize: '12px', lineHeight: '1.5' }}>
-              <div style={{ fontWeight: 700, color: '#1E1B4B', marginBottom: '2px', fontSize: '13px' }}>
-                Why do Chrome & Antigravity IDE show multiple processes?
-              </div>
-              <div style={{ color: '#4338CA' }}>
-                <strong>Multi-process Sandboxing:</strong> Modern browsers and IDEs isolate each tab, extension, GPU engine, and code intelligence worker into separate processes for crash resilience. MindLedger groups them below so you can inspect or terminate them as a single app.
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginTop: '6px', color: '#475569', fontSize: '11px' }}>
-                <span>🛡️ <strong>MsMpEng.exe:</strong> Windows Defender Antivirus engine</span>
-                <span>⚡ <strong>MemCompression:</strong> Windows kernel RAM optimizer</span>
-                <span>💡 <strong>language_server:</strong> IDE code intelligence & syntax engine</span>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowInfoBanner(false)}
-            style={{ background: 'none', border: 'none', color: '#6366F1', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* Controls & Filter Bar */}
-      <div className="card" style={{ padding: '12px 18px', marginBottom: '16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-        {/* Filter Tabs */}
-        <div className="filter-pills" style={{ margin: 0 }}>
-          {[
-            { id: 'user', label: 'User Apps', icon: FiUser },
-            { id: 'hogs', label: 'Resource Hogs', icon: FiAlertTriangle },
-            { id: 'all', label: 'All Processes', icon: FiLayers },
-            { id: 'system', label: 'System Protected', icon: FiShield },
-          ].map((tab) => {
+      {/* Unified Controls & Filter Toolbar */}
+      <div className="proc-toolbar">
+        {/* Filter Pills */}
+        <div className="proc-filter-group">
+          {FILTER_TABS.map((tab) => {
             const Icon = tab.icon;
             const active = filter === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setFilter(tab.id)}
-                className={`filter-pill ${active ? 'active' : ''}`}
-                style={{ fontSize: '12px', padding: '6px 14px' }}
+                className={`proc-filter-pill ${active ? 'active' : ''}`}
               >
-                <Icon style={{ marginRight: '6px' }} />
-                {tab.label}
+                <Icon style={{ fontSize: '13px' }} />
+                <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* View Mode & Search & Sorting */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+        {/* View Switcher, Search, and Sort Cluster */}
+        <div className="proc-controls-cluster">
           {/* View Mode Toggle */}
-          <div style={{ display: 'flex', backgroundColor: '#F1F5F9', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+          <div className="proc-view-toggle">
             <button
               onClick={() => setViewMode('grouped')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '5px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: viewMode === 'grouped' ? '#FFFFFF' : 'transparent',
-                color: viewMode === 'grouped' ? 'var(--primary-600)' : 'var(--text-secondary)',
-                boxShadow: viewMode === 'grouped' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              }}
+              className={`proc-view-btn ${viewMode === 'grouped' ? 'active' : ''}`}
+              title="Group by parent application"
             >
-              <FiGrid />
-              Grouped
+              <FiGrid style={{ fontSize: '13px' }} />
+              <span>Grouped</span>
             </button>
             <button
               onClick={() => setViewMode('flat')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '5px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: viewMode === 'flat' ? '#FFFFFF' : 'transparent',
-                color: viewMode === 'flat' ? 'var(--primary-600)' : 'var(--text-secondary)',
-                boxShadow: viewMode === 'flat' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              }}
+              className={`proc-view-btn ${viewMode === 'flat' ? 'active' : ''}`}
+              title="View all individual process PIDs"
             >
-              <FiList />
-              Flat PIDs
+              <FiList style={{ fontSize: '13px' }} />
+              <span>Flat PIDs</span>
             </button>
           </div>
 
-          {/* Search Box */}
-          <div className="search-box" style={{ width: '220px', margin: 0 }}>
-            <FiSearch className="search-icon" />
+          {/* Search Box with Clear Button */}
+          <div className="proc-search-wrapper">
+            <span className="proc-search-icon">
+              <FiSearch />
+            </span>
             <input
               type="text"
-              placeholder="Search applications or PIDs..."
+              placeholder="Search apps or PIDs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ padding: '6px 12px 6px 32px', fontSize: '12px', borderRadius: '8px' }}
+              className="proc-search-input"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="proc-search-clear"
+                title="Clear search"
+              >
+                <FiX size={13} />
+              </button>
+            )}
           </div>
 
-          {/* Sort Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Sort:</span>
+          {/* Styled Sort Dropdown */}
+          <div className="proc-sort-wrapper">
+            <span className="proc-sort-icon">
+              <FiSliders />
+            </span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              style={{
-                padding: '6px 10px',
-                fontSize: '12px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'var(--bg-surface)',
-                color: 'var(--text-main)',
-                fontWeight: 600,
-              }}
+              className="proc-sort-select"
             >
               <option value="memory">RAM Memory (MB)</option>
               <option value="cpu">CPU Usage (%)</option>
-              <option value="hog_score">Hog Score</option>
+              <option value="hog_score">Resource Hog Score</option>
               <option value="name">App Name</option>
             </select>
+            <span className="proc-sort-chevron">
+              <FiChevronDown />
+            </span>
           </div>
+
+          {/* Clean Up Hogs Action Button */}
+          {processData?.hog_count > 0 && (
+            <button
+              onClick={handleOptimizeHogs}
+              className="proc-cleanup-btn"
+              title="Clean up background resource hogs"
+            >
+              <FiTrash2 size={13} />
+              <span>Clean Up ({processData.hog_count})</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Explanatory System Architecture Card */}
+      {showInfoBanner && (
+        <div
+          className="card"
+          style={{
+            padding: '16px 20px',
+            marginBottom: 'var(--space-xl)',
+            background: 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%)',
+            border: '1px solid #DBEAFE',
+            borderRadius: 'var(--radius-md)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: '16px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: '#DBEAFE',
+                color: '#2563EB',
+                fontSize: '18px',
+                flexShrink: 0,
+                marginTop: '2px',
+              }}
+            >
+              <FiHelpCircle />
+            </div>
+            <div style={{ fontSize: '12px', lineHeight: 1.55 }}>
+              <div style={{ fontWeight: 800, color: '#1E3A8A', marginBottom: '3px', fontSize: '13px' }}>
+                Why do Chrome & Antigravity IDE show multiple sub-processes?
+              </div>
+              <div style={{ color: '#3B82F6', marginBottom: '6px' }}>
+                <strong>Multi-Process Sandboxing:</strong> Modern browsers and IDEs isolate each tab, extension, GPU engine, and code intelligence worker into separate processes for crash resilience. MindLedger automatically groups them below so you can inspect or terminate them as a single app.
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', color: '#475569', fontSize: '11px' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FFFFFF', padding: '2px 8px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                  🛡️ <strong>MsMpEng.exe:</strong> Windows Defender Antivirus
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FFFFFF', padding: '2px 8px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                  ⚡ <strong>MemCompression:</strong> Windows Kernel RAM Optimizer
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FFFFFF', padding: '2px 8px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                  💡 <strong>language_server:</strong> IDE Syntax & Type Engine
+                </span>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowInfoBanner(false)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#64748B',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 600,
+              padding: '4px 8px',
+              borderRadius: '6px',
+            }}
+            title="Dismiss guide"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Main Process List / Cards View */}
       {isLoading ? (
@@ -444,7 +456,7 @@ export default function ProcessesPage() {
         </div>
       ) : viewMode === 'grouped' ? (
         /* GROUPED APPLICATION CARDS VIEW */
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {filteredGrouped.length === 0 ? (
             <div className="card" style={{ padding: '60px 20px', textAlign: 'center' }}>
               <FiLayers style={{ fontSize: '32px', color: 'var(--text-muted)', marginBottom: '8px' }} />
@@ -483,7 +495,7 @@ export default function ProcessesPage() {
                             </button>
                           )}
                           {app.is_hog && (
-                            <span className="badge-pill badge-neutral" style={{ fontSize: '11px', padding: '2px 8px' }}>
+                            <span className="badge-pill" style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D' }}>
                               ⚠️ Resource Hog ({app.hog_score})
                             </span>
                           )}
@@ -540,29 +552,6 @@ export default function ProcessesPage() {
                         >
                           {app.total_cpu_percent}%
                         </div>
-                      </div>
-
-                      <div className="proc-stat-col" style={{ display: 'none', minWidth: '70px' }}>
-                        <div className="proc-stat-lbl">Power</div>
-                        <span
-                          className="badge-pill"
-                          style={{
-                            backgroundColor:
-                              app.power_impact === 'High'
-                                ? 'var(--rose-50)'
-                                : app.power_impact === 'Moderate'
-                                ? 'var(--amber-50)'
-                                : 'var(--emerald-50)',
-                            color:
-                              app.power_impact === 'High'
-                                ? 'var(--rose-700)'
-                                : app.power_impact === 'Moderate'
-                                ? 'var(--amber-700)'
-                                : 'var(--emerald-700)',
-                          }}
-                        >
-                          {app.power_impact}
-                        </span>
                       </div>
 
                       <div>
@@ -642,99 +631,64 @@ export default function ProcessesPage() {
           )}
         </div>
       ) : (
-        /* FLAT PID TABLE VIEW */
+        /* FLAT PID TABLE VIEW (Matching Browser & Applications Tables) */
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div className="table-responsive">
             <table className="data-table" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '12px 18px' }}>Process / Application</th>
-                  <th style={{ padding: '12px 14px' }}>PID</th>
-                  <th style={{ padding: '12px 14px', textAlign: 'right' }}>CPU %</th>
-                  <th style={{ padding: '12px 14px', textAlign: 'right' }}>RAM Usage</th>
-                  <th style={{ padding: '12px 14px', textAlign: 'center' }}>Power Impact</th>
-                  <th style={{ padding: '12px 14px', textAlign: 'center' }}>Hog Score</th>
-                  <th style={{ padding: '12px 18px', textAlign: 'right' }}>Action</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Process / Window</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>PID</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Category</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>RAM</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>CPU %</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredFlat.length === 0 ? (
                   <tr>
-                    <td colSpan="7" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No processes match current filters.
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                      No processes match your search or filter criteria.
                     </td>
                   </tr>
                 ) : (
                   filteredFlat.map((proc) => (
                     <tr key={proc.pid}>
-                      <td style={{ padding: '12px 18px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>
-                            {proc.title || proc.name}
-                          </span>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>
-                            ({proc.name})
-                          </span>
-                          {proc.is_hog && (
-                            <span className="badge-pill badge-neutral" style={{ fontSize: '10px' }}>
-                              Hog
-                            </span>
-                          )}
-                          {proc.is_protected && (
-                            <span className="badge-pill" style={{ backgroundColor: '#F1F5F9', color: '#64748B', fontSize: '10px' }}>
-                              Protected
-                            </span>
-                          )}
-                        </div>
-                        {proc.description && (
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {proc.description}
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '13px' }}>{proc.name}</div>
+                        {proc.title && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', maxWidth: '320px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {proc.title}
                           </div>
                         )}
                       </td>
-                      <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                      <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)' }}>
                         {proc.pid}
                       </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                        {proc.cpu_percent}%
-                      </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--text-main)' }}>
-                        {formatMemory(proc.memory_mb)}
-                      </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        <span
-                          className="badge-pill"
-                          style={{
-                            backgroundColor:
-                              proc.power_impact === 'High'
-                                ? 'var(--rose-50)'
-                                : proc.power_impact === 'Moderate'
-                                ? 'var(--amber-50)'
-                                : 'var(--emerald-50)',
-                            color:
-                              proc.power_impact === 'High'
-                                ? 'var(--rose-700)'
-                                : proc.power_impact === 'Moderate'
-                                ? 'var(--amber-700)'
-                                : 'var(--emerald-700)',
-                          }}
-                        >
-                          {proc.power_impact}
+                      <td style={{ padding: '12px 16px' }}>
+                        <span className="badge-pill" style={{ backgroundColor: '#F1F5F9', color: '#475569' }}>
+                          {proc.category || 'general'}
                         </span>
                       </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--amber-700)' }}>
-                        {proc.hog_score}
+                      <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                        {formatMemory(proc.memory_mb)}
                       </td>
-                      <td style={{ padding: '12px 18px', textAlign: 'right' }}>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                        {proc.cpu_percent}%
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                         {proc.is_protected ? (
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Protected</span>
+                          <span className="badge-pill" style={{ backgroundColor: '#F1F5F9', color: '#64748B' }}>
+                            Protected
+                          </span>
                         ) : (
                           <button
                             onClick={() => handleEndPidPrompt(proc)}
-                            className="btn-end-app"
-                            style={{ padding: '4px 10px', fontSize: '11px' }}
+                            className="btn btn-sm btn-danger"
+                            style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600 }}
                           >
-                            End Task
+                            <FiTrash2 size={11} /> End
                           </button>
                         )}
                       </td>
@@ -747,40 +701,79 @@ export default function ProcessesPage() {
         </div>
       )}
 
-      {/* Confirmation Modal */}
+      {/* Floating Confirmation Modal */}
       <Modal
         isOpen={isConfirmOpen}
-        onClose={() => setIsConfirmOpen(false)}
+        onClose={() => !isTerminating && setIsConfirmOpen(false)}
+        size="md"
         title={
-          terminateTarget?.type === 'app'
-            ? `End Application: ${terminateTarget?.name}`
-            : `Terminate Process: ${terminateTarget?.name}`
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '8px', background: '#FFF1F2', color: '#E11D48', fontSize: '15px' }}>
+              <FiAlertTriangle />
+            </span>
+            <span>
+              {terminateTarget?.type === 'app' ? 'End Application Process Tree' : 'Terminate Worker Process'}
+            </span>
+          </div>
         }
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ padding: '14px 16px', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-            <FiAlertTriangle style={{ color: '#D97706', fontSize: '20px', marginTop: '2px', shrink: 0 }} />
-            <div style={{ fontSize: '12px', color: '#92400E', lineHeight: 1.5 }}>
-              <div style={{ fontWeight: 700, marginBottom: '2px', fontSize: '13px' }}>
+        <div className="modal-end-task-card">
+          {/* Target App / Process Overview Card */}
+          <div className="modal-app-preview">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#F1F5F9', border: '1px solid #CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', color: '#334155' }}>
+                <FiLayers />
+              </div>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.01em' }}>
+                  {terminateTarget?.name}
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748B', fontFamily: 'var(--font-mono)' }}>
+                  {terminateTarget?.type === 'app' ? terminateTarget?.binary_name : `PID: ${terminateTarget?.pid}`}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="modal-stat-pill" title="Memory to be freed">
+                <FiCpu style={{ color: '#10B981' }} />
+                <span>{formatMemory(terminateTarget?.memory_mb || 0)} RAM</span>
+              </div>
+              {terminateTarget?.type === 'app' && terminateTarget?.count > 1 && (
+                <div className="modal-stat-pill" style={{ background: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' }}>
+                  <span>{terminateTarget?.count} PIDs</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Danger Warning Alert */}
+          <div className="modal-danger-banner">
+            <div className="modal-danger-icon">
+              <FiTrash2 />
+            </div>
+            <div style={{ fontSize: '12px', color: '#881337', lineHeight: 1.5 }}>
+              <div style={{ fontWeight: 800, marginBottom: '3px', fontSize: '13px', color: '#9F1239' }}>
                 Are you sure you want to end {terminateTarget?.name}?
               </div>
               <div>
                 {terminateTarget?.type === 'app'
-                  ? `This will safely terminate all ${terminateTarget?.count} worker processes and free ~${formatMemory(
+                  ? `This will immediately terminate all ${terminateTarget?.count} background worker processes, release ~${formatMemory(
                       terminateTarget?.memory_mb || 0
-                    )} of RAM.`
-                  : `This will terminate PID ${terminateTarget?.pid} and free ~${formatMemory(
+                    )} of RAM, and stop battery consumption. Any unsaved changes in this application will be closed.`
+                  : `This will forcefully terminate worker process PID ${terminateTarget?.pid} and release ~${formatMemory(
                       terminateTarget?.memory_mb || 0
                     )} of RAM.`}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', paddingTop: '8px' }}>
+          {/* Action Button Footer */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', paddingTop: '6px' }}>
             <button
               onClick={() => setIsConfirmOpen(false)}
               className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 16px', borderRadius: '8px' }}
+              style={{ fontSize: '13px', padding: '9px 18px', borderRadius: '10px', fontWeight: 600 }}
               disabled={isTerminating}
             >
               Cancel
@@ -792,20 +785,22 @@ export default function ProcessesPage() {
                 backgroundColor: '#E11D48',
                 borderColor: '#E11D48',
                 color: '#FFFFFF',
-                fontSize: '12px',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                fontWeight: 700,
+                fontSize: '13px',
+                padding: '9px 20px',
+                borderRadius: '10px',
+                fontWeight: 800,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)',
+                cursor: isTerminating ? 'not-allowed' : 'pointer',
               }}
               disabled={isTerminating}
             >
               {isTerminating ? (
                 <>
                   <FiRefreshCw className="spin" />
-                  Terminating...
+                  Ending Task...
                 </>
               ) : (
                 <>
@@ -817,6 +812,6 @@ export default function ProcessesPage() {
           </div>
         </div>
       </Modal>
-    </div>
+    </section>
   );
 }

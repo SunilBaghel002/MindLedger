@@ -182,7 +182,7 @@ class SessionManager:
             # Check for sleep or suspend gap while in the same window
             if self._last_active_at:
                 gap_seconds = (now - self._last_active_at).total_seconds()
-                if gap_seconds > 10.0:
+                if gap_seconds > 60.0:
                     logger.warning(
                         f"Detected time gap ({gap_seconds:.1f}s) in same window '{app_name}'. Finalizing previous session."
                     )
