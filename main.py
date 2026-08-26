@@ -186,6 +186,8 @@ def main() -> None:
             pause_event.set() if paused else pause_event.clear()
         ),
     )
+    from tray_app import set_global_tray_app
+    set_global_tray_app(tray_app)
     tray_app.run_detached()
 
     # 6. Open Standalone Native Desktop Application Window (Main Thread GUI Loop)

@@ -229,6 +229,24 @@ class SystemTrayApp:
             menu=menu,
         )
 
+    def notify(self, title: str, message: str) -> bool:
+        """Send a safe native notification via system tray icon.
+
+        Args:
+            title: Notification header.
+            message: Notification body text.
+
+        Returns:
+            True if sent, False otherwise.
+        """
+        if self.icon:
+            try:
+                self.icon.notify(message, title)
+                return True
+            except Exception as e:
+                logger.debug(f"Tray notification error: {e}")
+        return False
+
     def stop(self) -> None:
         """Detach and stop the system tray icon."""
         self._stop_requested = True
@@ -238,3 +256,17 @@ class SystemTrayApp:
             except Exception as e:
                 logger.warning(f"Error stopping system tray icon: {e}")
             logger.info("SystemTrayApp stopped.")
+
+
+_global_tray_app: Optional[SystemTrayApp] = None
+
+
+def set_global_tray_app(app: SystemTrayApp) -> None:
+    """Set the global SystemTrayApp reference."""
+    global _global_tray_app
+    _global_tray_app = app
+
+
+def get_global_tray_app() -> Optional[SystemTrayApp]:
+    """Get the active global SystemTrayApp instance."""
+    return _global_tray_app
