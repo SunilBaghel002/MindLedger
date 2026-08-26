@@ -17,9 +17,11 @@ import {
   FiRefreshCw,
   FiSearch,
   FiShield,
+  FiSliders,
   FiTrash2,
   FiTrendingUp,
   FiUser,
+  FiX,
   FiZap,
 } from 'react-icons/fi';
 import Modal from '../components/Modal';
@@ -266,22 +268,10 @@ export default function ProcessesPage() {
         />
       </div>
 
-      {/* Unified Controls & Filter Bar */}
-      <div
-        className="card"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 'var(--space-md)',
-          padding: '12px 18px',
-          marginBottom: 'var(--space-lg)',
-          borderRadius: 'var(--radius-md)',
-        }}
-      >
+      {/* Unified Controls & Filter Toolbar */}
+      <div className="proc-toolbar">
         {/* Filter Pills */}
-        <div className="btn-group-pill">
+        <div className="proc-filter-group">
           {FILTER_TABS.map((tab) => {
             const Icon = tab.icon;
             const active = filter === tab.id;
@@ -289,78 +279,89 @@ export default function ProcessesPage() {
               <button
                 key={tab.id}
                 onClick={() => setFilter(tab.id)}
-                className={`pill-btn ${active ? 'active' : ''}`}
+                className={`proc-filter-pill ${active ? 'active' : ''}`}
               >
-                <Icon style={{ marginRight: '6px', fontSize: '13px' }} />
-                {tab.label}
+                <Icon style={{ fontSize: '13px' }} />
+                <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* View Switcher, Search, and Sort */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+        {/* View Switcher, Search, and Sort Cluster */}
+        <div className="proc-controls-cluster">
           {/* View Mode Toggle */}
-          <div className="btn-group-pill">
+          <div className="proc-view-toggle">
             <button
               onClick={() => setViewMode('grouped')}
-              className={`pill-btn ${viewMode === 'grouped' ? 'active' : ''}`}
+              className={`proc-view-btn ${viewMode === 'grouped' ? 'active' : ''}`}
+              title="Group by parent application"
             >
-              <FiGrid style={{ marginRight: '6px' }} />
-              Grouped
+              <FiGrid style={{ fontSize: '13px' }} />
+              <span>Grouped</span>
             </button>
             <button
               onClick={() => setViewMode('flat')}
-              className={`pill-btn ${viewMode === 'flat' ? 'active' : ''}`}
+              className={`proc-view-btn ${viewMode === 'flat' ? 'active' : ''}`}
+              title="View all individual process PIDs"
             >
-              <FiList style={{ marginRight: '6px' }} />
-              Flat PIDs
+              <FiList style={{ fontSize: '13px' }} />
+              <span>Flat PIDs</span>
             </button>
           </div>
 
-          {/* Search Box */}
-          <div className="search-box" style={{ width: '220px', margin: 0 }}>
-            <FiSearch className="search-icon" />
+          {/* Search Box with Clear Button */}
+          <div className="proc-search-wrapper">
+            <span className="proc-search-icon">
+              <FiSearch />
+            </span>
             <input
               type="text"
-              placeholder="Search applications or PIDs..."
+              placeholder="Search apps or PIDs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ padding: '6px 12px 6px 32px', fontSize: '12px', borderRadius: '8px' }}
+              className="proc-search-input"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="proc-search-clear"
+                title="Clear search"
+              >
+                <FiX size={13} />
+              </button>
+            )}
           </div>
 
-          {/* Sort Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Sort:</span>
+          {/* Styled Sort Dropdown */}
+          <div className="proc-sort-wrapper">
+            <span className="proc-sort-icon">
+              <FiSliders />
+            </span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              style={{
-                padding: '6px 10px',
-                fontSize: '12px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'var(--bg-surface)',
-                color: 'var(--text-main)',
-                fontWeight: 600,
-              }}
+              className="proc-sort-select"
             >
               <option value="memory">RAM Memory (MB)</option>
               <option value="cpu">CPU Usage (%)</option>
-              <option value="hog_score">Hog Score</option>
+              <option value="hog_score">Resource Hog Score</option>
               <option value="name">App Name</option>
             </select>
+            <span className="proc-sort-chevron">
+              <FiChevronDown />
+            </span>
           </div>
 
-          {/* Clean Up Hogs Quick Action */}
+          {/* Clean Up Hogs Action Button */}
           {processData?.hog_count > 0 && (
             <button
               onClick={handleOptimizeHogs}
-              className="btn btn-sm btn-danger"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
+              className="proc-cleanup-btn"
+              title="Clean up background resource hogs"
             >
-              <FiTrash2 /> Clean Up ({processData.hog_count})
+              <FiTrash2 size={13} />
+              <span>Clean Up ({processData.hog_count})</span>
             </button>
           )}
         </div>
