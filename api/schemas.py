@@ -376,6 +376,7 @@ class SettingsData(BaseModel):
     smtp_password: Optional[str] = None
     recipient_email: Optional[str] = ""
     tracking_enabled: bool = True
+    tracking_mode: str = "ignore_background"  # 'ignore_background', 'record_both', 'foreground_only'
     idle_threshold_seconds: int = 300
     theme: str = "light"
 
@@ -389,6 +390,7 @@ class SettingsUpdateRequest(BaseModel):
     smtp_password: Optional[str] = None
     recipient_email: Optional[str] = None
     tracking_enabled: Optional[bool] = None
+    tracking_mode: Optional[str] = None
     idle_threshold_seconds: Optional[int] = None
     theme: Optional[str] = None
 
