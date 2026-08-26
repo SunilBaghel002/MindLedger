@@ -218,8 +218,9 @@ export default function BatteryPage() {
   const currentPercent = status?.percent ?? 100;
   const isCharging = status?.is_plugged ?? true;
   const dischargeRate = status?.discharge_rate_percent_per_hour;
-  const wearPct = health?.wear_level_percent ?? 5.7;
-  const healthPct = Math.max(0, Math.min(100, 100 - wearPct));
+  const wearPct = health?.wear_level_percent ?? 15.1;
+  const healthPct = health?.health_percent ?? 84.9;
+  const cycleCount = health?.cycle_count ?? 693;
 
   const maxEnergyScore = drainers.length > 0 ? Math.max(...drainers.map((d) => d.energy_score || 1)) : 100;
 
@@ -262,10 +263,10 @@ export default function BatteryPage() {
           label="Hardware Health & Wear"
           icon={<FiHeart />}
           value={`${healthPct.toFixed(1)}%`}
-          subtext={`Wear: ${wearPct}% (${health?.full_charge_capacity_mwh || 54200} / ${health?.design_capacity_mwh || 57500} mWh)`}
+          subtext={`Wear: ${wearPct}% (${health?.full_charge_capacity_mwh || 39910} / ${health?.design_capacity_mwh || 47000} mWh) • ${cycleCount} Cycles`}
           isPositive={healthPct > 80}
           accentColor={healthPct > 80 ? 'emerald' : 'amber'}
-          badgeText={`Wear ${wearPct}%`}
+          badgeText={healthPct >= 80 ? 'Good Condition' : 'Degraded'}
         />
       </div>
 
