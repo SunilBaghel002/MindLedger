@@ -190,22 +190,16 @@ async def update_water_config(
 
 @router.post("/test-notification")
 async def test_water_notification() -> APIResponse:
-    """Dispatch a test Windows desktop toast notification immediately."""
-    try:
-        from utils.notifications import send_windows_toast
-        sent = send_windows_toast(
-            title="💧 Time for a Water Break! (Test)",
-            message="You've been focused on your work. Grab a fresh glass of water to maintain peak cognitive energy!",
-        )
-        return APIResponse(
-            success=True,
-            data={"sent": sent, "message": "Windows desktop toast notification dispatched successfully!"},
-            error=None,
-        )
-    except Exception as e:
-        logger.error(f"Failed to send test notification: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to send desktop notification: {e}",
-        ) from e
+    """Trigger a test hydration reminder (visual notification handled by frontend overlay).
+
+    This endpoint no longer calls any Windows OS notification APIs to prevent
+    BSOD crashes caused by Shell_NotifyIcon with emoji characters on systems
+    with third-party notification hook drivers.
+    """
+    return APIResponse(
+        success=True,
+        data={"sent": True, "message": "Hydration reminder triggered! The animated overlay will appear in your dashboard."},
+        error=None,
+    )
+
 

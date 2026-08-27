@@ -36,6 +36,7 @@ import {
 import { Bar } from 'react-chartjs-2';
 import StatCard from '../components/StatCard';
 import Toast from '../components/Toast';
+import WaterReminderOverlay from '../components/WaterReminderOverlay';
 import { api } from '../services/api';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
@@ -48,6 +49,8 @@ export default function HydrationPage() {
   const [logging, setLogging] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const overlayShownRef = useRef(false);
 
   // Config State
   const [config, setConfig] = useState({
@@ -174,20 +177,34 @@ export default function HydrationPage() {
     }
   };
 
-  const handleTestNotification = async () => {
+  const handleTestNotification = () => {
+    setShowOverlay(true);
+  };
+
+  const handleOverlayDrink = async () => {
+    await handleLogDrink(250, 'dashboard_widget');
+    addToast('success', 'Great! +250ml logged. Stay hydrated!', 'Water Logged');
+  };
+
+  const handleOverlayRemindLater = async () => {
     try {
-      const res = await api.testWaterNotification();
-      if (res?.sent) {
-        addToast(
-          'success',
-          'Dispatched Windows Toast Notification! Look at the bottom-right corner of your screen.',
-          'Desktop Notification Sent'
-        );
-      }
+      await api.snoozeWaterReminder(10);
+      addToast('info', 'Reminder snoozed for 10 minutes.', 'Snoozed');
     } catch (err) {
-      addToast('danger', err.message || 'Failed to send test notification', 'Notification Error');
+      addToast('danger', err.message || 'Failed to snooze', 'Error');
     }
   };
+
+  // Auto-show overlay when reminder is due (polled from status)
+  useEffect(() => {
+    if (status?.reminder_due && !overlayShownRef.current) {
+      overlayShownRef.current = true;
+      setShowOverlay(true);
+    }
+    if (!status?.reminder_due) {
+      overlayShownRef.current = false;
+    }
+  }, [status?.reminder_due]);
 
   const handleSaveConfig = async () => {
     setSavingConfig(true);
@@ -275,6 +292,7 @@ export default function HydrationPage() {
   };
 
   return (
+    <>
     <section className="page-section" style={{ paddingBottom: 'var(--space-2xl)' }}>
       {/* Toast Notification Container */}
       <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -753,5 +771,13 @@ export default function HydrationPage() {
         </div>
       </div>
     </section>
+
+    <WaterReminderOverlay
+      visible={showOverlay}
+      onDrinkWater={handleOverlayDrink}
+      onRemindLater={handleOverlayRemindLater}
+      onDismiss={() => setShowOverlay(false)}
+    />
+    </>
   );
 }

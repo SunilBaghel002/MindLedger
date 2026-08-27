@@ -77,7 +77,6 @@ def tracking_loop() -> None:
     logger.info("Tracking loop background thread started.")
 
     from core.hydration_scheduler import hydration_scheduler
-    from utils.notifications import send_windows_toast
 
     with db_manager.connection() as conn:
         event_processor = EventProcessor(db_conn=conn)
@@ -104,13 +103,9 @@ def tracking_loop() -> None:
                         is_user_active=is_user_active,
                         is_deep_work=is_deep_coding,
                     )
-                    if reminder_event:
-                        event_type = reminder_event.get("event")
-                        event_msg = reminder_event.get("message", "Time for a water break!")
-                        if event_type == "hydration_reminder":
-                            send_windows_toast("💧 Time for a Water Break!", event_msg)
-                        elif event_type == "welcome_back":
-                            send_windows_toast("💧 Welcome Back!", event_msg)
+                    # Reminder events are now handled by the frontend overlay
+                    # The hydration_scheduler tracks reminder_due state internally
+                    # and the dashboard polls /api/v1/water/status to show the overlay
 
                     if res and tray_app:
                         if res.get("status") == "active":
@@ -186,8 +181,7 @@ def main() -> None:
             pause_event.set() if paused else pause_event.clear()
         ),
     )
-    from tray_app import set_global_tray_app
-    set_global_tray_app(tray_app)
+
     tray_app.run_detached()
 
     # 6. Open Standalone Native Desktop Application Window (Main Thread GUI Loop)
