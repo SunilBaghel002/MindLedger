@@ -76,14 +76,37 @@ def tracking_loop() -> None:
     global event_processor
     logger.info("Tracking loop background thread started.")
 
+    from core.hydration_scheduler import hydration_scheduler
+
     with db_manager.connection() as conn:
         event_processor = EventProcessor(db_conn=conn)
         event_processor.start()
+
+        last_hydration_tick = time.time()
 
         while not stop_event.is_set():
             if not pause_event.is_set():
                 try:
                     res = event_processor.tick()
+
+                    # Smart Hydration Countdown Tick & Desktop Push Notification
+                    now_ts = time.time()
+                    elapsed_tick = now_ts - last_hydration_tick
+                    last_hydration_tick = now_ts
+
+                    is_user_active = bool(res and res.get("status") == "active")
+                    active_app = (res.get("app_name") or "") if res else ""
+                    is_deep_coding = any(k in active_app.lower() for k in ["code", "antigravity", "pycharm", "cursor", "sublime", "studio"])
+
+                    reminder_event = hydration_scheduler.tick(
+                        elapsed_wall_clock=elapsed_tick,
+                        is_user_active=is_user_active,
+                        is_deep_work=is_deep_coding,
+                    )
+                    # Reminder events are now handled by the frontend overlay
+                    # The hydration_scheduler tracks reminder_due state internally
+                    # and the dashboard polls /api/v1/water/status to show the overlay
+
                     if res and tray_app:
                         if res.get("status") == "active":
                             app_title = res.get("app_name", "Active")
@@ -158,6 +181,7 @@ def main() -> None:
             pause_event.set() if paused else pause_event.clear()
         ),
     )
+
     tray_app.run_detached()
 
     # 6. Open Standalone Native Desktop Application Window (Main Thread GUI Loop)

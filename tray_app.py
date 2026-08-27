@@ -238,3 +238,4 @@ class SystemTrayApp:
             except Exception as e:
                 logger.warning(f"Error stopping system tray icon: {e}")
             logger.info("SystemTrayApp stopped.")
+

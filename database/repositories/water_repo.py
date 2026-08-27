@@ -59,13 +59,15 @@ class WaterRepository:
         Returns:
             Inserted row ID.
         """
+        valid_sources = {"notification_button", "dashboard_widget", "tray_menu", "topbar", "manual"}
+        norm_source = source if source in valid_sources else "dashboard_widget"
         ts = timestamp or datetime.now().isoformat()
         cursor = self.conn.execute(
             """
             INSERT INTO water_logs (timestamp, amount_ml, source, daily_goal_ml)
             VALUES (?, ?, ?, ?)
             """,
-            (ts, amount_ml, source, daily_goal_ml),
+            (ts, amount_ml, norm_source, daily_goal_ml),
         )
         self.conn.commit()
         return cursor.lastrowid

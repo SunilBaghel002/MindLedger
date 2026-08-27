@@ -130,3 +130,76 @@ async def get_water_history(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch water history: {e}",
         ) from e
+
+
+@router.get("/logs")
+async def get_today_water_logs(
+    target_date: Optional[str] = Query(None, alias="date", description="Date in YYYY-MM-DD format"),
+) -> APIResponse:
+    """Retrieve all detailed drink entries logged for target date."""
+    try:
+        with db_manager.connection() as conn:
+            repo = WaterRepository(conn)
+            logs = repo.get_today_logs(target_date)
+
+        return APIResponse(
+            success=True,
+            data={"count": len(logs), "logs": logs},
+            error=None,
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch water logs: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch water logs: {e}",
+        ) from e
+
+
+@router.post("/config")
+async def update_water_config(
+    payload: dict,
+) -> APIResponse:
+    """Update smart hydration settings and goals."""
+    try:
+        enabled = payload.get("enabled")
+        mode = payload.get("mode")
+        interval = payload.get("custom_interval_minutes")
+        goal = payload.get("daily_goal_ml")
+
+        if enabled is not None:
+            hydration_scheduler.enabled = bool(enabled)
+        if mode is not None:
+            hydration_scheduler.mode = str(mode)
+        if interval is not None:
+            hydration_scheduler.custom_interval_minutes = int(interval)
+        if goal is not None:
+            hydration_scheduler.daily_goal_ml = int(goal)
+
+        return APIResponse(
+            success=True,
+            data=hydration_scheduler.get_status(),
+            error=None,
+        )
+    except Exception as e:
+        logger.error(f"Failed to update water config: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update water config: {e}",
+        ) from e
+
+
+@router.post("/test-notification")
+async def test_water_notification() -> APIResponse:
+    """Trigger a test hydration reminder (visual notification handled by frontend overlay).
+
+    This endpoint no longer calls any Windows OS notification APIs to prevent
+    BSOD crashes caused by Shell_NotifyIcon with emoji characters on systems
+    with third-party notification hook drivers.
+    """
+    return APIResponse(
+        success=True,
+        data={"sent": True, "message": "Hydration reminder triggered! The animated overlay will appear in your dashboard."},
+        error=None,
+    )
+
+
