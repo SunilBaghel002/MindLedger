@@ -267,19 +267,18 @@ class SummaryRepository:
         Returns:
             Aggregated and persisted DailySummary object.
         """
-        # 1. Aggregate app_sessions
+        # 1. Aggregate app_sessions (strictly foreground active time)
         cursor = self.conn.execute(
             """
             SELECT
-                COALESCE(SUM(duration_seconds), 0) as total_screen_time,
                 COALESCE(SUM(CASE WHEN is_foreground = 1 THEN duration_seconds ELSE 0 END), 0) as active_time,
-                COALESCE(SUM(CASE WHEN category = 'coding' THEN duration_seconds ELSE 0 END), 0) as coding_time,
-                COALESCE(SUM(CASE WHEN category = 'learning' THEN duration_seconds ELSE 0 END), 0) as learning_time,
-                COALESCE(SUM(CASE WHEN category = 'browsing' THEN duration_seconds ELSE 0 END), 0) as browsing_time,
-                COALESCE(SUM(CASE WHEN category = 'communication' THEN duration_seconds ELSE 0 END), 0) as comm_time,
-                COALESCE(SUM(CASE WHEN productivity = 'productive' THEN duration_seconds ELSE 0 END), 0) as prod_time,
-                COALESCE(SUM(CASE WHEN productivity = 'neutral' THEN duration_seconds ELSE 0 END), 0) as neutral_time,
-                COALESCE(SUM(CASE WHEN productivity = 'unproductive' THEN duration_seconds ELSE 0 END), 0) as unprod_time,
+                COALESCE(SUM(CASE WHEN is_foreground = 1 AND category = 'coding' THEN duration_seconds ELSE 0 END), 0) as coding_time,
+                COALESCE(SUM(CASE WHEN is_foreground = 1 AND category = 'learning' THEN duration_seconds ELSE 0 END), 0) as learning_time,
+                COALESCE(SUM(CASE WHEN is_foreground = 1 AND category = 'browsing' THEN duration_seconds ELSE 0 END), 0) as browsing_time,
+                COALESCE(SUM(CASE WHEN is_foreground = 1 AND category = 'communication' THEN duration_seconds ELSE 0 END), 0) as comm_time,
+                COALESCE(SUM(CASE WHEN is_foreground = 1 AND productivity = 'productive' THEN duration_seconds ELSE 0 END), 0) as prod_time,
+                COALESCE(SUM(CASE WHEN is_foreground = 1 AND productivity = 'neutral' THEN duration_seconds ELSE 0 END), 0) as neutral_time,
+                COALESCE(SUM(CASE WHEN is_foreground = 1 AND productivity = 'unproductive' THEN duration_seconds ELSE 0 END), 0) as unprod_time,
                 COUNT(DISTINCT app_name) as total_apps
             FROM app_sessions
             WHERE date = ?
@@ -288,8 +287,8 @@ class SummaryRepository:
         )
         app_data = cursor.fetchone()
 
-        total_screen_time = app_data["total_screen_time"]
         active_time = app_data["active_time"]
+        total_screen_time = active_time
         coding_seconds = app_data["coding_time"]
         learning_seconds = app_data["learning_time"]
         browsing_seconds = app_data["browsing_time"]
@@ -320,35 +319,16 @@ class SummaryRepository:
         total_domains = browser_data["total_domains"] if browser_data else 0
         total_browser_time = browser_data["total_browser_time"] if browser_data else 0
 
-        # Fetch tracking_mode preference ('ignore_background', 'record_both', 'foreground_only')
-        try:
-            mode_row = self.conn.execute("SELECT value FROM settings WHERE key = 'tracking_mode'").fetchone()
-            tracking_mode = mode_row[0] if mode_row and mode_row[0] else "ignore_background"
-        except Exception:
-            tracking_mode = "ignore_background"
-
-        # Combine app and browser totals based on selected tracking_mode
-        if tracking_mode == "record_both":
-            if total_browser_time > total_screen_time:
-                total_screen_time = total_browser_time
-                active_time = max(active_time, total_browser_time)
-                coding_seconds = max(coding_seconds, browser_data["b_coding_time"])
-                learning_seconds = max(learning_seconds, browser_data["b_learning_time"])
-                browsing_seconds = max(browsing_seconds, browser_data["b_browsing_time"])
-                prod_seconds = max(prod_seconds, browser_data["b_prod_time"])
-                neutral_seconds = max(neutral_seconds, browser_data["b_neutral_time"])
-                unprod_seconds = max(unprod_seconds, browser_data["b_unprod_time"])
-        elif tracking_mode == "ignore_background":
-            # Primary screen time is foreground active apps. Add browser coding/learning only if not already counted
-            if total_screen_time == 0 and total_browser_time > 0:
-                total_screen_time = total_browser_time
-                active_time = total_browser_time
-            coding_seconds = max(coding_seconds, browser_data["b_coding_time"] if browser_data else 0)
-            learning_seconds = max(learning_seconds, browser_data["b_learning_time"] if browser_data else 0)
-            # Do NOT allow background YouTube music to inflate total_screen_time beyond active apps!
-        elif tracking_mode == "foreground_only":
-            # Strictly foreground app sessions
-            pass
+        # Fallback if only browser was used and app sessions are 0
+        if total_screen_time == 0 and total_browser_time > 0:
+            total_screen_time = total_browser_time
+            active_time = total_browser_time
+            coding_seconds = browser_data["b_coding_time"] if browser_data else 0
+            learning_seconds = browser_data["b_learning_time"] if browser_data else 0
+            browsing_seconds = browser_data["b_browsing_time"] if browser_data else 0
+            prod_seconds = browser_data["b_prod_time"] if browser_data else 0
+            neutral_seconds = browser_data["b_neutral_time"] if browser_data else 0
+            unprod_seconds = browser_data["b_unprod_time"] if browser_data else 0
 
         # 3. Aggregate youtube_activity
         cursor = self.conn.execute(

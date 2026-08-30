@@ -3,7 +3,7 @@
 ; Version: 0.1.0
 
 #define MyAppName "MindLedger"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "2.0.0"
 #define MyAppPublisher "MindLedger Team"
 #define MyAppURL "http://127.0.0.1:8787/dashboard"
 #define MyAppExeName "MindLedger.exe"

@@ -158,5 +158,7 @@ class EventProcessor:
             "app_name": active_session.app_name,
             "window_title": active_session.window_title,
             "duration_seconds": active_session.duration_seconds,
+            "category": active_session.category,
+            "productivity": active_session.productivity,
         }
 

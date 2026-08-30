@@ -61,7 +61,8 @@ def test_get_status_desktop_fallback():
     """Verify desktop system without battery returns AC status gracefully."""
     monitor = PowerMonitor()
 
-    with patch("psutil.sensors_battery", return_value=None):
+    with patch("core.power_monitor.sys.platform", "linux"), \
+         patch("core.power_monitor.psutil.sensors_battery", return_value=None):
         status = monitor.get_status()
         assert status["is_battery_present"] is False
         assert status["percent"] == 100
@@ -78,7 +79,8 @@ def test_get_status_battery_present():
     mock_battery.power_plugged = False
     mock_battery.secsleft = 7200  # 2 hours
 
-    with patch("psutil.sensors_battery", return_value=mock_battery):
+    with patch("core.power_monitor.sys.platform", "linux"), \
+         patch("core.power_monitor.psutil.sensors_battery", return_value=mock_battery):
         status = monitor.get_status()
         assert status["is_battery_present"] is True
         assert status["percent"] == 78

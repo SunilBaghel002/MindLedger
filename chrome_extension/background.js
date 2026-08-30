@@ -1,12 +1,14 @@
 /**
  * MindLedger Chrome Extension - Background Service Worker (Manifest V3)
  * Tracks active tab URLs, titles, duration spent, and YouTube video events.
+ * Implements strict active heartbeat tracking to prevent sleep/idle time accumulation.
  * Buffers tracking data when local backend server is offline.
  */
 
 const API_ENDPOINT = 'http://127.0.0.1:8787/api/v1/events/browser';
 const YOUTUBE_API_ENDPOINT = 'http://127.0.0.1:8787/api/v1/events/youtube';
 const FLUSH_INTERVAL_MS = 30000; // 30 seconds
+const HEARTBEAT_INTERVAL_MS = 3000; // 3 seconds active heartbeat tick
 
 // In-memory active tab tracking state
 let activeState = {
@@ -16,15 +18,14 @@ let activeState = {
   title: null,
   domain: null,
   startTime: null,
+  lastHeartbeat: null,
+  accumulatedSeconds: 0,
 };
 
 let tabSwitchCountToday = 0;
 let youtubeVideosTrackedToday = 0;
 let youtubeVideoIdsToday = new Set();
 let lastResetDate = new Date().toISOString().split('T')[0];
-
-let windowBlurTimer = null;
-let focusGeneration = 0;
 
 /**
  * Check if a URL should be tracked (HTTP/HTTPS only)
@@ -181,24 +182,26 @@ async function sendYouTubeEventToBackend(youtubeData, allowBuffer = true) {
  * @param {Object} sessionToFinalize
  * @param {number} endTimestamp
  */
-/**
- * Finalize a specific session snapshot with custom end timestamp
- * @param {Object} sessionToFinalize
- * @param {number} endTimestamp
- */
 async function finalizeSessionSnapshot(sessionToFinalize, endTimestamp = Date.now()) {
-  if (!sessionToFinalize || !sessionToFinalize.startTime || !sessionToFinalize.url) {
+  if (!sessionToFinalize || !sessionToFinalize.url) {
     return;
   }
 
-  let durationSeconds = Math.round((endTimestamp - sessionToFinalize.startTime) / 1000);
+  // Use accumulated active seconds rather than raw clock delta (immune to sleep/standby)
+  let durationSeconds = Math.round(sessionToFinalize.accumulatedSeconds || 0);
 
-  // Cap single tab session duration to 30 minutes (1800s) to prevent runaway sleep accumulation
-  const MAX_SINGLE_SESSION_SECONDS = 1800;
+  // Add remaining active delta if last heartbeat was recent (< 6 seconds)
+  if (sessionToFinalize.lastHeartbeat) {
+    const delta = (endTimestamp - sessionToFinalize.lastHeartbeat) / 1000;
+    if (delta > 0 && delta <= 6) {
+      durationSeconds += Math.round(delta);
+    }
+  }
+
+  // Hard safety limit: max 60 seconds per single session chunk
+  const MAX_SINGLE_SESSION_SECONDS = 60;
   if (durationSeconds > MAX_SINGLE_SESSION_SECONDS) {
-    console.warn(
-      `[MindLedger] Capping excessively long tab session duration from ${durationSeconds}s to ${MAX_SINGLE_SESSION_SECONDS}s (likely system sleep/idle).`
-    );
+    console.warn(`[MindLedger] Clamping single tab session duration from ${durationSeconds}s to ${MAX_SINGLE_SESSION_SECONDS}s.`);
     durationSeconds = MAX_SINGLE_SESSION_SECONDS;
   }
 
@@ -207,13 +210,13 @@ async function finalizeSessionSnapshot(sessionToFinalize, endTimestamp = Date.no
       url: sessionToFinalize.url,
       domain: sessionToFinalize.domain,
       title: sessionToFinalize.title || sessionToFinalize.url,
-      started_at: new Date(sessionToFinalize.startTime).toISOString(),
+      started_at: new Date(sessionToFinalize.startTime || (endTimestamp - durationSeconds * 1000)).toISOString(),
       ended_at: new Date(endTimestamp).toISOString(),
       duration_seconds: durationSeconds,
       tab_id: sessionToFinalize.tabId,
     };
 
-    console.log('[MindLedger] Recording tab session snapshot:', payload);
+    console.log('[MindLedger] Recording verified active tab session:', payload);
     await sendEventToBackend(payload);
   }
 }
@@ -223,7 +226,16 @@ async function finalizeSessionSnapshot(sessionToFinalize, endTimestamp = Date.no
  */
 async function finalizeCurrentSession() {
   const sessionCopy = { ...activeState };
-  activeState = { tabId: null, windowId: null, url: null, title: null, domain: null, startTime: null };
+  activeState = {
+    tabId: null,
+    windowId: null,
+    url: null,
+    title: null,
+    domain: null,
+    startTime: null,
+    lastHeartbeat: null,
+    accumulatedSeconds: 0,
+  };
   await finalizeSessionSnapshot(sessionCopy, Date.now());
 }
 
@@ -233,23 +245,94 @@ async function finalizeCurrentSession() {
  */
 function startTrackingTab(tab) {
   if (!tab || !tab.url || !isValidTrackableUrl(tab.url)) {
-    activeState = { tabId: null, windowId: null, url: null, title: null, domain: null, startTime: null };
+    activeState = {
+      tabId: null,
+      windowId: null,
+      url: null,
+      title: null,
+      domain: null,
+      startTime: null,
+      lastHeartbeat: null,
+      accumulatedSeconds: 0,
+    };
     return;
   }
 
   checkDateReset();
 
+  const now = Date.now();
   activeState = {
     tabId: tab.id,
     windowId: tab.windowId,
     url: tab.url,
     title: tab.title || tab.url,
     domain: extractDomain(tab.url),
-    startTime: Date.now(),
+    startTime: now,
+    lastHeartbeat: now,
+    accumulatedSeconds: 0,
   };
 
-  console.log(`[MindLedger] Started tracking tab #${tab.id}: ${activeState.domain}`);
+  console.log(`[MindLedger] Started active tracking on tab #${tab.id}: ${activeState.domain}`);
 }
+
+/**
+ * Perform active heartbeat tick.
+ * Only accumulates time if Chrome is the focused window and system is not idle.
+ */
+async function performActiveHeartbeat() {
+  if (!activeState.url || !activeState.startTime) return;
+
+  try {
+    // 1. Verify window focus
+    const focusedWin = await chrome.windows.getLastFocused();
+    if (!focusedWin || !focusedWin.focused || focusedWin.type !== 'normal') {
+      // Focus left Chrome -> pause active tracking
+      return;
+    }
+
+    // 2. Verify system idle state (within 60s)
+    chrome.idle.queryState(60, async (state) => {
+      if (state !== 'active') {
+        // System is idle or locked -> do not accumulate time
+        return;
+      }
+
+      const now = Date.now();
+      const deltaSec = (now - (activeState.lastHeartbeat || now)) / 1000;
+
+      // If tick gap is normal (<= 8s), accumulate time
+      if (deltaSec > 0 && deltaSec <= 8) {
+        activeState.accumulatedSeconds += deltaSec;
+        activeState.lastHeartbeat = now;
+      } else {
+        // Gap > 8s indicates laptop was asleep or timer was suspended -> discard the sleep gap!
+        activeState.lastHeartbeat = now;
+      }
+
+      // If we accumulated >= 30 seconds, flush a 30s chunk to backend
+      if (activeState.accumulatedSeconds >= 30) {
+        const chunkDuration = Math.round(activeState.accumulatedSeconds);
+        const chunkPayload = {
+          url: activeState.url,
+          domain: activeState.domain,
+          title: activeState.title || activeState.url,
+          started_at: new Date(activeState.startTime).toISOString(),
+          ended_at: new Date(now).toISOString(),
+          duration_seconds: chunkDuration,
+          tab_id: activeState.tabId,
+        };
+        activeState.accumulatedSeconds = 0;
+        activeState.startTime = now;
+        await sendEventToBackend(chunkPayload);
+      }
+    });
+  } catch (e) {
+    console.warn('[MindLedger] Heartbeat check warning:', e);
+  }
+}
+
+// Run active heartbeat every 3 seconds
+setInterval(performActiveHeartbeat, HEARTBEAT_INTERVAL_MS);
 
 /**
  * Handle tab activation switch
@@ -286,7 +369,16 @@ async function handleTabUpdated(tabId, changeInfo, tab) {
 async function handleTabRemoved(tabId) {
   if (tabId === activeState.tabId) {
     await finalizeCurrentSession();
-    activeState = { tabId: null, windowId: null, url: null, title: null, domain: null, startTime: null };
+    activeState = {
+      tabId: null,
+      windowId: null,
+      url: null,
+      title: null,
+      domain: null,
+      startTime: null,
+      lastHeartbeat: null,
+      accumulatedSeconds: 0,
+    };
   }
 }
 
@@ -295,7 +387,7 @@ async function handleTabRemoved(tabId) {
  */
 async function handleWindowFocusChanged(windowId) {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    // Focus left Chrome completely (user switched to another application or desktop)
+    // Focus left Chrome completely (user switched to another desktop app or locked screen)
     console.log('[MindLedger] Focus left Chrome windows. Pausing browser tab session.');
     await finalizeCurrentSession();
     return;
@@ -372,11 +464,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === 'GET_STATUS') {
     (async () => {
-      if (windowBlurTimer) {
-        clearTimeout(windowBlurTimer);
-        windowBlurTimer = null;
-      }
-
       if (!activeState.url) {
         try {
           const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -408,7 +495,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             url: activeState.url,
             domain: activeState.domain,
             title: activeState.title,
-            durationSeconds: activeState.startTime ? Math.round((Date.now() - activeState.startTime) / 1000) : 0,
+            durationSeconds: Math.round(activeState.accumulatedSeconds || 0),
           },
           backendOnline: backendOnline,
           bufferedEventsCount: totalBuffered,
@@ -486,5 +573,4 @@ chrome.tabs.query({ active: true, lastFocusedWindow: true }).then((tabs) => {
 });
 syncBlockedDomains();
 
-console.log('[MindLedger] Background service worker initialized with keepalive alarms & domain limit blocker.');
-
+console.log('[MindLedger] Background service worker initialized with active heartbeat & sleep-gap protection.');

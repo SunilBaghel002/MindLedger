@@ -33,6 +33,269 @@
   }
 }
 
+/* ==========================================================================
+   GLOBAL BUTTON SYSTEM (MindLedger SaaS UI)
+   ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+  white-space: nowrap;
+}
+
+.btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none !important;
+}
+
+/* Button Variants */
+.btn-primary {
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  color: #FFFFFF !important;
+  border-color: #1D4ED8;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28), 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.2);
+}
+
+.btn-secondary {
+  background-color: #FFFFFF;
+  color: #334155;
+  border: 1.5px solid #CBD5E1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #F8FAFC;
+  border-color: #94A3B8;
+  color: #0F172A;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.btn-secondary:active:not(:disabled) {
+  transform: translateY(0);
+  background-color: #F1F5F9;
+}
+
+.btn-subtle {
+  background-color: #F1F5F9;
+  color: #475569;
+  border: 1px solid #E2E8F0;
+}
+
+.btn-subtle:hover:not(:disabled) {
+  background-color: #E2E8F0;
+  color: #0F172A;
+}
+
+.btn-danger {
+  background-color: #FFF1F2;
+  color: #E11D48;
+  border: 1px solid #FECDD3;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #FFE4E6;
+  border-color: #FDA4AF;
+  color: #BE123C;
+}
+
+.btn-success {
+  background-color: #ECFDF5;
+  color: #059669;
+  border: 1px solid #A7F3D0;
+}
+
+.btn-success:hover:not(:disabled) {
+  background-color: #D1FAE5;
+  color: #047857;
+}
+
+/* Button Sizes */
+.btn-xs {
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.btn-md {
+  padding: 9px 16px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+.btn-lg {
+  padding: 12px 22px;
+  font-size: 14.5px;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+/* Forms & Modal Input Elements */
+.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-main, #0F172A);
+  background-color: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: #3B82F6;
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.form-input::placeholder {
+  color: #94A3B8;
+  font-weight: 400;
+}
+
+/* Range Slider Styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: #E2E8F0;
+  border-radius: 9999px;
+  outline: none;
+  transition: background 0.2s ease;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #2563EB;
+  border: 3px solid #FFFFFF;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: #1D4ED8;
+}
+
+/* Range Slider Thumb */
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #2563EB;
+  border: 3px solid #FFFFFF;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+/* ==========================================================================
+   MODERN DATA TABLE SYSTEM
+   ========================================================================== */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+  table-layout: auto;
+}
+
+.data-table thead {
+  background-color: #F8FAFC;
+  border-bottom: 1.5px solid #E2E8F0;
+}
+
+.data-table th {
+  padding: 12px 16px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748B;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.data-table th.text-right,
+.data-table th:last-child {
+  text-align: right;
+}
+
+.data-table td {
+  padding: 14px 16px;
+  color: #1E293B;
+  vertical-align: middle;
+  border-bottom: 1px solid #F1F5F9;
+  text-align: left;
+}
+
+.data-table td.text-right,
+.data-table td:last-child {
+  text-align: right;
+}
+
+.data-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.data-table tbody tr:hover {
+  background-color: #F8FAFC;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
 /* Card Base */
 .card {
   background-color: var(--bg-surface);

@@ -148,7 +148,7 @@ class RulesEngine:
         # 3. Process name fallback heuristics
         if any(k in clean_app for k in ["chrome", "edge", "msedge", "browser", "firefox", "brave", "opera"]):
             return CATEGORY_BROWSING, "web", PRODUCTIVITY_NEUTRAL
-        if any(k in clean_app for k in ["code", "python", "idea", "clion", "rider", "studio", "cursor", "antigravity", "sublime", "git", "terminal", "powershell", "cmd"]):
+        if any(k in clean_app for k in ["code", "pycharm", "python", "idea", "clion", "rider", "studio", "cursor", "antigravity", "sublime", "git", "terminal", "powershell", "cmd"]):
             return CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE
         if any(k in clean_app for k in ["discord", "slack", "teams", "telegram", "whatsapp", "zoom"]):
             return CATEGORY_COMMUNICATION, "chat", PRODUCTIVITY_NEUTRAL

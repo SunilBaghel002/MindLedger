@@ -341,7 +341,7 @@ class AppSessionRepository:
             """
         )
 
-        # Cap runaway sleep sessions
+        # Cap runaway sleep sessions in app_sessions and browser_sessions
         cursor = self.conn.execute(
             """
             UPDATE app_sessions
@@ -349,6 +349,13 @@ class AppSessionRepository:
             WHERE duration_seconds > ? AND ended_at IS NOT NULL
             """,
             (max_allowed_seconds,),
+        )
+        self.conn.execute(
+            """
+            UPDATE browser_sessions
+            SET duration_seconds = 60
+            WHERE duration_seconds > 120 AND ended_at IS NOT NULL
+            """
         )
         self.conn.commit()
         return cursor.rowcount

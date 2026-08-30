@@ -208,20 +208,27 @@ class PowerMonitor:
         is_plugged = True
         percent = 100
         secsleft = None
+        is_battery_present = True
 
         if sys.platform == "win32":
             try:
                 sps = SYSTEM_POWER_STATUS()
                 if ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(sps)):
-                    is_plugged = sps.ACLineStatus == 1
-                    percent = int(sps.BatteryLifePercent)
-                    if sps.BatteryLifeTime != 0xFFFFFFFF and sps.BatteryLifeTime > 0:
-                        secsleft = int(sps.BatteryLifeTime)
+                    if sps.BatteryFlag == 128 or sps.BatteryFlag == 255 or sps.BatteryLifePercent == 255:
+                        is_battery_present = False
+                        percent = 100
+                        is_plugged = True
+                    else:
+                        is_battery_present = True
+                        is_plugged = sps.ACLineStatus == 1
+                        percent = int(sps.BatteryLifePercent)
+                        if sps.BatteryLifeTime != 0xFFFFFFFF and sps.BatteryLifeTime > 0:
+                            secsleft = int(sps.BatteryLifeTime)
             except Exception as e:
                 logger.debug(f"Native Windows power status error: {e}")
 
         # Fallback to psutil if native call did not populate
-        if secsleft is None:
+        if secsleft is None and is_battery_present:
             try:
                 b = psutil.sensors_battery()
                 if b:
@@ -229,10 +236,18 @@ class PowerMonitor:
                     is_plugged = bool(b.power_plugged)
                     if b.secsleft > 0 and b.secsleft != getattr(psutil, "POWER_TIME_UNLIMITED", -2):
                         secsleft = b.secsleft
+                elif b is None:
+                    is_battery_present = False
+                    percent = 100
+                    is_plugged = True
             except Exception:
                 pass
 
-        if is_plugged:
+        if not is_battery_present:
+            status_text = "AC Power"
+            time_formatted = "Unlimited"
+            discharge_rate = None
+        elif is_plugged:
             status_text = "Full" if percent >= 99 else "Charging"
             time_formatted = "Plugged in"
             discharge_rate = None
@@ -256,7 +271,7 @@ class PowerMonitor:
                 time_formatted = "Estimating..."
 
         res = {
-            "is_battery_present": True,
+            "is_battery_present": is_battery_present,
             "percent": percent,
             "is_plugged": is_plugged,
             "charging_status": status_text,

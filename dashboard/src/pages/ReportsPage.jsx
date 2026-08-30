@@ -883,16 +883,16 @@ export default function ReportsPage() {
             <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Loading reports archive...</p>
           </div>
         ) : filteredReports.length > 0 ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table" style={{ width: '100%' }}>
+          <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+            <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ width: '28%' }}>Report Period & Date</th>
-                  <th style={{ width: '12%' }}>Type</th>
-                  <th style={{ width: '18%' }}>Productivity Score</th>
-                  <th style={{ width: '16%' }}>Screen Time</th>
-                  <th style={{ width: '12%' }}>Email Status</th>
-                  <th style={{ width: '14%', textAlign: 'right' }}>Actions</th>
+                  <th style={{ width: '28%', textAlign: 'left', padding: '12px 16px' }}>Report Period & Date</th>
+                  <th style={{ width: '10%', textAlign: 'left', padding: '12px 14px' }}>Type</th>
+                  <th style={{ width: '18%', textAlign: 'left', padding: '12px 14px' }}>Productivity Score</th>
+                  <th style={{ width: '14%', textAlign: 'left', padding: '12px 14px' }}>Screen Time</th>
+                  <th style={{ width: '14%', textAlign: 'left', padding: '12px 14px' }}>Email Status</th>
+                  <th style={{ width: '16%', textAlign: 'right', padding: '12px 16px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
