@@ -50,6 +50,7 @@ export default function HydrationPage() {
   const [savingConfig, setSavingConfig] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [showOverlay, setShowOverlay] = useState(false);
+  const [isTestMode, setIsTestMode] = useState(false);
   const overlayShownRef = useRef(false);
 
   // Config State
@@ -178,20 +179,23 @@ export default function HydrationPage() {
   };
 
   const handleTestNotification = () => {
+    setIsTestMode(true);
     setShowOverlay(true);
   };
 
   const handleOverlayDrink = async () => {
-    await handleLogDrink(250, 'dashboard_widget');
-    addToast('success', 'Great! +250ml logged. Stay hydrated!', 'Water Logged');
+    await handleDrinkWater(250, 'notification_button');
   };
 
   const handleOverlayRemindLater = async () => {
-    try {
-      await api.snoozeWaterReminder(10);
-      addToast('info', 'Reminder snoozed for 10 minutes.', 'Snoozed');
-    } catch (err) {
-      addToast('danger', err.message || 'Failed to snooze', 'Error');
+    if (isTestMode) {
+      addToast(
+        'info',
+        `Hydration companion dismissed. Your next scheduled reminder remains at ~${nextReminder}.`,
+        'Test Dismissed'
+      );
+    } else {
+      await handleSnooze(10);
     }
   };
 
@@ -199,6 +203,7 @@ export default function HydrationPage() {
   useEffect(() => {
     if (status?.reminder_due && !overlayShownRef.current) {
       overlayShownRef.current = true;
+      setIsTestMode(false);
       setShowOverlay(true);
     }
     if (!status?.reminder_due) {
