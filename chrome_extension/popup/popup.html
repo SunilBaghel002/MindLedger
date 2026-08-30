@@ -6,75 +6,111 @@
   <title>MindLedger Browser Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="popup-container">
+  <div class="popup-wrapper">
     <!-- Header -->
     <header class="header">
       <div class="brand">
-        <img src="../icons/icon48.png" alt="MindLedger" class="logo-img">
-        <div class="brand-text">
-          <h1>MindLedger</h1>
-          <span class="sub-text">Digital Wellbeing</span>
+        <img src="../icons/icon48.png" alt="MindLedger Logo" class="brand-logo">
+        <div class="brand-info">
+          <div class="brand-title-row">
+            <h1 class="brand-name">MindLedger</h1>
+            <span class="version-tag">v2.0</span>
+          </div>
+          <span class="brand-subtitle">Local Browser Analytics</span>
         </div>
       </div>
-      <div id="status-badge" class="badge badge-offline">
+      <div id="status-badge" class="badge badge-offline" title="API Status on 127.0.0.1:8787">
         <span class="badge-dot"></span>
         <span id="status-text">Checking...</span>
       </div>
     </header>
 
     <!-- Active Tab Live Focus Card -->
-    <section class="card active-card">
-      <div class="card-header-sm">
-        <span class="card-label">CURRENT ACTIVE TAB</span>
-        <span id="active-timer" class="timer-pill">00m 00s</span>
+    <section class="card active-tab-card">
+      <div class="card-top-row">
+        <div class="card-label-group">
+          <span class="live-pulse"></span>
+          <span class="card-label">ACTIVE BROWSER TAB</span>
+        </div>
+        <span id="active-timer" class="timer-badge">00m 00s</span>
       </div>
-      <div id="active-domain" class="active-domain">No Active Tab</div>
-      <div id="active-title" class="active-title">Open an HTTP/HTTPS webpage to start tracking</div>
-    </section>
 
-    <!-- Quick Stats Grid -->
-    <section class="stats-grid">
-      <div class="stat-card">
-        <div id="stat-switches" class="stat-value">0</div>
-        <div class="stat-label">Tab Switches</div>
-      </div>
-      <div class="stat-card">
-        <div id="stat-youtube" class="stat-value">0</div>
-        <div class="stat-label">YouTube Videos</div>
-      </div>
-      <div class="stat-card">
-        <div id="stat-buffered" class="stat-value">0</div>
-        <div class="stat-label">Buffered Offline</div>
+      <div class="active-tab-content">
+        <div id="domain-avatar" class="domain-avatar">🌐</div>
+        <div class="active-text-block">
+          <div id="active-domain" class="active-domain-name">No Active Tab</div>
+          <div id="active-title" class="active-page-title">Open an HTTP/HTTPS webpage to start tracking</div>
+        </div>
       </div>
     </section>
 
-    <!-- Limits / Focus Notice (Dynamic) -->
+    <!-- Daily Quick Vitals Grid -->
+    <section class="vitals-grid">
+      <div class="vital-card">
+        <div class="vital-icon-wrap" style="color: #2563EB; background-color: #EFF6FF;">🔀</div>
+        <div class="vital-data">
+          <div id="stat-switches" class="vital-value">0</div>
+          <div class="vital-label">Tab Switches</div>
+        </div>
+      </div>
+
+      <div class="vital-card">
+        <div class="vital-icon-wrap" style="color: #DC2626; background-color: #FEF2F2;">📺</div>
+        <div class="vital-data">
+          <div id="stat-youtube" class="vital-value">0</div>
+          <div class="vital-label">YouTube Videos</div>
+        </div>
+      </div>
+
+      <div class="vital-card">
+        <div class="vital-icon-wrap" style="color: #7C3AED; background-color: #F5F3FF;">⚡</div>
+        <div class="vital-data">
+          <div id="stat-buffered" class="vital-value">0</div>
+          <div class="vital-label">Offline Buffer</div>
+        </div>
+      </div>
+
+      <div class="vital-card">
+        <div class="vital-icon-wrap" style="color: #059669; background-color: #ECFDF5;">🛡️</div>
+        <div class="vital-data">
+          <div class="vital-value" style="font-size: 13px; color: #059669;">Active</div>
+          <div class="vital-label">Heartbeat Guard</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Active Limits & Focus Alerts (Dynamic) -->
     <section id="limits-section" class="card limits-card" style="display: none;">
       <div class="limits-header">
-        <span>⏳ Active Domain Quotas</span>
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <span>⏳</span> Active Screen Time Limits
+        </span>
       </div>
       <div id="limits-list" class="limits-list">
         <!-- Injected via JS -->
       </div>
     </section>
 
-    <!-- Actions Section -->
-    <div class="action-container">
+    <!-- Action Buttons -->
+    <div class="actions-group">
       <button id="btn-sync" class="btn btn-secondary" style="display: none;">
-        <span>🔄</span> Sync <span id="sync-count">0</span> Buffered Events
+        <span>🔄</span> Flush <span id="sync-count">0</span> Buffered Events
       </button>
-      <a href="http://127.0.0.1:8787/dashboard" target="_blank" class="btn btn-primary">
-        <span>📊</span> Open Full Dashboard
+
+      <a href="http://127.0.0.1:8787/dashboard" target="_blank" class="btn btn-primary" id="btn-dashboard">
+        <span>📊</span> Open MindLedger Dashboard
       </a>
     </div>
 
     <!-- Footer -->
     <footer class="footer">
-      <span>MindLedger v1.0.0 • Local-First & Private</span>
+      <div class="footer-note">
+        <span>🔒 100% Local SQLite • Zero Telemetry</span>
+      </div>
     </footer>
   </div>
 

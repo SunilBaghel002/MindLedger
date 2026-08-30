@@ -1,5 +1,5 @@
 /**
- * MindLedger Chrome Extension - Popup Logic
+ * MindLedger Chrome Extension - Modern Popup Logic
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const activeDomain = document.getElementById('active-domain');
   const activeTitle = document.getElementById('active-title');
   const activeTimer = document.getElementById('active-timer');
+  const domainAvatar = document.getElementById('domain-avatar');
   const statSwitches = document.getElementById('stat-switches');
   const statYoutube = document.getElementById('stat-youtube');
   const statBuffered = document.getElementById('stat-buffered');
@@ -23,6 +24,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+  }
+
+  function getDomainEmoji(domain) {
+    if (!domain) return '🌐';
+    const d = domain.toLowerCase();
+    if (d.includes('github') || d.includes('gitlab')) return '🐙';
+    if (d.includes('youtube')) return '📺';
+    if (d.includes('google')) return '🔍';
+    if (d.includes('stackoverflow')) return '📚';
+    if (d.includes('leetcode')) return '⚡';
+    if (d.includes('reddit')) return '💬';
+    if (d.includes('figma')) return '🎨';
+    if (d.includes('chatgpt') || d.includes('claude') || d.includes('openai')) return '🤖';
+    if (d.includes('notion')) return '📝';
+    if (d.includes('spotify')) return '🎵';
+    if (d.includes('netflix') || d.includes('anime')) return '🍿';
+    return '🌐';
   }
 
   function startLocalTimer(initialSeconds) {
@@ -52,8 +70,10 @@ document.addEventListener('DOMContentLoaded', () => {
               .map(
                 (l) => `
                 <div class="limit-item">
-                  <strong>${l.display_name}</strong>
-                  <span>${l.status === 'exceeded' ? 'Exceeded' : `${l.remaining_minutes}m left`}</span>
+                  <strong>${l.display_name || l.target_identifier}</strong>
+                  <span style="font-weight: 700; color: ${l.status === 'exceeded' ? '#DC2626' : '#D97706'};">
+                    ${l.status === 'exceeded' ? 'Limit Exceeded' : `${l.remaining_minutes}m left`}
+                  </span>
                 </div>
               `
               )
@@ -73,8 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
       chrome.runtime.sendMessage({ action: 'GET_STATUS' }, (response) => {
         if (chrome.runtime.lastError || !response || !response.success) {
           statusBadge.className = 'badge badge-offline';
-          statusText.textContent = 'Offline';
+          statusText.textContent = 'Disconnected';
           activeDomain.textContent = 'Service Worker Inactive';
+          domainAvatar.textContent = '⚠️';
           return;
         }
 
@@ -91,12 +112,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Active tab details
         if (activeTab && activeTab.url) {
-          activeDomain.textContent = activeTab.domain || 'Active Webpage';
+          const dom = activeTab.domain || 'Active Webpage';
+          activeDomain.textContent = dom;
           activeTitle.textContent = activeTab.title || activeTab.url;
+          domainAvatar.textContent = getDomainEmoji(dom);
           startLocalTimer(activeTab.durationSeconds || 0);
         } else {
           activeDomain.textContent = 'No Active Tab';
           activeTitle.textContent = 'Open an HTTP/HTTPS webpage to start tracking';
+          domainAvatar.textContent = '🌐';
           activeTimer.textContent = '00m 00s';
           if (timerInterval) clearInterval(timerInterval);
         }
@@ -123,13 +147,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Manual sync button click
   btnSync.addEventListener('click', () => {
     btnSync.disabled = true;
-    btnSync.textContent = 'Syncing...';
+    btnSync.innerHTML = '<span>⏳</span> Syncing...';
 
-    chrome.runtime.sendMessage({ action: 'FLUSH_BUFFER' }, (res) => {
+    chrome.runtime.sendMessage({ action: 'FLUSH_BUFFER' }, () => {
       setTimeout(() => {
-        btnSync.textContent = 'Synced!';
+        btnSync.innerHTML = '<span>✓</span> Synced!';
         updateStatus();
-      }, 500);
+      }, 600);
     });
   });
 

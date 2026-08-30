@@ -75,7 +75,8 @@ async def receive_browser_event(event: BrowserEventSchema) -> Dict:
                 ended_dt = None
 
         date_str = started_dt.strftime("%Y-%m-%d")
-        duration_seconds = max(0, min(event.duration_seconds, 7200))
+        # Hard ingestion guardrail: Cap single browser event chunk to max 120s (prevents sleep accumulation)
+        duration_seconds = max(0, min(event.duration_seconds, 120))
 
         with db_manager.connection() as conn:
             rules_engine = RulesEngine(db_conn=conn)

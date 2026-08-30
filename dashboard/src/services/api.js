@@ -289,6 +289,22 @@ class MindLedgerAPI {
         });
     }
 
+    async createBackup() {
+        return this._request('/data/backup', {
+            method: 'POST',
+        });
+    }
+
+    async cleanupData(monthsToKeep = 6) {
+        return this._request(`/data/cleanup?months_to_keep=${monthsToKeep}`, {
+            method: 'POST',
+        });
+    }
+
+    getDataExportUrl(format = 'json', table = 'app_sessions') {
+        return `${this.baseUrl}/data/export?format=${format}&table=${table}`;
+    }
+
     getExportDataUrl(format = 'json') {
         return `${this.baseUrl}/settings/export?format=${format}`;
     }

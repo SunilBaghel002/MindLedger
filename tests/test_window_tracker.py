@@ -152,6 +152,8 @@ def test_event_processor(temp_db):
         }
 
         with patch("core.window_tracker.get_active_window_info", return_value=mock_window), \
+             patch("core.idle_detector.IdleDetector.is_idle", return_value=False), \
+             patch("core.idle_detector.IdleDetector.get_idle_time_seconds", return_value=0.0), \
              patch("core.event_processor.is_screen_locked", return_value=False):
             res = ep.tick()
             assert res["status"] == "active"
@@ -206,6 +208,30 @@ def test_session_manager_sleep_gap_in_same_window(temp_db):
         assert s2.id != s1.id
 
 
+def test_event_processor_category_detection(temp_db):
+    """Test EventProcessor accurately classifies app and productivity."""
+    with temp_db.connection() as conn:
+        ep = EventProcessor(db_conn=conn, poll_interval=1, idle_threshold=300)
+        ep.start()
+
+        mock_window = {
+            "app_name": "pycharm64.exe",
+            "app_path": "C:\\PyCharm\\pycharm64.exe",
+            "window_title": "models.py - MindLedger",
+            "pid": 1234,
+        }
+
+        with patch("core.window_tracker.get_active_window_info", return_value=mock_window), \
+             patch("core.idle_detector.IdleDetector.is_idle", return_value=False), \
+             patch("core.idle_detector.IdleDetector.get_idle_time_seconds", return_value=0.0), \
+             patch("core.event_processor.is_screen_locked", return_value=False):
+            res = ep.tick()
+            assert res["category"] == "coding"
+            assert res["productivity"] == "productive"
+
+        ep.stop()
+
+
 def test_event_processor_sleep_gap_detection(temp_db):
     """Test EventProcessor detects sleep gap (> 10s) and pauses tracking."""
     with temp_db.connection() as conn:
@@ -220,6 +246,8 @@ def test_event_processor_sleep_gap_detection(temp_db):
         }
 
         with patch("core.window_tracker.get_active_window_info", return_value=mock_window), \
+             patch("core.idle_detector.IdleDetector.is_idle", return_value=False), \
+             patch("core.idle_detector.IdleDetector.get_idle_time_seconds", return_value=0.0), \
              patch("core.event_processor.is_screen_locked", return_value=False):
             ep.tick()
             assert ep.session_manager.current_session is not None

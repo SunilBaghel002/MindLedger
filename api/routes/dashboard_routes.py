@@ -335,14 +335,23 @@ async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="da
             top_apps_raw = app_repo.get_top_apps(today_str, limit=5)
             top_domains_raw = browser_repo.get_top_domains(today_str, limit=5)
 
-        total_app_sec = sum(s.duration_seconds for s in sessions)
+        # Primary screen time is strictly foreground active applications
+        fg_sessions = [s for s in sessions if s.is_foreground]
+        total_app_sec = sum(s.duration_seconds for s in fg_sessions)
         total_browser_sec = sum(b.duration_seconds for b in browser_sessions)
 
-        total_seconds = max(total_app_sec, total_browser_sec)
-        productive_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "productive")
-        learning_seconds = sum(s.duration_seconds for s in sessions if s.category == "learning")
-        unproductive_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "unproductive")
-        neutral_seconds = sum(s.duration_seconds for s in sessions if s.productivity == "neutral")
+        # Screen time should be foreground desktop time (or browser fallback if desktop tracker wasn't running)
+        total_seconds = total_app_sec if total_app_sec > 0 else total_browser_sec
+
+        # Determine total Chrome/browser foreground time to cap domain breakdowns realistically
+        chrome_foreground_sec = sum(
+            s.duration_seconds for s in fg_sessions if "chrome" in (s.app_name or "").lower()
+        )
+
+        productive_seconds = sum(s.duration_seconds for s in fg_sessions if s.productivity == "productive")
+        learning_seconds = sum(s.duration_seconds for s in fg_sessions if s.category == "learning")
+        unproductive_seconds = sum(s.duration_seconds for s in fg_sessions if s.productivity == "unproductive")
+        neutral_seconds = sum(s.duration_seconds for s in fg_sessions if s.productivity == "neutral")
 
         score = (
             round((productive_seconds / total_seconds) * 100.0, 1)
@@ -360,15 +369,20 @@ async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="da
             for item in top_apps_raw
         ]
 
-        top_websites = [
-            DomainSummaryItem(
-                domain=item["domain"],
-                category=item["category"],
-                productivity=item["productivity"],
-                total_seconds=item["total_seconds"],
+        # Ensure website domain durations cannot exceed Chrome foreground active time
+        top_websites = []
+        for item in top_domains_raw:
+            raw_sec = item["total_seconds"]
+            # If browser extension was running while asleep, cap domain seconds to chrome foreground time
+            effective_sec = min(raw_sec, chrome_foreground_sec) if chrome_foreground_sec > 0 else raw_sec
+            top_websites.append(
+                DomainSummaryItem(
+                    domain=item["domain"],
+                    category=item["category"],
+                    productivity=item["productivity"],
+                    total_seconds=effective_sec,
+                )
             )
-            for item in top_domains_raw
-        ]
 
         # Build full 24-hour activity timeline buckets (00:00 to 23:00)
         labels = [

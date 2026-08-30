@@ -107,6 +107,8 @@ def test_tracking_thread_and_graceful_shutdown(temp_db):
          patch("database.connection.db_manager.db_path", db_path), \
          patch("config.settings.settings.database_path", db_path), \
          patch("config.settings.settings.poll_interval_seconds", 1), \
+         patch("core.idle_detector.IdleDetector.is_idle", return_value=False), \
+         patch("core.idle_detector.IdleDetector.get_idle_time_seconds", return_value=0.0), \
          patch("core.window_tracker.get_active_window_info", return_value=mock_window):
 
         thread = threading.Thread(target=tracking_loop, daemon=True)
