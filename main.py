@@ -6,11 +6,31 @@ Author: MindLedger Team
 Created: 2026-08-08
 """
 
+import io
 import signal
 import sys
 import threading
 import time
 from typing import Optional
+
+# Safe streams for windowed / no-console environments (console=False in PyInstaller)
+class SafeStream(io.StringIO):
+    """Fallback stream preventing crashes when sys.stdout or sys.stderr is None in GUI mode."""
+
+    def write(self, s: str) -> int:
+        return len(s) if s else 0
+
+    def flush(self) -> None:
+        pass
+
+    def isatty(self) -> bool:
+        return False
+
+
+if sys.stdout is None:
+    sys.stdout = SafeStream()
+if sys.stderr is None:
+    sys.stderr = SafeStream()
 
 from api.server import run_api_server_in_thread
 from config.constants import APP_NAME, APP_VERSION
@@ -161,14 +181,22 @@ def wait_for_api_server(host: str, port: int, timeout: float = 6.0) -> bool:
     import urllib.request
 
     start = time.time()
-    url = f"http://{host}:{port}/api/v1/system/status"
+    endpoints = [
+        f"http://{host}:{port}/api/v1/system/status",
+        f"http://{host}:{port}/api/v1/water/status",
+        f"http://{host}:{port}/dashboard",
+    ]
     while time.time() - start < timeout:
-        try:
-            with urllib.request.urlopen(url, timeout=0.5) as resp:
-                if resp.status == 200:
-                    return True
-        except Exception:
-            time.sleep(0.1)
+        for url in endpoints:
+            try:
+                with urllib.request.urlopen(url, timeout=0.5) as resp:
+                    if resp.status == 200:
+                        logger.info(f"API server is ready at {url} (took {time.time() - start:.2f}s)")
+                        return True
+            except Exception:
+                pass
+        time.sleep(0.1)
+    logger.warning("Timed out waiting for API server readiness. Proceeding with window launch.")
     return False
 
 
