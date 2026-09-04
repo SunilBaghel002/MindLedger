@@ -6,10 +6,30 @@ Author: MindLedger Team
 Created: 2026-08-08
 """
 
+import io
+import sys
 import threading
+from pathlib import Path
 from typing import Optional
 
-from pathlib import Path
+# Safe streams for windowed / no-console environments (console=False in PyInstaller)
+class SafeStream(io.StringIO):
+    """Fallback stream preventing crashes when sys.stdout or sys.stderr is None in GUI mode."""
+
+    def write(self, s: str) -> int:
+        return len(s) if s else 0
+
+    def flush(self) -> None:
+        pass
+
+    def isatty(self) -> bool:
+        return False
+
+
+if sys.stdout is None:
+    sys.stdout = SafeStream()
+if sys.stderr is None:
+    sys.stderr = SafeStream()
 
 import uvicorn
 from fastapi import FastAPI
@@ -107,13 +127,19 @@ def run_api_server(host: Optional[str] = None, port: Optional[int] = None) -> No
     bind_port = port or settings.app_port
 
     logger.info(f"Starting Uvicorn API server on http://{bind_host}:{bind_port}")
-    uvicorn.run(
-        app,
-        host=bind_host,
-        port=bind_port,
-        log_level=settings.log_level.lower(),
-        access_log=False,
-    )
+    try:
+        config = uvicorn.Config(
+            app,
+            host=bind_host,
+            port=bind_port,
+            log_level=settings.log_level.lower(),
+            access_log=False,
+            log_config=None,  # Prevent uvicorn from crashing on None stdout/stderr in GUI mode
+        )
+        server = uvicorn.Server(config)
+        server.run()
+    except Exception as e:
+        logger.error(f"Fatal error running Uvicorn API server: {e}", exc_info=True)
 
 
 def run_api_server_in_thread(

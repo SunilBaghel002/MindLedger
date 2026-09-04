@@ -30,15 +30,14 @@ def check_dependencies() -> None:
 
 
 def build_dashboard_frontend() -> None:
-    """Ensure React dashboard frontend bundle exists in dashboard/dist."""
-    dist_index = ROOT_DIR / "dashboard" / "dist" / "index.html"
-    if not dist_index.exists():
-        print("[BUILD] dashboard/dist/index.html not found. Building dashboard...")
-        dashboard_dir = ROOT_DIR / "dashboard"
-        if (dashboard_dir / "package.json").exists():
-            subprocess.run(["npm", "run", "build"], cwd=dashboard_dir, check=True)
+    """Compile latest React dashboard frontend bundle into dashboard/dist."""
+    dashboard_dir = ROOT_DIR / "dashboard"
+    if (dashboard_dir / "package.json").exists():
+        print("[BUILD] Compiling modern React dashboard frontend (npm run build)...")
+        subprocess.run(["npm.cmd" if sys.platform == "win32" else "npm", "run", "build"], cwd=dashboard_dir, check=True)
+        print("[BUILD] Modern React dashboard bundle generated in dashboard/dist.")
     else:
-        print("[BUILD] Confirmed dashboard/dist build output present.")
+        print("[BUILD WARNING] dashboard/package.json not found. Skipping frontend build.")
 
 
 def run_pyinstaller() -> None:

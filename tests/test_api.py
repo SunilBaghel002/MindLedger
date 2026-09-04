@@ -125,3 +125,18 @@ def test_get_apps_today(temp_db):
         assert data["top_apps"][0]["app_name"] == "chrome.exe"
         assert len(data["recent_sessions"]) == 1
         assert data["recent_sessions"][0]["app_name"] == "chrome.exe"
+
+
+def test_show_window_endpoint():
+    """Test POST and GET /api/v1/system/show-window endpoint triggers native window restore."""
+    with patch("tray_app.show_native_desktop_window", return_value=True):
+        resp_post = client.post("/api/v1/system/show-window")
+        assert resp_post.status_code == 200
+        data = resp_post.json()
+        assert data["success"] is True
+        assert data["data"]["restored"] is True
+
+        resp_get = client.get("/api/v1/system/show-window")
+        assert resp_get.status_code == 200
+        assert resp_get.json()["success"] is True
+
