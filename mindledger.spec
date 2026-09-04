@@ -98,9 +98,6 @@ hiddenimports = [
     'utils.autostart',
     'utils.logger',
     'tray_app',
-    'webview',
-    'webview.platforms.winforms',
-    'clr_loader',
 ]
 
 

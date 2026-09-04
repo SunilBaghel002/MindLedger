@@ -64,8 +64,8 @@ def ensure_single_instance() -> Optional[socket.socket]:
         if not signaled:
             # Fallback to standalone app mode window if API was not immediately reachable
             try:
-                from tray_app import launch_app_window_fallback
-                launch_app_window_fallback(f"http://{settings.app_host}:{settings.app_port}/dashboard")
+                from tray_app import launch_app_window
+                launch_app_window(f"http://{settings.app_host}:{settings.app_port}/dashboard")
             except Exception as e:
                 logger.error(f"Fallback launch failed: {e}")
 
