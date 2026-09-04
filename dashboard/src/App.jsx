@@ -65,6 +65,7 @@ export default function App() {
   };
 
   useEffect(() => {
+    document.title = 'MindLedger — Digital Wellbeing Dashboard';
     fetchDashboard(true);
     const interval = setInterval(() => {
       if (!document.hidden) {

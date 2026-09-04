@@ -156,12 +156,27 @@ def shutdown(signum: Optional[int] = None, frame: Optional[object] = None) -> No
         tray_app.stop()
 
 
+def wait_for_api_server(host: str, port: int, timeout: float = 6.0) -> bool:
+    """Wait for API server to become responsive before launching desktop window."""
+    import urllib.request
+
+    start = time.time()
+    url = f"http://{host}:{port}/api/v1/system/status"
+    while time.time() - start < timeout:
+        try:
+            with urllib.request.urlopen(url, timeout=0.5) as resp:
+                if resp.status == 200:
+                    return True
+        except Exception:
+            time.sleep(0.1)
+    return False
+
+
 def main() -> None:
     """Initialize services, start background threads, and launch system tray app."""
     global tray_app, api_thread
 
     ensure_single_instance()
-
 
     logger.info(f"Starting {APP_NAME} v{APP_VERSION}")
     logger.info(f"Host: {settings.app_host}:{settings.app_port}")
@@ -172,7 +187,6 @@ def main() -> None:
 
     # 1. Initialize Database & Seed Rules
     initialize_database()
-
 
     # 2. Register Signal Handlers
     try:
@@ -191,6 +205,9 @@ def main() -> None:
     api_thread = run_api_server_in_thread(
         host=settings.app_host, port=settings.app_port
     )
+
+    # Wait for API server to bind socket and respond
+    wait_for_api_server(settings.app_host, settings.app_port)
 
     # 5. Start System Tray App (Detached)
     tray_app = SystemTrayApp(

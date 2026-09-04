@@ -42,10 +42,6 @@ def launch_app_window(url: str) -> bool:
     Returns:
         True if window was launched, False if fell back to browser.
     """
-    # 1. First check if a window is already open
-    if _bring_window_to_front():
-        return True
-
     # Dedicated isolated profile directory for MindLedger desktop window
     base_data_dir = os.path.join(
         os.environ.get("LOCALAPPDATA", os.path.expanduser("~")),
@@ -53,6 +49,15 @@ def launch_app_window(url: str) -> bool:
         "app_browser_profile",
     )
     os.makedirs(base_data_dir, exist_ok=True)
+
+    # Clean up any stale Chromium singleton locks from previous crashes
+    for lock_name in ["lockfile", "SingletonLock", "SingletonCookie", "SingletonSocket"]:
+        lock_path = os.path.join(base_data_dir, lock_name)
+        if os.path.exists(lock_path):
+            try:
+                os.remove(lock_path)
+            except OSError:
+                pass
 
     # Browser candidates in order of preference (Chrome first, then Edge, then 64/32-bit paths)
     candidates = [
@@ -81,10 +86,7 @@ def launch_app_window(url: str) -> bool:
         ]
 
         try:
-            proc = subprocess.Popen(
-                [exe, *flags],
-                creationflags=getattr(subprocess, "DETACHED_PROCESS", 0),
-            )
+            proc = subprocess.Popen([exe, *flags])
             # Verify the process did not immediately crash or abort
             time.sleep(0.4)
             if proc.poll() is None or proc.returncode == 0:
@@ -94,12 +96,13 @@ def launch_app_window(url: str) -> bool:
                 logger.warning(
                     f"Browser candidate {exe} exited immediately with code {proc.returncode}. Trying next candidate."
                 )
-                lockfile = os.path.join(base_data_dir, "lockfile")
-                if os.path.exists(lockfile):
-                    try:
-                        os.remove(lockfile)
-                    except OSError:
-                        pass
+                for lock_name in ["lockfile", "SingletonLock"]:
+                    lp = os.path.join(base_data_dir, lock_name)
+                    if os.path.exists(lp):
+                        try:
+                            os.remove(lp)
+                        except OSError:
+                            pass
         except Exception as e:
             logger.debug(f"Failed to launch app mode with {exe}: {e}")
 
@@ -114,7 +117,7 @@ def launch_app_window(url: str) -> bool:
 
 
 def _bring_window_to_front() -> bool:
-    """Find and focus existing MindLedger desktop window if already open on screen.
+    """Find and focus existing MindLedger desktop dashboard window if already open on screen.
 
     Returns:
         True if an active MindLedger window was found and brought to front.
@@ -132,13 +135,28 @@ def _bring_window_to_front() -> bool:
         def enum_cb(hwnd, _):
             if win32gui.IsWindowVisible(hwnd):
                 title = win32gui.GetWindowText(hwnd)
-                # Match MindLedger standalone dashboard window, exclude IDE and terminal
+                cls = win32gui.GetClassName(hwnd)
+
+                # 1. Strictly exclude Windows File Explorer, Desktop, Taskbar, IDEs, and Consoles
+                if cls in ("CabinetWClass", "ExploreWClass", "Progman", "WorkerW", "Shell_TrayWnd"):
+                    return True
+                lower_title = title.lower()
                 if (
-                    "MindLedger" in title
-                    and "Visual Studio Code" not in title
-                    and "Antigravity IDE" not in title
-                    and "cmd" not in title.lower()
-                    and "powershell" not in title.lower()
+                    "file explorer" in lower_title
+                    or "visual studio code" in lower_title
+                    or "antigravity" in lower_title
+                    or "github" in lower_title
+                    or "cmd" in lower_title
+                    or "powershell" in lower_title
+                ):
+                    return True
+
+                # 2. Strictly match MindLedger dashboard window
+                if (
+                    "Digital Wellbeing Dashboard" in title
+                    or "MindLedger — Digital Wellbeing" in title
+                    or "127.0.0.1:8787/dashboard" in title
+                    or "127.0.0.1_/dashboard" in title
                 ):
                     found_hwnd.append(hwnd)
             return True
@@ -154,7 +172,7 @@ def _bring_window_to_front() -> bool:
 
             ctypes.windll.user32.SetForegroundWindow(target)
             ctypes.windll.user32.BringWindowToTop(target)
-            logger.info(f"Brought existing MindLedger window (HWND {target}) to foreground.")
+            logger.info(f"Brought existing MindLedger dashboard window (HWND {target}) to foreground.")
             return True
     except Exception as e:
         logger.debug(f"Win32 SetForegroundWindow skipped: {e}")
