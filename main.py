@@ -21,7 +21,7 @@ from database.migrations.v001_initial import up as run_v001_migration
 from database.migrations.v002_performance_indexes import up as run_v002_migration
 from database.repositories.app_session_repo import repair_runaway_sessions
 from database.seed_data import seed_database
-from tray_app import SystemTrayApp, open_native_desktop_window
+from tray_app import SystemTrayApp, open_native_desktop_window, close_native_desktop_window
 
 from utils.logger import get_logger
 
@@ -46,12 +46,29 @@ def ensure_single_instance() -> Optional[socket.socket]:
     try:
         _instance_lock_socket.bind(("127.0.0.1", 8788))
     except socket.error:
-        logger.warning("Another instance of MindLedger is already running. Opening dashboard in browser.")
+        logger.info("Another instance of MindLedger is already running. Signaling it to restore native window.")
+        signaled = False
         try:
-            import webbrowser
-            webbrowser.open(f"http://{settings.app_host}:{settings.app_port}/dashboard")
+            import urllib.request
+            req = urllib.request.Request(
+                f"http://{settings.app_host}:{settings.app_port}/api/v1/system/show-window",
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                if resp.status == 200:
+                    signaled = True
+                    logger.info("Successfully signaled running MindLedger instance to restore native window.")
         except Exception as e:
-            logger.error(f"Failed to open browser: {e}")
+            logger.debug(f"Could not signal running instance via API: {e}")
+
+        if not signaled:
+            # Fallback to standalone app mode window if API was not immediately reachable
+            try:
+                from tray_app import launch_app_window_fallback
+                launch_app_window_fallback(f"http://{settings.app_host}:{settings.app_port}/dashboard")
+            except Exception as e:
+                logger.error(f"Fallback launch failed: {e}")
+
         sys.exit(0)
     return _instance_lock_socket
 
@@ -133,6 +150,7 @@ def shutdown(signum: Optional[int] = None, frame: Optional[object] = None) -> No
 
     logger.info(f"Initiating graceful shutdown (signal={signum})...")
     stop_event.set()
+    close_native_desktop_window()
 
     if tray_app:
         tray_app.stop()

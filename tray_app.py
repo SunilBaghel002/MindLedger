@@ -21,14 +21,147 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+import os
+import shutil
+import subprocess
+
 _active_webview_window = None
+_is_shutting_down: bool = False
+
+
+def launch_app_window_fallback(url: str) -> bool:
+    """Launch standalone application window using Edge or Chrome App Mode.
+
+    This provides a standalone desktop window without browser tabs, URL bar,
+    or navigation controls when pywebview is unavailable.
+
+    Args:
+        url: Target local dashboard URL.
+
+    Returns:
+        True if an app window was launched, False if fell back to browser.
+    """
+    candidates = [
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        shutil.which("msedge"),
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        shutil.which("chrome"),
+    ]
+
+    for exe in candidates:
+        if exe and os.path.exists(exe):
+            try:
+                subprocess.Popen(
+                    [
+                        exe,
+                        f"--app={url}",
+                        "--window-size=1280,820",
+                        "--disable-extensions",
+                        "--disable-default-apps",
+                    ],
+                    creationflags=getattr(subprocess, "DETACHED_PROCESS", 0),
+                )
+                logger.info(f"Launched standalone app mode window via {exe}")
+                return True
+            except Exception as e:
+                logger.debug(f"Failed to launch app mode with {exe}: {e}")
+
+    # Final fallback to standard browser if app mode is impossible
+    try:
+        webbrowser.open(url)
+        return True
+    except Exception as e:
+        logger.error(f"Failed to open browser fallback: {e}")
+        return False
+
+
+def _bring_window_to_front() -> None:
+    """Ensure the native MindLedger window is brought to top of Z-order and focused."""
+    try:
+        import win32gui
+        import win32con
+
+        def enum_cb(hwnd, _):
+            if win32gui.IsWindowVisible(hwnd):
+                title = win32gui.GetWindowText(hwnd)
+                if APP_NAME in title:
+                    win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                    win32gui.SetForegroundWindow(hwnd)
+            return True
+
+        win32gui.EnumWindows(enum_cb, None)
+    except Exception as e:
+        logger.debug(f"Win32 SetForegroundWindow skipped: {e}")
+
+
+def show_native_desktop_window(url: Optional[str] = None) -> bool:
+    """Bring the native desktop window to foreground, or launch app window fallback.
+
+    Safe to call from any thread (main thread, tray thread, or background API thread).
+
+    Args:
+        url: Optional target dashboard URL.
+
+    Returns:
+        True if window was shown or opened successfully.
+    """
+    global _active_webview_window
+    target_url = url or f"http://{settings.app_host}:{settings.app_port}/dashboard"
+
+    if _active_webview_window is not None:
+        try:
+            _active_webview_window.show()
+            _active_webview_window.restore()
+            _bring_window_to_front()
+            logger.info("Restored existing native desktop window to foreground.")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to restore active webview window: {e}")
+
+    # If called from main thread before GUI loop has started
+    if threading.current_thread() is threading.main_thread() and _active_webview_window is None:
+        open_native_desktop_window(target_url)
+        return True
+
+    # Fallback to standalone app window without browser tabs
+    logger.info("Launching standalone application mode window fallback.")
+    return launch_app_window_fallback(target_url)
+
+
+def close_native_desktop_window() -> None:
+    """Signal shutdown and cleanly destroy the native desktop window."""
+    global _is_shutting_down, _active_webview_window
+    _is_shutting_down = True
+    if _active_webview_window is not None:
+        try:
+            _active_webview_window.destroy()
+            logger.info("Native desktop webview window destroyed cleanly.")
+        except Exception as e:
+            logger.debug(f"Error destroying webview window during shutdown: {e}")
+        _active_webview_window = None
 
 
 def open_native_desktop_window(url: Optional[str] = None) -> None:
-    """Launch native standalone desktop GUI window for MindLedger."""
+    """Launch native standalone desktop GUI window for MindLedger with close-to-tray persistence."""
+    global _active_webview_window, _is_shutting_down
     target_url = url or f"http://{settings.app_host}:{settings.app_port}/dashboard"
 
     try:
+        def _on_window_closing() -> bool:
+            """Intercept window closing: hide to system tray instead of exiting."""
+            global _is_shutting_down
+            if not _is_shutting_down:
+                try:
+                    if _active_webview_window is not None:
+                        _active_webview_window.hide()
+                        logger.info("MindLedger window hidden to system tray.")
+                except Exception as ex:
+                    logger.debug(f"Error hiding window on close: {ex}")
+                return False  # False cancels window destruction in pywebview
+            return True
+
         def _launch():
             global _active_webview_window
             _active_webview_window = webview.create_window(
@@ -39,17 +172,17 @@ def open_native_desktop_window(url: Optional[str] = None) -> None:
                 min_size=(900, 600),
                 resizable=True,
             )
+            _active_webview_window.events.closing += _on_window_closing
             webview.start()
 
         if threading.current_thread() is threading.main_thread():
             _launch()
         else:
-            # Fallback to browser open when invoked from secondary worker threads
-            webbrowser.open(target_url)
-        logger.info(f"Native desktop window opened pointing to: {target_url}")
+            show_native_desktop_window(target_url)
+        logger.info(f"Native desktop window initialized pointing to: {target_url}")
     except Exception as e:
-        logger.warning(f"Could not open pywebview native window ({e}), falling back to browser.")
-        webbrowser.open(target_url)
+        logger.warning(f"Could not open pywebview native window ({e}), falling back to app mode.")
+        launch_app_window_fallback(target_url)
 
 
 
@@ -174,12 +307,13 @@ class SystemTrayApp:
         """Open native desktop application GUI window."""
         dashboard_url = f"http://{settings.app_host}:{settings.app_port}/dashboard"
         logger.info(f"Opening native desktop GUI application window at: {dashboard_url}")
-        open_native_desktop_window(dashboard_url)
+        show_native_desktop_window(dashboard_url)
 
 
     def _on_quit(self, icon: pystray.Icon, item) -> None:
         """Handle Quit menu item click."""
         logger.info("Quit requested via system tray menu.")
+        close_native_desktop_window()
         self.stop()
         if self.on_quit_callback:
             self.on_quit_callback()
@@ -232,6 +366,7 @@ class SystemTrayApp:
     def stop(self) -> None:
         """Detach and stop the system tray icon."""
         self._stop_requested = True
+        close_native_desktop_window()
         if self.icon:
             try:
                 self.icon.stop()

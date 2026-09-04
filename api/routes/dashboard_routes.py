@@ -1175,3 +1175,21 @@ async def export_tracking_data(format: str = "json"):
     except Exception as e:
         logger.error(f"Failed to export data: {e}")
         raise HTTPException(status_code=500, detail="Failed to export data") from e
+
+
+@router.post("/system/show-window", response_model=APIResponse[Dict[str, Any]])
+@router.get("/system/show-window", response_model=APIResponse[Dict[str, Any]])
+async def api_show_window():
+    """Trigger the native desktop GUI window to un-hide and restore to foreground."""
+    try:
+        from tray_app import show_native_desktop_window
+
+        success = show_native_desktop_window()
+        return APIResponse(
+            success=True,
+            data={"restored": success, "message": "Window restored to foreground"},
+        )
+    except Exception as e:
+        logger.error(f"Error restoring native window via API: {e}")
+        return APIResponse(success=False, error=str(e))
+
