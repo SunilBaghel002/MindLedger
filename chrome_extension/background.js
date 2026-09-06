@@ -178,6 +178,32 @@ async function sendYouTubeEventToBackend(youtubeData, allowBuffer = true) {
 }
 
 /**
+ * Persist activeState to storage for resilience across MV3 service worker restarts
+ */
+async function saveActiveState() {
+  try {
+    await chrome.storage.local.set({ activeTrackingState: activeState });
+  } catch (e) {
+    console.warn('[MindLedger] Failed to save activeState:', e);
+  }
+}
+
+/**
+ * Restore activeState from storage on service worker restart
+ */
+async function loadActiveState() {
+  try {
+    const res = await chrome.storage.local.get(['activeTrackingState']);
+    if (res && res.activeTrackingState && res.activeTrackingState.url) {
+      activeState = { ...activeState, ...res.activeTrackingState };
+      console.log('[MindLedger] Restored activeState from local storage:', activeState.domain);
+    }
+  } catch (e) {
+    console.warn('[MindLedger] Failed to load activeState:', e);
+  }
+}
+
+/**
  * Finalize a specific session snapshot with custom end timestamp
  * @param {Object} sessionToFinalize
  * @param {number} endTimestamp
@@ -190,16 +216,16 @@ async function finalizeSessionSnapshot(sessionToFinalize, endTimestamp = Date.no
   // Use accumulated active seconds rather than raw clock delta (immune to sleep/standby)
   let durationSeconds = Math.round(sessionToFinalize.accumulatedSeconds || 0);
 
-  // Add remaining active delta if last heartbeat was recent (< 6 seconds)
+  // Add remaining active delta if last heartbeat was recent (< 10 seconds)
   if (sessionToFinalize.lastHeartbeat) {
     const delta = (endTimestamp - sessionToFinalize.lastHeartbeat) / 1000;
-    if (delta > 0 && delta <= 6) {
+    if (delta > 0 && delta <= 10) {
       durationSeconds += Math.round(delta);
     }
   }
 
-  // Hard safety limit: max 60 seconds per single session chunk
-  const MAX_SINGLE_SESSION_SECONDS = 60;
+  // Safety ceiling: max 600 seconds (10 mins) per chunk to prevent infinite sleep spikes
+  const MAX_SINGLE_SESSION_SECONDS = 600;
   if (durationSeconds > MAX_SINGLE_SESSION_SECONDS) {
     console.warn(`[MindLedger] Clamping single tab session duration from ${durationSeconds}s to ${MAX_SINGLE_SESSION_SECONDS}s.`);
     durationSeconds = MAX_SINGLE_SESSION_SECONDS;
@@ -236,6 +262,7 @@ async function finalizeCurrentSession() {
     lastHeartbeat: null,
     accumulatedSeconds: 0,
   };
+  await chrome.storage.local.remove(['activeTrackingState']);
   await finalizeSessionSnapshot(sessionCopy, Date.now());
 }
 
@@ -255,6 +282,7 @@ function startTrackingTab(tab) {
       lastHeartbeat: null,
       accumulatedSeconds: 0,
     };
+    chrome.storage.local.remove(['activeTrackingState']);
     return;
   }
 
@@ -272,28 +300,30 @@ function startTrackingTab(tab) {
     accumulatedSeconds: 0,
   };
 
+  saveActiveState();
   console.log(`[MindLedger] Started active tracking on tab #${tab.id}: ${activeState.domain}`);
 }
 
 /**
  * Perform active heartbeat tick.
- * Only accumulates time if Chrome is the focused window and system is not idle.
+ * Accumulates time if Chrome is the focused window (normal, app, or popup) and system is active.
  */
 async function performActiveHeartbeat() {
-  if (!activeState.url || !activeState.startTime) return;
+  if (!activeState.url || !activeState.startTime) {
+    await loadActiveState();
+    if (!activeState.url || !activeState.startTime) return;
+  }
 
   try {
-    // 1. Verify window focus
+    // 1. Verify window focus (support standard windows, PWAs/app windows like WhatsApp Web, and popups)
     const focusedWin = await chrome.windows.getLastFocused();
-    if (!focusedWin || !focusedWin.focused || focusedWin.type !== 'normal') {
-      // Focus left Chrome -> pause active tracking
+    if (!focusedWin || !focusedWin.focused || !['normal', 'app', 'popup'].includes(focusedWin.type)) {
       return;
     }
 
     // 2. Verify system idle state (within 60s)
     chrome.idle.queryState(60, async (state) => {
       if (state !== 'active') {
-        // System is idle or locked -> do not accumulate time
         return;
       }
 
@@ -305,7 +335,7 @@ async function performActiveHeartbeat() {
         activeState.accumulatedSeconds += deltaSec;
         activeState.lastHeartbeat = now;
       } else {
-        // Gap > 8s indicates laptop was asleep or timer was suspended -> discard the sleep gap!
+        // Gap > 8s indicates laptop was asleep or timer was suspended -> discard the sleep gap
         activeState.lastHeartbeat = now;
       }
 
@@ -325,6 +355,8 @@ async function performActiveHeartbeat() {
         activeState.startTime = now;
         await sendEventToBackend(chunkPayload);
       }
+
+      await saveActiveState();
     });
   } catch (e) {
     console.warn('[MindLedger] Heartbeat check warning:', e);
@@ -395,7 +427,7 @@ async function handleWindowFocusChanged(windowId) {
 
   try {
     const win = await chrome.windows.get(windowId);
-    if (win && win.type !== 'normal') {
+    if (win && !['normal', 'app', 'popup'].includes(win.type)) {
       return;
     }
 
@@ -421,7 +453,7 @@ async function handleIdleStateChanged(newState) {
     // System returned from idle -> check if Chrome window is focused
     try {
       const lastFocused = await chrome.windows.getLastFocused();
-      if (lastFocused && lastFocused.focused && lastFocused.type === 'normal') {
+      if (lastFocused && lastFocused.focused && ['normal', 'app', 'popup'].includes(lastFocused.type)) {
         const tabs = await chrome.tabs.query({ active: true, windowId: lastFocused.id });
         if (tabs && tabs.length > 0) {
           startTrackingTab(tabs[0]);
@@ -448,8 +480,45 @@ chrome.windows.onFocusChanged.addListener(handleWindowFocusChanged);
 // Periodically attempt to flush buffered events
 setInterval(flushBuffer, FLUSH_INTERVAL_MS);
 
-// Message Handler for Popup UI and Content Scripts
+// Message Handler for Popup UI, Content Scripts, and Keepalive Tracker
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'HEARTBEAT_TICK') {
+    (async () => {
+      // If service worker just woke up or activeState is uninitialized, recover from sender tab
+      if (!activeState.url && sender.tab) {
+        startTrackingTab(sender.tab);
+      } else if (activeState.url === request.url || (sender.tab && sender.tab.id === activeState.tabId)) {
+        const now = Date.now();
+        const delta = (now - (activeState.lastHeartbeat || now)) / 1000;
+        if (delta > 0 && delta <= 30) {
+          activeState.accumulatedSeconds += delta;
+        }
+        activeState.lastHeartbeat = now;
+        if (request.title) activeState.title = request.title;
+
+        // Flush chunk if accumulated >= 30 seconds
+        if (activeState.accumulatedSeconds >= 30) {
+          const chunkDuration = Math.round(activeState.accumulatedSeconds);
+          const chunkPayload = {
+            url: activeState.url,
+            domain: activeState.domain,
+            title: activeState.title || activeState.url,
+            started_at: new Date(activeState.startTime || (now - chunkDuration * 1000)).toISOString(),
+            ended_at: new Date(now).toISOString(),
+            duration_seconds: chunkDuration,
+            tab_id: activeState.tabId,
+          };
+          activeState.accumulatedSeconds = 0;
+          activeState.startTime = now;
+          await sendEventToBackend(chunkPayload);
+        }
+        await saveActiveState();
+      }
+    })();
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (request.type === 'YOUTUBE_EVENT') {
     checkDateReset();
     if (request.video_id) {
@@ -556,21 +625,41 @@ function checkDomainBlocked(tabId, url) {
   }
 }
 
-// Alarms: Keepalive Heartbeat (1 min) to flush buffers and sync limits
+// Alarms: Keepalive Heartbeat (1 min) to flush buffers, sync limits, and commit active tab time
 chrome.alarms.create('mindledger_heartbeat', { periodInMinutes: 1 });
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'mindledger_heartbeat') {
+    // Flush current active tab accumulated seconds if >= 10s
+    if (activeState.url && activeState.accumulatedSeconds >= 10) {
+      const now = Date.now();
+      const chunkDuration = Math.round(activeState.accumulatedSeconds);
+      const chunkPayload = {
+        url: activeState.url,
+        domain: activeState.domain,
+        title: activeState.title || activeState.url,
+        started_at: new Date(activeState.startTime || (now - chunkDuration * 1000)).toISOString(),
+        ended_at: new Date(now).toISOString(),
+        duration_seconds: chunkDuration,
+        tab_id: activeState.tabId,
+      };
+      activeState.accumulatedSeconds = 0;
+      activeState.startTime = now;
+      await sendEventToBackend(chunkPayload);
+      await saveActiveState();
+    }
     await flushBuffer();
     await syncBlockedDomains();
   }
 });
 
-// Initialize tracking on service worker startup
-chrome.tabs.query({ active: true, lastFocusedWindow: true }).then((tabs) => {
-  if (tabs && tabs.length > 0) {
-    startTrackingTab(tabs[0]);
-  }
+// Initialize tracking on service worker startup with storage recovery
+loadActiveState().then(() => {
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }).then((tabs) => {
+    if (tabs && tabs.length > 0 && isValidTrackableUrl(tabs[0].url)) {
+      startTrackingTab(tabs[0]);
+    }
+  });
 });
 syncBlockedDomains();
 
-console.log('[MindLedger] Background service worker initialized with active heartbeat & sleep-gap protection.');
+console.log('[MindLedger] Background service worker initialized with persistent storage, keepalive content script, & PWA/app window support.');

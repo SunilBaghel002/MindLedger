@@ -144,27 +144,47 @@ class AppSessionRepository:
             limit: Maximum number of apps to return.
 
         Returns:
-            List of dicts containing app_name, category, productivity, and total_seconds.
+            List of dicts containing app_name, dominant category, dominant productivity, and total_seconds.
         """
         sessions = self.get_by_date(date_str)
-        app_aggregates: Dict[str, Dict[str, Any]] = {}
+        app_stats: Dict[str, Dict[str, Any]] = {}
         for s in sessions:
             if not s.is_foreground:
                 continue
-            if s.app_name not in app_aggregates:
-                app_aggregates[s.app_name] = {
+            if s.app_name not in app_stats:
+                app_stats[s.app_name] = {
                     "app_name": s.app_name,
-                    "category": s.category,
-                    "productivity": s.productivity,
+                    "cat_seconds": {},
+                    "prod_seconds": {},
                     "total_seconds": 0,
                 }
-            app_aggregates[s.app_name]["total_seconds"] += s.duration_seconds
+            entry = app_stats[s.app_name]
+            entry["total_seconds"] += s.duration_seconds
+            cat = s.category or "uncategorized"
+            prod = s.productivity or "neutral"
+            entry["cat_seconds"][cat] = entry["cat_seconds"].get(cat, 0) + s.duration_seconds
+            entry["prod_seconds"][prod] = entry["prod_seconds"].get(prod, 0) + s.duration_seconds
 
-        sorted_apps = sorted(
-            app_aggregates.values(),
-            key=lambda x: x["total_seconds"],
-            reverse=True,
-        )
+        sorted_apps = []
+        for app_name, data in app_stats.items():
+            dominant_cat = (
+                max(data["cat_seconds"].items(), key=lambda x: x[1])[0]
+                if data["cat_seconds"]
+                else "uncategorized"
+            )
+            dominant_prod = (
+                max(data["prod_seconds"].items(), key=lambda x: x[1])[0]
+                if data["prod_seconds"]
+                else "neutral"
+            )
+            sorted_apps.append({
+                "app_name": app_name,
+                "category": dominant_cat,
+                "productivity": dominant_prod,
+                "total_seconds": data["total_seconds"],
+            })
+
+        sorted_apps.sort(key=lambda x: x["total_seconds"], reverse=True)
         return sorted_apps[:limit]
 
     def get_latest_session(self) -> Optional[AppSession]:
@@ -225,37 +245,63 @@ class AppSessionRepository:
         if category and category.lower() != "all":
             cursor = self.conn.execute(
                 """
-                SELECT app_name, MAX(category) as category, MAX(productivity) as productivity, SUM(duration_seconds) as total_seconds
+                SELECT app_name, category, productivity, SUM(duration_seconds) as total_seconds
                 FROM app_sessions
                 WHERE date >= ? AND date <= ? AND is_foreground = 1 AND (LOWER(productivity) = ? OR LOWER(category) = ?)
-                GROUP BY app_name
-                ORDER BY total_seconds DESC
-                LIMIT ?
+                GROUP BY app_name, category, productivity
                 """,
-                (start_date, end_date, category.lower(), category.lower(), limit),
+                (start_date, end_date, category.lower(), category.lower()),
             )
         else:
             cursor = self.conn.execute(
                 """
-                SELECT app_name, MAX(category) as category, MAX(productivity) as productivity, SUM(duration_seconds) as total_seconds
+                SELECT app_name, category, productivity, SUM(duration_seconds) as total_seconds
                 FROM app_sessions
                 WHERE date >= ? AND date <= ? AND is_foreground = 1
-                GROUP BY app_name
-                ORDER BY total_seconds DESC
-                LIMIT ?
+                GROUP BY app_name, category, productivity
                 """,
-                (start_date, end_date, limit),
+                (start_date, end_date),
             )
 
-        return [
-            {
-                "app_name": row["app_name"],
-                "category": row["category"],
-                "productivity": row["productivity"],
-                "total_seconds": row["total_seconds"],
-            }
-            for row in cursor.fetchall()
-        ]
+        app_map: Dict[str, Dict[str, Any]] = {}
+        for row in cursor.fetchall():
+            app_name = row["app_name"]
+            sec = int(row["total_seconds"] or 0)
+            cat = row["category"] or "uncategorized"
+            prod = row["productivity"] or "neutral"
+
+            if app_name not in app_map:
+                app_map[app_name] = {
+                    "app_name": app_name,
+                    "total_seconds": 0,
+                    "cat_seconds": {},
+                    "prod_seconds": {},
+                }
+            app_map[app_name]["total_seconds"] += sec
+            app_map[app_name]["cat_seconds"][cat] = app_map[app_name]["cat_seconds"].get(cat, 0) + sec
+            app_map[app_name]["prod_seconds"][prod] = app_map[app_name]["prod_seconds"].get(prod, 0) + sec
+
+        results = []
+        for app_name, data in app_map.items():
+            dominant_cat = (
+                max(data["cat_seconds"].items(), key=lambda x: x[1])[0]
+                if data["cat_seconds"]
+                else "uncategorized"
+            )
+            dominant_prod = (
+                max(data["prod_seconds"].items(), key=lambda x: x[1])[0]
+                if data["prod_seconds"]
+                else "neutral"
+            )
+            results.append({
+                "app_name": app_name,
+                "category": dominant_cat,
+                "productivity": dominant_prod,
+                "total_seconds": data["total_seconds"],
+            })
+
+        results.sort(key=lambda x: x["total_seconds"], reverse=True)
+        return results[:limit]
 
     def get_daily_app_trend(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
         """Calculate total application screen time per day for trend line chart.
