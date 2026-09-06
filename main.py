@@ -216,7 +216,16 @@ def main() -> None:
     # 1. Initialize Database & Seed Rules
     initialize_database()
 
-    # 2. Register Signal Handlers
+    # 2. Ensure Windows Autostart on boot is enabled
+    try:
+        from utils.autostart import AutostartManager
+        autostart_mgr = AutostartManager()
+        if not autostart_mgr.is_enabled():
+            autostart_mgr.enable()
+    except Exception as e:
+        logger.warning(f"Could not verify/enable autostart: {e}")
+
+    # 3. Register Signal Handlers
     try:
         signal.signal(signal.SIGINT, shutdown)
         signal.signal(signal.SIGTERM, shutdown)

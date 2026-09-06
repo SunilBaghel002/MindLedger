@@ -58,9 +58,11 @@ from database.repositories.category_rule_repo import CategoryRuleRepository
 from database.repositories.settings_repo import SettingsRepository
 from database.repositories.summary_repo import SummaryRepository
 from database.repositories.youtube_repo import YouTubeRepository
+from ai.rules_engine import RulesEngine
 from reports.email_sender import EmailSender
 from reports.report_generator import ReportGenerator
 from reports.template_renderer import TemplateRenderer
+from utils.browser_utils import extract_domain_from_window_title
 from utils.logger import get_logger
 from utils.profiler import system_profiler
 
@@ -325,7 +327,7 @@ async def get_dashboard_vitals() -> APIResponse[DashboardVitalsData]:
 async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="date", description="Date in YYYY-MM-DD format")) -> APIResponse[DashboardTodayData]:
     """Get dashboard overview data for target date (defaults to today)."""
     try:
-        today_str = target_date or date.today().isoformat()
+        today_str = target_date if isinstance(target_date, str) and target_date else date.today().isoformat()
 
         with db_manager.connection() as conn:
             app_repo = AppSessionRepository(conn)
@@ -369,11 +371,43 @@ async def get_today_dashboard(target_date: Optional[str] = Query(None, alias="da
             for item in top_apps_raw
         ]
 
-        # Ensure website domain durations cannot exceed Chrome foreground active time
-        top_websites = []
+        # Dual-Engine Domain Synthesis: Reconcile browser extension data with foreground desktop window titles
+        domain_aggregates: Dict[str, Dict[str, Any]] = {}
         for item in top_domains_raw:
+            domain_aggregates[item["domain"]] = {
+                "domain": item["domain"],
+                "category": item["category"],
+                "productivity": item["productivity"],
+                "total_seconds": item["total_seconds"],
+                "desktop_sec": 0,
+            }
+
+        with db_manager.connection() as conn_rules:
+            rules_eng = RulesEngine(db_conn=conn_rules)
+            for s in fg_sessions:
+                if "chrome" in (s.app_name or "").lower() and s.window_title and s.duration_seconds > 0:
+                    dom = extract_domain_from_window_title(s.window_title)
+                    if dom:
+                        if dom not in domain_aggregates:
+                            cat, sub, prod = rules_eng.classify_browser(url="", domain=dom, page_title=s.window_title)
+                            domain_aggregates[dom] = {
+                                "domain": dom,
+                                "category": cat,
+                                "productivity": prod,
+                                "total_seconds": 0,
+                                "desktop_sec": 0,
+                            }
+                        domain_aggregates[dom]["desktop_sec"] += s.duration_seconds
+                        domain_aggregates[dom]["total_seconds"] = max(
+                            domain_aggregates[dom]["total_seconds"],
+                            domain_aggregates[dom]["desktop_sec"],
+                        )
+
+        sorted_domains = sorted(domain_aggregates.values(), key=lambda x: x["total_seconds"], reverse=True)
+
+        top_websites = []
+        for item in sorted_domains[:5]:
             raw_sec = item["total_seconds"]
-            # If browser extension was running while asleep, cap domain seconds to chrome foreground time
             effective_sec = min(raw_sec, chrome_foreground_sec) if chrome_foreground_sec > 0 else raw_sec
             top_websites.append(
                 DomainSummaryItem(

@@ -137,24 +137,52 @@ class BrowserSessionRepository:
         """
         cursor = self.conn.execute(
             """
-            SELECT domain, MAX(category) as category, MAX(productivity) as productivity, SUM(duration_seconds) as total_seconds
+            SELECT domain, category, productivity, SUM(duration_seconds) as total_seconds
             FROM browser_sessions
             WHERE date = ?
-            GROUP BY domain
-            ORDER BY total_seconds DESC
-            LIMIT ?
+            GROUP BY domain, category, productivity
             """,
-            (date_str, limit),
+            (date_str,),
         )
-        return [
-            {
-                "domain": row["domain"],
-                "category": row["category"],
-                "productivity": row["productivity"],
-                "total_seconds": row["total_seconds"],
-            }
-            for row in cursor.fetchall()
-        ]
+        domain_map: Dict[str, Dict[str, Any]] = {}
+        for row in cursor.fetchall():
+            domain = row["domain"]
+            sec = int(row["total_seconds"] or 0)
+            cat = row["category"] or "browsing"
+            prod = row["productivity"] or "neutral"
+
+            if domain not in domain_map:
+                domain_map[domain] = {
+                    "domain": domain,
+                    "total_seconds": 0,
+                    "cat_seconds": {},
+                    "prod_seconds": {},
+                }
+            domain_map[domain]["total_seconds"] += sec
+            domain_map[domain]["cat_seconds"][cat] = domain_map[domain]["cat_seconds"].get(cat, 0) + sec
+            domain_map[domain]["prod_seconds"][prod] = domain_map[domain]["prod_seconds"].get(prod, 0) + sec
+
+        results = []
+        for domain, data in domain_map.items():
+            dominant_cat = (
+                max(data["cat_seconds"].items(), key=lambda x: x[1])[0]
+                if data["cat_seconds"]
+                else "browsing"
+            )
+            dominant_prod = (
+                max(data["prod_seconds"].items(), key=lambda x: x[1])[0]
+                if data["prod_seconds"]
+                else "neutral"
+            )
+            results.append({
+                "domain": domain,
+                "category": dominant_cat,
+                "productivity": dominant_prod,
+                "total_seconds": data["total_seconds"],
+            })
+
+        results.sort(key=lambda x: x["total_seconds"], reverse=True)
+        return results[:limit]
 
     def get_by_date_range(self, start_date: str, end_date: str) -> List[BrowserSession]:
         """Fetch all browser sessions between start_date and end_date inclusive.
@@ -190,38 +218,67 @@ class BrowserSessionRepository:
         if category and category.lower() != "all":
             cursor = self.conn.execute(
                 """
-                SELECT domain, MAX(category) as category, MAX(productivity) as productivity, SUM(duration_seconds) as total_seconds, COUNT(id) as visit_count
+                SELECT domain, category, productivity, SUM(duration_seconds) as total_seconds, COUNT(id) as visit_count
                 FROM browser_sessions
                 WHERE date >= ? AND date <= ? AND (LOWER(productivity) = ? OR LOWER(category) = ?)
-                GROUP BY domain
-                ORDER BY total_seconds DESC
-                LIMIT ?
+                GROUP BY domain, category, productivity
                 """,
-                (start_date, end_date, category.lower(), category.lower(), limit),
+                (start_date, end_date, category.lower(), category.lower()),
             )
         else:
             cursor = self.conn.execute(
                 """
-                SELECT domain, MAX(category) as category, MAX(productivity) as productivity, SUM(duration_seconds) as total_seconds, COUNT(id) as visit_count
+                SELECT domain, category, productivity, SUM(duration_seconds) as total_seconds, COUNT(id) as visit_count
                 FROM browser_sessions
                 WHERE date >= ? AND date <= ?
-                GROUP BY domain
-                ORDER BY total_seconds DESC
-                LIMIT ?
+                GROUP BY domain, category, productivity
                 """,
-                (start_date, end_date, limit),
+                (start_date, end_date),
             )
 
-        return [
-            {
-                "domain": row["domain"],
-                "category": row["category"],
-                "productivity": row["productivity"],
-                "total_seconds": row["total_seconds"],
-                "visit_count": row["visit_count"],
-            }
-            for row in cursor.fetchall()
-        ]
+        domain_map: Dict[str, Dict[str, Any]] = {}
+        for row in cursor.fetchall():
+            domain = row["domain"]
+            sec = int(row["total_seconds"] or 0)
+            cnt = int(row["visit_count"] or 0)
+            cat = row["category"] or "browsing"
+            prod = row["productivity"] or "neutral"
+
+            if domain not in domain_map:
+                domain_map[domain] = {
+                    "domain": domain,
+                    "total_seconds": 0,
+                    "visit_count": 0,
+                    "cat_seconds": {},
+                    "prod_seconds": {},
+                }
+            domain_map[domain]["total_seconds"] += sec
+            domain_map[domain]["visit_count"] += cnt
+            domain_map[domain]["cat_seconds"][cat] = domain_map[domain]["cat_seconds"].get(cat, 0) + sec
+            domain_map[domain]["prod_seconds"][prod] = domain_map[domain]["prod_seconds"].get(prod, 0) + sec
+
+        results = []
+        for domain, data in domain_map.items():
+            dominant_cat = (
+                max(data["cat_seconds"].items(), key=lambda x: x[1])[0]
+                if data["cat_seconds"]
+                else "browsing"
+            )
+            dominant_prod = (
+                max(data["prod_seconds"].items(), key=lambda x: x[1])[0]
+                if data["prod_seconds"]
+                else "neutral"
+            )
+            results.append({
+                "domain": domain,
+                "category": dominant_cat,
+                "productivity": dominant_prod,
+                "total_seconds": data["total_seconds"],
+                "visit_count": data["visit_count"],
+            })
+
+        results.sort(key=lambda x: x["total_seconds"], reverse=True)
+        return results[:limit]
 
     def get_urls_for_domain(
         self, domain: str, start_date: str, end_date: str, limit: int = 50

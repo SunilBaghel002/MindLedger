@@ -114,38 +114,80 @@ class RulesEngine:
         app_lower = app_name.lower().strip()
         clean_app = app_lower[:-4] if app_lower.endswith(".exe") else app_lower
         title_lower = window_title.lower().strip() if window_title else ""
+        is_browser = any(k in clean_app for k in ["chrome", "edge", "msedge", "browser", "firefox", "brave", "opera"])
 
-        # 1. Match against active rules ordered strictly by priority DESC (both 'app' and 'title_pattern')
         sorted_rules = sorted(self.rules, key=lambda r: r.priority, reverse=True)
+
+        # 1. Match title_pattern rules (priority ordered)
+        if title_lower:
+            for rule in sorted_rules:
+                if rule.rule_type == "title_pattern":
+                    pattern_lower = rule.pattern.lower().strip()
+                    if re.search(r"\b" + re.escape(pattern_lower) + r"\b", title_lower):
+                        return rule.category, rule.subcategory, rule.productivity
+
+        # 2. For browser windows, evaluate domain rules and rich title heuristics BEFORE generic browser fallback
+        if is_browser and title_lower:
+            clean_web_title = re.sub(
+                r"\s*-\s*(google chrome|microsoft edge|edge|firefox|brave|opera)$",
+                "",
+                title_lower,
+            ).strip()
+            if clean_web_title in ["google chrome", "chrome", "new tab", "untitled", "browser"]:
+                clean_web_title = ""
+
+            if clean_web_title:
+                # Check domain rules where domain name appears in web page title
+                for rule in sorted_rules:
+                    if rule.rule_type == "domain":
+                        dom_clean = rule.pattern.lower().strip().replace("www.", "")
+                        dom_root = dom_clean.split(".")[0]
+                        if dom_root == "google" and not any(k in clean_web_title for k in ["search", "google search"]):
+                            continue
+                        if len(dom_root) >= 4 and dom_root in clean_web_title:
+                            if dom_root == "youtube" and "music" in clean_web_title:
+                                return CATEGORY_MUSIC, "streaming", PRODUCTIVITY_NEUTRAL
+                            return rule.category, rule.subcategory, rule.productivity
+
+                # Comprehensive window title heuristics for web content
+                if "youtube music" in clean_web_title:
+                    return CATEGORY_MUSIC, "streaming", PRODUCTIVITY_NEUTRAL
+                if any(k in clean_web_title for k in ["linkedin"]):
+                    return CATEGORY_JOB_SEARCH, "portal", PRODUCTIVITY_PRODUCTIVE
+                if any(k in clean_web_title for k in ["whatsapp"]):
+                    return CATEGORY_COMMUNICATION, "chat", PRODUCTIVITY_NEUTRAL
+                if any(k in clean_web_title for k in ["swayam", "nptel", "coursera", "udemy", "edx", "lmarina", "khan academy"]):
+                    return CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE
+                if any(k in clean_web_title for k in ["chatgpt", "claude", "openai", "arena.ai", "lmarena", "kie.ai", "v0 by vercel", "piax", "experiential"]):
+                    return CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE
+                if any(k in clean_web_title for k in ["github", "gitlab", "leetcode", "hackerrank", "stackoverflow"]):
+                    return CATEGORY_CODING, "git" if "git" in clean_web_title else "practice", PRODUCTIVITY_PRODUCTIVE
+                if any(re.search(r"\b" + re.escape(k) + r"\b", clean_web_title) for k in ["gate", "gate smashers", "neso academy", "knowledge gate"]):
+                    return CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE
+                if "youtube" in clean_web_title:
+                    if any(k in clean_web_title for k in PRODUCTIVE_YOUTUBE_KEYWORDS):
+                        return CATEGORY_LEARNING, "tutorial", PRODUCTIVITY_PRODUCTIVE
+                    if any(k in clean_web_title for k in MUSIC_YOUTUBE_KEYWORDS):
+                        return CATEGORY_MUSIC, "streaming", PRODUCTIVITY_NEUTRAL
+                    if any(k in clean_web_title for k in ENTERTAINMENT_YOUTUBE_KEYWORDS):
+                        return CATEGORY_ENTERTAINMENT, "video", PRODUCTIVITY_UNPRODUCTIVE
+
+        # 3. Match app-level rules for non-browsers, or as fallback for browsers
         for rule in sorted_rules:
             if rule.rule_type == "app":
                 pattern_lower = rule.pattern.lower().strip()
                 clean_pattern = pattern_lower[:-4] if pattern_lower.endswith(".exe") else pattern_lower
-
                 if app_lower == pattern_lower or clean_app == clean_pattern or clean_pattern in clean_app:
                     return rule.category, rule.subcategory, rule.productivity
 
-            elif rule.rule_type == "title_pattern" and title_lower:
-                pattern_lower = rule.pattern.lower().strip()
-                if re.search(r"\b" + re.escape(pattern_lower) + r"\b", title_lower):
-                    return rule.category, rule.subcategory, rule.productivity
-
-        # 2. Window title fallback heuristics when no DB rule matched
+        # 4. Fallback heuristics for non-browser window titles
         if title_lower:
-            if any(k in title_lower for k in ["leetcode"]):
-                return CATEGORY_CODING, "practice", PRODUCTIVITY_PRODUCTIVE
-            if any(k in title_lower for k in ["github", "gitlab"]):
-                return CATEGORY_CODING, "git", PRODUCTIVITY_PRODUCTIVE
-            if any(k in title_lower for k in ["chatgpt", "claude", "openai"]):
-                return CATEGORY_CODING, "ai_assist", PRODUCTIVITY_PRODUCTIVE
-            if any(k in title_lower for k in ["lmarina"]):
-                return CATEGORY_LEARNING, "course", PRODUCTIVITY_PRODUCTIVE
-            if any(re.search(r"\b" + re.escape(k) + r"\b", title_lower) for k in ["gate", "gate smashers", "neso academy", "knowledge gate"]):
-                return CATEGORY_LEARNING, "gate_prep", PRODUCTIVITY_PRODUCTIVE
             if any(k in title_lower for k in ["visual studio code", "vscode", "pycharm", "sublime text", "intellij", "git", "terminal"]):
                 return CATEGORY_CODING, "ide", PRODUCTIVITY_PRODUCTIVE
+            if any(k in title_lower for k in ["whatsapp"]):
+                return CATEGORY_COMMUNICATION, "chat", PRODUCTIVITY_NEUTRAL
 
-        # 3. Process name fallback heuristics
+        # 5. Process name fallback heuristics
         if any(k in clean_app for k in ["chrome", "edge", "msedge", "browser", "firefox", "brave", "opera"]):
             return CATEGORY_BROWSING, "web", PRODUCTIVITY_NEUTRAL
         if any(k in clean_app for k in ["code", "pycharm", "python", "idea", "clion", "rider", "studio", "cursor", "antigravity", "sublime", "git", "terminal", "powershell", "cmd"]):
