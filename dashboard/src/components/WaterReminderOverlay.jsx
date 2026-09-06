@@ -216,6 +216,29 @@ const speakHydrationPrompt = () => {
   }
 };
 
+const triggerWebNotification = () => {
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  try {
+    if (Notification.permission === 'granted') {
+      new Notification('💧 Hydration Reminder — Time to Drink!', {
+        body: 'Sunil, please drink a fresh glass of water to stay energized and focused!',
+        icon: '/logo.png',
+      });
+    } else if (Notification.permission === 'default') {
+      Notification.requestPermission().then((perm) => {
+        if (perm === 'granted') {
+          new Notification('💧 Hydration Reminder — Time to Drink!', {
+            body: 'Sunil, please drink a fresh glass of water to stay energized and focused!',
+            icon: '/logo.png',
+          });
+        }
+      });
+    }
+  } catch {
+    // browser notification fallback
+  }
+};
+
 const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss }) => {
   const [phase, setPhase] = useState('hidden');
   const [isFrontSprite, setIsFrontSprite] = useState(false);
@@ -227,15 +250,24 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
     timeoutsRef.current = [];
   }, []);
 
-  // Pre-load speech synthesis voices
+  // Pre-load speech synthesis voices and request notification permission
   useEffect(() => {
     injectKeyframes();
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.getVoices();
-      if (window.speechSynthesis.onvoiceschanged !== undefined) {
-        window.speechSynthesis.onvoiceschanged = () => {
-          window.speechSynthesis.getVoices();
-        };
+    if (typeof window !== 'undefined') {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.getVoices();
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+          window.speechSynthesis.onvoiceschanged = () => {
+            window.speechSynthesis.getVoices();
+          };
+        }
+      }
+      if ('Notification' in window && Notification.permission === 'default') {
+        try {
+          Notification.requestPermission();
+        } catch {
+          // ignore
+        }
       }
     }
   }, []);
@@ -247,6 +279,8 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
       hasSpokenRef.current = false;
       setIsFrontSprite(false);
       setPhase('walking_in');
+      triggerWebNotification();
+
 
       // 1. Walk in completes -> Start turning to face the user
       const t1 = setTimeout(() => {

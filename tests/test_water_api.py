@@ -66,3 +66,60 @@ def test_get_water_history_endpoint():
     assert payload["success"] is True
     assert "days_logged" in payload["data"]
     assert isinstance(payload["data"]["history"], list)
+
+
+def test_test_notification_and_dismiss_endpoints():
+    """Verify POST /api/v1/water/test-notification triggers reminder and POST /dismiss clears it."""
+    # Trigger test notification
+    response = client.post("/api/v1/water/test-notification")
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["data"]["reminder_due"] is True
+
+    # Status reflects reminder_due = True
+    status_resp = client.get("/api/v1/water/status")
+    assert status_resp.status_code == 200
+    assert status_resp.json()["data"]["reminder_due"] is True
+
+    # Dismiss reminder
+    dismiss_resp = client.post("/api/v1/water/dismiss")
+    assert dismiss_resp.status_code == 200
+    assert dismiss_resp.json()["data"]["reminder_due"] is False
+
+    # Status reflects reminder_due = False
+    status_after = client.get("/api/v1/water/status")
+    assert status_after.json()["data"]["reminder_due"] is False
+
+
+def test_delete_water_log_and_clear_endpoints():
+    """Verify DELETE /api/v1/water/logs/{log_id} and DELETE /api/v1/water/logs."""
+    # Log two drinks
+    r1 = client.post("/api/v1/water/drink", json={"amount_ml": 250, "source": "test"})
+    assert r1.status_code == 200
+    r2 = client.post("/api/v1/water/drink", json={"amount_ml": 500, "source": "test"})
+    assert r2.status_code == 200
+
+    # Fetch logs list
+    logs_resp = client.get("/api/v1/water/logs")
+    assert logs_resp.status_code == 200
+    logs = logs_resp.json()["data"]["logs"]
+    assert len(logs) >= 2
+
+    # Delete the latest log
+    target_id = logs[0]["id"]
+    del_resp = client.delete(f"/api/v1/water/logs/{target_id}")
+    assert del_resp.status_code == 200
+    assert del_resp.json()["success"] is True
+
+    # Clear remaining logs for today
+    clear_resp = client.delete("/api/v1/water/logs")
+    assert clear_resp.status_code == 200
+    assert clear_resp.json()["success"] is True
+
+    # Confirm today's logs are empty
+    after_clear_resp = client.get("/api/v1/water/logs")
+    assert len(after_clear_resp.json()["data"]["logs"]) == 0
+
+

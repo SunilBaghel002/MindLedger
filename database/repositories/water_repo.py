@@ -117,3 +117,17 @@ class WaterRepository:
             (f"-{days} days",),
         )
         return [dict(r) for r in cursor.fetchall()]
+
+    def delete_log(self, log_id: int) -> bool:
+        """Delete a single hydration log by ID."""
+        cursor = self.conn.execute("DELETE FROM water_logs WHERE id = ?", (log_id,))
+        self.conn.commit()
+        return cursor.rowcount > 0
+
+    def delete_logs_for_date(self, target_date: Optional[str] = None) -> int:
+        """Delete all hydration logs for a specific date (defaults to today)."""
+        d_str = target_date or date.today().isoformat()
+        cursor = self.conn.execute("DELETE FROM water_logs WHERE date(timestamp) = ?", (d_str,))
+        self.conn.commit()
+        return cursor.rowcount
+
