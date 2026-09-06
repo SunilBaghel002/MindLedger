@@ -65,3 +65,37 @@ def test_drink_resets_active_timer():
     assert scheduler.active_work_seconds == 0
     assert status["today_intake_ml"] >= 250
     assert status["glasses_drank"] >= 1
+    assert scheduler.reminder_due is False
+
+
+def test_reminder_due_state_and_dismiss():
+    """Verify reminder_due is set when active time elapses and cleared by dismiss."""
+    scheduler = HydrationScheduler(mode="custom", custom_interval_minutes=15)
+    assert scheduler.reminder_due is False
+
+    # Simulate 15 minutes (900 seconds) of active work
+    result = scheduler.tick(elapsed_wall_clock=900, is_user_active=True)
+    assert result is not None
+    assert result["event"] == "hydration_reminder"
+    assert scheduler.reminder_due is True
+
+    status = scheduler.get_status()
+    assert status["reminder_due"] is True
+    assert status["next_reminder_seconds"] == 0
+    assert status["next_reminder_formatted"] == "0m"
+
+    # User dismisses reminder
+    dismiss_status = scheduler.dismiss()
+    assert scheduler.reminder_due is False
+    assert dismiss_status["reminder_due"] is False
+    assert scheduler.active_work_seconds == 0
+
+
+def test_trigger_test_reminder():
+    """Verify trigger_test immediately sets reminder_due to True."""
+    scheduler = HydrationScheduler()
+    status = scheduler.trigger_test()
+    assert scheduler.reminder_due is True
+    assert status["reminder_due"] is True
+    assert "Test Alert" in status["reminder_message"]
+

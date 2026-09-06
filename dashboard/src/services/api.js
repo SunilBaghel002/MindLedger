@@ -172,6 +172,28 @@ class MindLedgerAPI {
         });
     }
 
+    async dismissWater() {
+        return this._request('/water/dismiss', {
+            method: 'POST',
+            body: JSON.stringify({}),
+        });
+    }
+
+    async deleteWaterLog(logId) {
+        return this._request(`/water/logs/${logId}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async clearWaterLogs(dateStr = '') {
+        const queryStr = dateStr ? `?date=${dateStr}` : '';
+        return this._request(`/water/logs${queryStr}`, {
+            method: 'DELETE',
+        });
+    }
+
+
+
     async getTodayApps() {
         return this._request('/apps/today');
     }

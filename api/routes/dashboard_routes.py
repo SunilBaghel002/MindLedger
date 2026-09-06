@@ -296,12 +296,27 @@ async def get_dashboard_vitals() -> APIResponse[DashboardVitalsData]:
             )
 
         # 4. Hydration status
-        hydration_vitals = HydrationVitalsDTO(
-            count=0,
-            goal=8,
-            volume_ml=0,
-            next_reminder_minutes=30,
-        )
+        try:
+            from core.hydration_scheduler import hydration_scheduler
+
+            h_status = hydration_scheduler.get_status()
+            hydration_vitals = HydrationVitalsDTO(
+                count=h_status.get("glasses_drank", 0),
+                goal=h_status.get("target_glasses", 8),
+                volume_ml=h_status.get("today_intake_ml", 0),
+                next_reminder_minutes=max(0, h_status.get("next_reminder_seconds", 0) // 60),
+                reminder_due=bool(h_status.get("reminder_due", False)),
+            )
+        except Exception as hyd_err:
+            logger.warning(f"Failed to read hydration vitals: {hyd_err}")
+            hydration_vitals = HydrationVitalsDTO(
+                count=0,
+                goal=8,
+                volume_ml=0,
+                next_reminder_minutes=30,
+                reminder_due=False,
+            )
+
 
         # 5. Limits Warning
         limits_warning: List[LimitWarningDTO] = []

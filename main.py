@@ -140,9 +140,15 @@ def tracking_loop() -> None:
                         is_user_active=is_user_active,
                         is_deep_work=is_deep_coding,
                     )
-                    # Reminder events are now handled by the frontend overlay
-                    # The hydration_scheduler tracks reminder_due state internally
-                    # and the dashboard polls /api/v1/water/status to show the overlay
+                    if reminder_event:
+                        logger.info(f"Hydration reminder event triggered: {reminder_event}")
+                        try:
+                            from tray_app import show_native_desktop_window
+
+                            show_native_desktop_window()
+                        except Exception as win_err:
+                            logger.debug(f"Could not restore desktop window for hydration: {win_err}")
+
 
                     if res and tray_app:
                         if res.get("status") == "active":

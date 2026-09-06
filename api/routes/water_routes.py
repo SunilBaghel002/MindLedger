@@ -155,9 +155,61 @@ async def get_today_water_logs(
         ) from e
 
 
+@router.delete("/logs/{log_id}")
+async def delete_water_log(log_id: int) -> APIResponse:
+    """Delete an accidental or test drink log entry by ID."""
+    try:
+        with db_manager.connection() as conn:
+            repo = WaterRepository(conn)
+            deleted = repo.delete_log(log_id)
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Log entry not found")
+
+        status_dict = hydration_scheduler.get_status()
+        return APIResponse(
+            success=True,
+            data={"deleted": True, "log_id": log_id, "status": status_dict},
+            error=None,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete water log {log_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete water log: {e}",
+        ) from e
+
+
+@router.delete("/logs")
+async def clear_water_logs(
+    target_date: Optional[str] = Query(None, alias="date", description="Date in YYYY-MM-DD format"),
+) -> APIResponse:
+    """Delete all drink log entries for target date (defaults to today)."""
+    try:
+        with db_manager.connection() as conn:
+            repo = WaterRepository(conn)
+            deleted_count = repo.delete_logs_for_date(target_date)
+
+        status_dict = hydration_scheduler.get_status(target_date)
+        return APIResponse(
+            success=True,
+            data={"deleted_count": deleted_count, "status": status_dict},
+            error=None,
+        )
+    except Exception as e:
+        logger.error(f"Failed to clear water logs: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clear water logs: {e}",
+        ) from e
+
+
 @router.post("/config")
 async def update_water_config(
     payload: dict,
+
 ) -> APIResponse:
     """Update smart hydration settings and goals."""
     try:
@@ -188,18 +240,51 @@ async def update_water_config(
         ) from e
 
 
-@router.post("/test-notification")
-async def test_water_notification() -> APIResponse:
-    """Trigger a test hydration reminder (visual notification handled by frontend overlay).
+@router.post("/dismiss", response_model=APIResponse[WaterStatusData])
+async def dismiss_water_reminder() -> APIResponse[WaterStatusData]:
+    """Dismiss current active hydration reminder without logging drink."""
+    try:
+        new_status = hydration_scheduler.dismiss()
+        return APIResponse(
+            success=True,
+            data=WaterStatusData(**new_status),
+            error=None,
+        )
+    except Exception as e:
+        logger.error(f"Failed to dismiss water reminder: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to dismiss reminder: {e}",
+        ) from e
 
-    This endpoint no longer calls any Windows OS notification APIs to prevent
-    BSOD crashes caused by Shell_NotifyIcon with emoji characters on systems
-    with third-party notification hook drivers.
+
+@router.post("/test-notification", response_model=APIResponse[WaterStatusData])
+async def test_water_notification() -> APIResponse[WaterStatusData]:
+    """Trigger an immediate test hydration reminder and un-minimize desktop window.
+
+    Visual notification is rendered safely by the in-app animated companion overlay.
     """
-    return APIResponse(
-        success=True,
-        data={"sent": True, "message": "Hydration reminder triggered! The animated overlay will appear in your dashboard."},
-        error=None,
-    )
+    try:
+        new_status = hydration_scheduler.trigger_test()
+        # Bring the native desktop window forward so user immediately sees the companion
+        try:
+            from tray_app import show_native_desktop_window
+
+            show_native_desktop_window()
+        except Exception as win_err:
+            logger.debug(f"Could not bring window forward during test alert: {win_err}")
+
+        return APIResponse(
+            success=True,
+            data=WaterStatusData(**new_status),
+            error=None,
+        )
+    except Exception as e:
+        logger.error(f"Failed to trigger test water notification: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to trigger test notification: {e}",
+        ) from e
+
 
 

@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import TopBar from './components/TopBar';
+import WaterReminderOverlay from './components/WaterReminderOverlay';
 import DashboardHome from './pages/DashboardHome';
 import ApplicationsPage from './pages/ApplicationsPage';
 import BrowserPage from './pages/BrowserPage';
@@ -36,6 +37,8 @@ export default function App() {
   const [dashboardData, setDashboardData] = useState(null);
   const [dashboardError, setDashboardError] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showWaterOverlay, setShowWaterOverlay] = useState(false);
+  const overlayShownRef = useRef(false);
 
   const fetchDashboard = async (isInitial = false) => {
     if (isInitial && !dashboardData) {
@@ -86,6 +89,76 @@ export default function App() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
+
+  // Global Hydration Polling & Companion Overlay Trigger
+  useEffect(() => {
+    const checkHydration = async () => {
+      try {
+        const waterStatus = await api.getWaterStatus();
+        if (waterStatus?.reminder_due && !overlayShownRef.current) {
+          overlayShownRef.current = true;
+          setShowWaterOverlay(true);
+        } else if (!waterStatus?.reminder_due) {
+          overlayShownRef.current = false;
+        }
+      } catch (err) {
+        // silent fail
+      }
+    };
+
+    checkHydration();
+    const waterInterval = setInterval(() => {
+      if (!document.hidden) {
+        checkHydration();
+      }
+    }, 5000);
+
+    const handleCustomTrigger = () => {
+      overlayShownRef.current = true;
+      setShowWaterOverlay(true);
+    };
+
+    window.addEventListener('mindledger:trigger-water-overlay', handleCustomTrigger);
+
+    return () => {
+      clearInterval(waterInterval);
+      window.removeEventListener('mindledger:trigger-water-overlay', handleCustomTrigger);
+    };
+  }, []);
+
+  const handleOverlayDrink = async () => {
+    try {
+      await api.logWaterDrink(250, 'notification_overlay');
+      fetchDashboard(false);
+    } catch (err) {
+      console.warn('Hydration overlay drink failed:', err);
+    } finally {
+      setShowWaterOverlay(false);
+      overlayShownRef.current = false;
+    }
+  };
+
+  const handleOverlayRemindLater = async () => {
+    try {
+      await api.snoozeWater(10);
+    } catch (err) {
+      console.warn('Hydration overlay snooze failed:', err);
+    } finally {
+      setShowWaterOverlay(false);
+      overlayShownRef.current = false;
+    }
+  };
+
+  const handleOverlayDismiss = async () => {
+    try {
+      await api.dismissWater();
+    } catch (err) {
+      console.warn('Hydration overlay dismiss failed:', err);
+    } finally {
+      setShowWaterOverlay(false);
+      overlayShownRef.current = false;
+    }
+  };
 
   const renderContent = () => {
     switch (activeSection) {
@@ -143,6 +216,14 @@ export default function App() {
         />
         <main className="content-body">{renderContent()}</main>
       </div>
+
+      <WaterReminderOverlay
+        visible={showWaterOverlay}
+        onDrinkWater={handleOverlayDrink}
+        onRemindLater={handleOverlayRemindLater}
+        onDismiss={handleOverlayDismiss}
+      />
     </div>
   );
 }
+

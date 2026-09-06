@@ -117,6 +117,7 @@ class HydrationVitalsDTO(BaseModel):
     goal: int = 8
     volume_ml: int = 0
     next_reminder_minutes: int = 30
+    reminder_due: bool = False
 
 
 class LimitWarningDTO(BaseModel):
@@ -799,6 +800,7 @@ class WaterStatusData(BaseModel):
 
     enabled: bool = True
     mode: str = "smart"  # "smart" or "custom"
+    custom_interval_minutes: int = 45
     next_reminder_seconds: int = 0
     next_reminder_formatted: str = "0m"
     today_intake_ml: int = 0
@@ -807,6 +809,8 @@ class WaterStatusData(BaseModel):
     target_glasses: int = 8
     percentage_completed: float = 0.0
     last_drank_at: Optional[str] = None
+    reminder_due: bool = False
+    reminder_message: Optional[str] = None
 
 
 class WaterDrinkRequest(BaseModel):

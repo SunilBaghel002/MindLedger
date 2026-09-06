@@ -178,6 +178,28 @@ export default function HydrationPage() {
     }
   };
 
+  const handleDeleteLog = async (logId) => {
+    try {
+      await api.deleteWaterLog(logId);
+      addToast('success', 'Drink log removed.', 'Log Deleted');
+      fetchData(true);
+    } catch (err) {
+      addToast('danger', err.message || 'Failed to delete drink log', 'Delete Error');
+    }
+  };
+
+  const handleClearTodayLogs = async () => {
+    if (!window.confirm("Are you sure you want to clear all drink logs for today?")) return;
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      await api.clearWaterLogs(todayStr);
+      addToast('success', 'All drink logs for today cleared.', 'Logs Cleared');
+      fetchData(true);
+    } catch (err) {
+      addToast('danger', err.message || 'Failed to clear logs', 'Clear Error');
+    }
+  };
+
   const handleTestNotification = () => {
     setIsTestMode(true);
     setShowOverlay(true);
@@ -575,7 +597,30 @@ export default function HydrationPage() {
               <FiClock style={{ color: '#3B82F6' }} />
               <h3 style={{ fontSize: '14px', fontWeight: 800, margin: 0, color: '#0F172A' }}>Today's Drink Logs</h3>
             </div>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{logs.length} Entries</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{logs.length} Entries</span>
+              {logs.length > 0 && (
+                <button
+                  onClick={handleClearTodayLogs}
+                  title="Clear all today's logs"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 8px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: '#EF4444',
+                    backgroundColor: '#FEE2E2',
+                    border: '1px solid #FECACA',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <FiTrash2 style={{ fontSize: '12px' }} /> Clear All
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
@@ -590,7 +635,8 @@ export default function HydrationPage() {
                   <tr style={{ background: '#F8FAFC' }}>
                     <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px' }}>Time</th>
                     <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px' }}>Amount</th>
-                    <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: '11px' }}>Source</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px' }}>Source</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: '11px' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -608,10 +654,32 @@ export default function HydrationPage() {
                         <td style={{ padding: '10px 16px', fontSize: '12px', fontWeight: 700, color: '#047857' }}>
                           +{log.amount_ml} ml
                         </td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right' }}>
+                        <td style={{ padding: '10px 16px' }}>
                           <span className="badge-pill" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', fontSize: '10px' }}>
                             {log.source || 'widget'}
                           </span>
+                        </td>
+                        <td style={{ padding: '10px 16px', textAlign: 'right' }}>
+                          <button
+                            onClick={() => handleDeleteLog(log.id)}
+                            title="Delete log"
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#94A3B8',
+                              cursor: 'pointer',
+                              padding: '4px',
+                              borderRadius: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'color 0.15s ease',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = '#EF4444')}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = '#94A3B8')}
+                          >
+                            <FiTrash2 style={{ fontSize: '14px' }} />
+                          </button>
                         </td>
                       </tr>
                     );

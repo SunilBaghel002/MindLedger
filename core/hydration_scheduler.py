@@ -37,6 +37,8 @@ class HydrationScheduler:
         self.snooze_seconds_remaining = 0
         self.last_check_timestamp = time.time()
         self.last_drank_at: Optional[str] = None
+        self.reminder_due: bool = False
+        self.reminder_message: Optional[str] = None
 
     def calculate_effective_interval_minutes(self, is_deep_work: bool = False, is_media: bool = False) -> int:
         """Calculate target interval based on operational mode and workload intensity."""
@@ -75,6 +77,8 @@ class HydrationScheduler:
             logger.info(f"Detected system wake-up after {int(elapsed_wall_clock / 60)}m. Gentle reset.")
             self.active_work_seconds = 0
             self.snooze_seconds_remaining = 0
+            self.reminder_due = False
+            self.reminder_message = None
             self.last_check_timestamp = now
             return {
                 "event": "welcome_back",
@@ -90,11 +94,17 @@ class HydrationScheduler:
         if self.snooze_seconds_remaining > 0:
             self.snooze_seconds_remaining = max(0, self.snooze_seconds_remaining - int(elapsed_wall_clock))
             if self.snooze_seconds_remaining == 0:
+                self.reminder_due = True
+                self.reminder_message = "Snooze finished! Time for a refreshing glass of water."
                 return {
                     "event": "hydration_reminder",
-                    "message": "Snooze finished! Time for a refreshing glass of water.",
+                    "message": self.reminder_message,
                     "amount_ml": 250,
                 }
+            return None
+
+        # If a reminder is already active and awaiting acknowledgement, do not re-trigger
+        if self.reminder_due:
             return None
 
         # Accumulate active work seconds
@@ -102,10 +112,11 @@ class HydrationScheduler:
         target_interval_secs = self.calculate_effective_interval_minutes(is_deep_work, is_media) * 60
 
         if self.active_work_seconds >= target_interval_secs:
-            self.active_work_seconds = 0
+            self.reminder_due = True
+            self.reminder_message = "You've been focused for a while. Hydrate to maintain peak brain performance!"
             return {
                 "event": "hydration_reminder",
-                "message": "You've been focused for a while. Hydrate to maintain peak brain performance!",
+                "message": self.reminder_message,
                 "amount_ml": 250,
             }
 
@@ -122,6 +133,8 @@ class HydrationScheduler:
         self.last_drank_at = ts
         self.active_work_seconds = 0
         self.snooze_seconds_remaining = 0
+        self.reminder_due = False
+        self.reminder_message = None
 
         with db_manager.connection() as conn:
             repo = WaterRepository(conn)
@@ -138,7 +151,24 @@ class HydrationScheduler:
     def snooze(self, minutes: int = 10) -> Dict[str, Any]:
         """Snooze upcoming reminder by specified minutes."""
         self.snooze_seconds_remaining = max(60, minutes * 60)
+        self.reminder_due = False
+        self.reminder_message = None
         logger.info(f"Snoozed hydration reminder for {minutes}m")
+        return self.get_status()
+
+    def dismiss(self) -> Dict[str, Any]:
+        """Dismiss active hydration reminder and reset countdown."""
+        self.reminder_due = False
+        self.reminder_message = None
+        self.active_work_seconds = 0
+        logger.info("Dismissed active hydration reminder")
+        return self.get_status()
+
+    def trigger_test(self) -> Dict[str, Any]:
+        """Manually trigger an immediate hydration reminder for test/preview."""
+        self.reminder_due = True
+        self.reminder_message = "Test Alert: Stay hydrated and drink a fresh glass of water!"
+        logger.info("Triggered manual test hydration reminder")
         return self.get_status()
 
     def get_status(self, target_date: Optional[str] = None) -> Dict[str, Any]:
@@ -150,13 +180,17 @@ class HydrationScheduler:
             today_intake_ml = repo.get_today_intake(d_str)
 
         target_interval_secs = self.calculate_effective_interval_minutes() * 60
-        if self.snooze_seconds_remaining > 0:
+        if self.reminder_due:
+            remaining_secs = 0
+        elif self.snooze_seconds_remaining > 0:
             remaining_secs = self.snooze_seconds_remaining
         else:
             remaining_secs = max(0, target_interval_secs - self.active_work_seconds)
 
         mins_left = remaining_secs // 60
-        if mins_left > 0:
+        if self.reminder_due:
+            formatted_time = "0m"
+        elif mins_left > 0:
             formatted_time = f"{mins_left}m"
         else:
             formatted_time = f"{remaining_secs}s"
@@ -168,6 +202,7 @@ class HydrationScheduler:
         return {
             "enabled": self.enabled,
             "mode": self.mode,
+            "custom_interval_minutes": self.custom_interval_minutes,
             "next_reminder_seconds": remaining_secs,
             "next_reminder_formatted": formatted_time,
             "today_intake_ml": today_intake_ml,
@@ -176,8 +211,11 @@ class HydrationScheduler:
             "target_glasses": target_glasses,
             "percentage_completed": pct_completed,
             "last_drank_at": self.last_drank_at,
+            "reminder_due": self.reminder_due,
+            "reminder_message": self.reminder_message,
         }
 
 
 # Singleton instance
 hydration_scheduler = HydrationScheduler()
+
