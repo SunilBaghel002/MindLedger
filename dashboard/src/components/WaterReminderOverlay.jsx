@@ -1,98 +1,129 @@
 /**
- * WaterReminderOverlay — Anime Character Hydration Companion (Iteration 3).
+ * WaterReminderOverlay — Customizable Anime Character Hydration Companion (Iteration 5)
  *
  * Enhancements:
- * 1. ZERO JUMPING / SMOOTH GLIDE: Replaced rapid aggressive bounces with a gentle,
- *    delicate 2-3px walking glide and smooth cubic-bezier horizontal travel.
- * 2. SWEET & SLIGHT VOICE:
- *    - Web Audio API soft crystalline water droplet chime.
- *    - Strict female/sweet voice selection (Jenny, Aria, Ana, Michelle, UK Female, Samantha, Zira).
- *    - Optimized sweet anime companion acoustic parameters (pitch: 1.32, rate: 1.04, volume: 0.85).
- * 3. TEST MODE RESILIENCE: Clean dismiss without overriding user's scheduled work countdown.
- * 4. SEAMLESS STATE TRANSITIONS: Smooth 3D turning in place, water offering, and walk-out exit.
+ * 1. BULLETPROOF EXIT LIFECYCLE: Eliminated multi-second delayed state cascades and
+ *    timeout race conditions that caused frozen ghost sprites on screen.
+ * 2. SNAPPY EXIT: 420ms smooth, graceful fade-and-glide exit offscreen right.
+ * 3. HARD RENDER GUARD: If phase is 'hidden' or if !visible and not in exiting transition,
+ *    returns null immediately.
+ * 4. MULTI-CHARACTER ROSTER: Sakura (Maid), Hana (Neko), Aoi (Cyberpunk), Aqua (Maiden).
+ * 5. 4 ENTRANCE ANIMATION MOTIONS: Glide, Bouncy Hop, Floating Fairy, Sparkle Pop.
+ * 6. SWEET VOICE ENGINE & WEB AUDIO CHIMES: Configurable pitch, pace, chimes.
+ *
+ * Author: MindLedger Team
+ * Created: 2026-09-07
  */
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FiDroplet, FiClock, FiX, FiCheckCircle } from 'react-icons/fi';
-import waterGirlWalk from '../assets/water_girl_walk.png';
-import waterGirlFront from '../assets/water_girl_front.png';
+import { FiDroplet, FiClock, FiX, FiCheckCircle, FiHeart } from 'react-icons/fi';
+import {
+  CHARACTERS,
+  loadCompanionConfig,
+  speakSweetVoice,
+} from '../utils/companionConfig';
 
 const AUTO_DISMISS_MS = 25000;
-const WALK_IN_DURATION_MS = 2600;
+const ENTER_DURATION_MS = 2600;
 const TURN_DURATION_MS = 400;
 const OFFER_DELAY_MS = 250;
-const WALK_OUT_DURATION_MS = 2200;
+const EXIT_DURATION_MS = 420;
 
-/* ───────── Dynamic CSS Keyframe Animations (Injected Once) ───────── */
-const STYLE_ID = 'mindledger-water-companion-v3-keyframes';
+/* ───────── Dynamic CSS Keyframe Animations ───────── */
+const STYLE_ID = 'mindledger-water-companion-v5-keyframes';
 const injectKeyframes = () => {
   if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-    /* Smooth horizontal walk-in across screen without jitter */
+    /* === 1. GLIDE ENTRANCE & STEPS === */
     @keyframes ml-wro-walkInAcross {
       0%   { transform: translateX(calc(100vw + 60px)); opacity: 0; }
       5%   { opacity: 1; }
-      100% { transform: translateX(calc(50vw - 100px)); opacity: 1; }
+      100% { transform: translateX(calc(50vw - 110px)); opacity: 1; }
     }
-
-    /* Smooth horizontal walk-out past the right screen edge */
-    @keyframes ml-wro-walkOutAcross {
-      0%   { transform: translateX(calc(50vw - 100px)); opacity: 1; }
-      95%  { opacity: 1; }
-      100% { transform: translateX(calc(100vw + 380px)); opacity: 0; }
-    }
-
-    /* Subtle, delicate walking step glide (soft 3px step, zero jumping) */
     @keyframes ml-wro-walkingSteps {
       0%, 100% { transform: translateY(0px) rotate(0deg); }
-      50%      { transform: translateY(-3px) rotate(-0.8deg); }
+      50%      { transform: translateY(-4px) rotate(-1deg); }
     }
 
-    /* Smooth 3D Turn In: Side View -> 90deg -> Front View */
+    /* === 2. BOUNCY CHIBI HOP ENTRANCE & STEPS === */
+    @keyframes ml-wro-bounceInAcross {
+      0%   { transform: translateX(calc(100vw + 80px)); opacity: 0; }
+      5%   { opacity: 1; }
+      100% { transform: translateX(calc(50vw - 110px)); opacity: 1; }
+    }
+    @keyframes ml-wro-bounceHopSteps {
+      0%, 100% { transform: translateY(0px) scale(1, 1); }
+      30%      { transform: translateY(-24px) scale(0.94, 1.06) rotate(1.5deg); }
+      60%      { transform: translateY(-6px) scale(1.04, 0.96); }
+      80%      { transform: translateY(0px) scale(1.06, 0.94); }
+    }
+
+    /* === 3. FLOATING BUBBLE FAIRY ENTRANCE & STEPS === */
+    @keyframes ml-wro-floatInAcross {
+      0%   { transform: translateX(calc(100vw + 80px)) translateY(-20px); opacity: 0; }
+      15%  { opacity: 1; }
+      100% { transform: translateX(calc(50vw - 110px)) translateY(0px); opacity: 1; }
+    }
+    @keyframes ml-wro-floatingWaveSteps {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      25%      { transform: translateY(-12px) rotate(1.8deg); }
+      50%      { transform: translateY(-3px) rotate(0deg); }
+      75%      { transform: translateY(-16px) rotate(-1.8deg); }
+    }
+
+    /* === 4. SPARKLE STAR PORTAL POP ENTRANCE === */
+    @keyframes ml-wro-sparklePopIn {
+      0%   { transform: translateX(calc(50vw - 110px)) scale(0.1) rotate(-15deg); opacity: 0; filter: brightness(2); }
+      50%  { opacity: 1; transform: translateX(calc(50vw - 110px)) scale(1.12) rotate(4deg); }
+      75%  { transform: translateX(calc(50vw - 110px)) scale(0.96) rotate(-1deg); }
+      100% { transform: translateX(calc(50vw - 110px)) scale(1) rotate(0deg); opacity: 1; filter: brightness(1); }
+    }
+    @keyframes ml-wro-sparkleTwinkleSteps {
+      0%, 100% { transform: translateY(0px) scale(1); filter: drop-shadow(0 0 12px rgba(253, 224, 71, 0.4)); }
+      50%      { transform: translateY(-6px) scale(1.02); filter: drop-shadow(0 0 22px rgba(253, 224, 71, 0.7)); }
+    }
+
+    /* === 5. UNIVERSAL SMOOTH EXIT === */
+    @keyframes ml-wro-exitSmooth {
+      0%   { transform: translateX(calc(50vw - 110px)) scale(1); opacity: 1; }
+      100% { transform: translateX(calc(100vw + 240px)) scale(0.95); opacity: 0; }
+    }
+
+    /* 3D Turns */
     @keyframes ml-wro-turnToFront {
       0%   { transform: perspective(700px) rotateY(0deg) scale(1); }
       50%  { transform: perspective(700px) rotateY(90deg) scale(0.98); }
       100% { transform: perspective(700px) rotateY(0deg) scale(1); }
     }
 
-    /* Smooth 3D Turn Out: Front View -> 90deg -> Side View Facing Right */
-    @keyframes ml-wro-turnToRight {
-      0%   { transform: perspective(700px) rotateY(0deg) scale(1); }
-      50%  { transform: perspective(700px) rotateY(90deg) scale(0.98); }
-      100% { transform: perspective(700px) rotateY(0deg) scale(1); }
-    }
-
-    /* Gentle water offering gesture (subtle forward tilt, zero harsh bounce) */
+    /* Gesture & Idle */
     @keyframes ml-wro-offerWaterForward {
       0%   { transform: translateY(0) scale(1); }
-      50%  { transform: translateY(-3px) scale(1.015); }
+      50%  { transform: translateY(-5px) scale(1.025); }
       100% { transform: translateY(0) scale(1); }
     }
-
-    /* Gentle living idle breathing motion */
     @keyframes ml-wro-livingIdle {
       0%, 100% { transform: translateY(0px); }
-      50%      { transform: translateY(-4px); }
+      50%      { transform: translateY(-5px); }
     }
 
-    /* Speech dialogue smooth soft spring entrance */
+    /* Dialogue Card Spring & Collapse */
     @keyframes ml-wro-dialogueSpring {
-      0%   { opacity: 0; transform: scale(0.9) translateY(12px); }
-      70%  { opacity: 1; transform: scale(1.015) translateY(-2px); }
+      0%   { opacity: 0; transform: scale(0.88) translateY(16px); }
+      70%  { opacity: 1; transform: scale(1.02) translateY(-2px); }
       100% { opacity: 1; transform: scale(1) translateY(0); }
     }
-
-    /* Speech dialogue quick soft collapse */
     @keyframes ml-wro-dialogueCollapse {
       0%   { opacity: 1; transform: scale(1) translateY(0); }
-      100% { opacity: 0; transform: scale(0.9) translateY(8px); }
+      100% { opacity: 0; transform: scale(0.85) translateY(12px); }
     }
 
-    /* Button shimmer & pulse */
+    /* Pulse Glow */
     @keyframes ml-wro-pulseGlow {
-      0%, 100% { box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35); }
-      50%      { box-shadow: 0 6px 20px rgba(14, 165, 233, 0.5); }
+      0%, 100% { box-shadow: 0 4px 16px rgba(14, 165, 233, 0.35); }
+      50%      { box-shadow: 0 6px 24px rgba(14, 165, 233, 0.55); }
     }
 
     /* Progress bar shrinking */
@@ -104,189 +135,99 @@ const injectKeyframes = () => {
   document.head.appendChild(style);
 };
 
-/**
- * Play a sweet, delicate crystalline chime using Web Audio API
- */
-const playSweetChime = () => {
-  if (typeof window === 'undefined') return;
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const now = ctx.currentTime;
-
-    // Harmonic Note 1 (E6 - 1318.5 Hz)
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(1046.5, now);
-    osc1.frequency.exponentialRampToValueAtTime(1318.5, now + 0.12);
-    gain1.gain.setValueAtTime(0.06, now);
-    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-    osc1.start(now);
-    osc1.stop(now + 0.55);
-
-    // Harmonic Note 2 (G6 - 1567.98 Hz)
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(1567.98, now + 0.08);
-    gain2.gain.setValueAtTime(0.04, now + 0.08);
-    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.start(now + 0.08);
-    osc2.stop(now + 0.65);
-  } catch {
-    // Audio fallback
-  }
-};
-
-/**
- * Play a sweet, pleasant, high-pitched female companion voice
- */
-const speakHydrationPrompt = () => {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return;
-  try {
-    window.speechSynthesis.cancel();
-    playSweetChime();
-
-    const utterance = new SpeechSynthesisUtterance('Sunil, please drink your water!');
-    // Sweet, slight, high, upbeat anime companion settings
-    utterance.rate = 1.04;
-    utterance.pitch = 1.32;
-    utterance.volume = 0.85;
-
-    const voices = window.speechSynthesis.getVoices();
-    if (voices && voices.length > 0) {
-      // Prioritize sweetest natural female voices & exclude any heavy male voices
-      const sweetFemaleVoice =
-        voices.find((v) => {
-          const name = v.name.toLowerCase();
-          const isEnglish = v.lang.startsWith('en');
-          const isSweet =
-            name.includes('jenny') ||
-            name.includes('aria') ||
-            name.includes('ana') ||
-            name.includes('michelle') ||
-            name.includes('uk english female') ||
-            name.includes('samantha') ||
-            name.includes('victoria') ||
-            name.includes('zira') ||
-            name.includes('karen') ||
-            name.includes('tessa') ||
-            name.includes('fiona') ||
-            name.includes('female');
-          const isMale =
-            name.includes('david') ||
-            name.includes('mark') ||
-            name.includes('george') ||
-            name.includes('richard') ||
-            name.includes('guy') ||
-            name.includes('male') ||
-            name.includes('stefan') ||
-            name.includes('ravi') ||
-            name.includes('sean');
-          return isEnglish && isSweet && !isMale;
-        }) ||
-        voices.find((v) => {
-          const name = v.name.toLowerCase();
-          const isEnglish = v.lang.startsWith('en');
-          const isMale =
-            name.includes('david') ||
-            name.includes('mark') ||
-            name.includes('george') ||
-            name.includes('richard') ||
-            name.includes('guy') ||
-            name.includes('male');
-          return isEnglish && !isMale;
-        }) ||
-        voices[0];
-
-      if (sweetFemaleVoice) {
-        utterance.voice = sweetFemaleVoice;
-      }
-    }
-
-    window.speechSynthesis.speak(utterance);
-  } catch (err) {
-    console.warn('MindLedger Water Voice Synthesis notice:', err);
-  }
-};
-
-const triggerWebNotification = () => {
+const triggerWebNotification = (greetingText) => {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   try {
     if (Notification.permission === 'granted') {
       new Notification('💧 Hydration Reminder — Time to Drink!', {
-        body: 'Sunil, please drink a fresh glass of water to stay energized and focused!',
+        body: greetingText || 'Sunil, please drink a fresh glass of water to stay energized and focused!',
         icon: '/logo.png',
-      });
-    } else if (Notification.permission === 'default') {
-      Notification.requestPermission().then((perm) => {
-        if (perm === 'granted') {
-          new Notification('💧 Hydration Reminder — Time to Drink!', {
-            body: 'Sunil, please drink a fresh glass of water to stay energized and focused!',
-            icon: '/logo.png',
-          });
-        }
       });
     }
   } catch {
-    // browser notification fallback
+    // fallback
   }
 };
 
-const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss }) => {
+export default function WaterReminderOverlay({
+  visible,
+  onDrinkWater,
+  onRemindLater,
+  onDismiss,
+}) {
   const [phase, setPhase] = useState('hidden');
   const [isFrontSprite, setIsFrontSprite] = useState(false);
+  const [config, setConfig] = useState(loadCompanionConfig);
   const hasSpokenRef = useRef(false);
   const timeoutsRef = useRef([]);
+  const exitTimerRef = useRef(null);
+
+  // Resolve active character
+  const character =
+    CHARACTERS.find((c) => c.id === config.characterId) || CHARACTERS[0];
+  const animStyle = config.animationStyle || 'glide';
 
   const clearAllTimeouts = useCallback(() => {
     timeoutsRef.current.forEach((t) => clearTimeout(t));
     timeoutsRef.current = [];
   }, []);
 
-  // Pre-load speech synthesis voices and request notification permission
+  // Listen for config changes
   useEffect(() => {
     injectKeyframes();
-    if (typeof window !== 'undefined') {
-      if (window.speechSynthesis) {
-        window.speechSynthesis.getVoices();
-        if (window.speechSynthesis.onvoiceschanged !== undefined) {
-          window.speechSynthesis.onvoiceschanged = () => {
-            window.speechSynthesis.getVoices();
-          };
-        }
+    const handleConfigUpdate = (e) => {
+      if (e.detail) {
+        setConfig({ ...e.detail });
+      } else {
+        setConfig(loadCompanionConfig());
       }
-      if ('Notification' in window && Notification.permission === 'default') {
-        try {
-          Notification.requestPermission();
-        } catch {
-          // ignore
-        }
-      }
-    }
+    };
+    window.addEventListener('mindledger:companion-config-updated', handleConfigUpdate);
+    return () => {
+      window.removeEventListener('mindledger:companion-config-updated', handleConfigUpdate);
+    };
   }, []);
+
+  // Trigger smooth, rapid exit sequence
+  const triggerExit = useCallback(() => {
+    if (phase === 'hidden' || phase === 'exiting') return;
+    clearAllTimeouts();
+
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+
+    setPhase('exiting');
+
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    exitTimerRef.current = setTimeout(() => {
+      setPhase('hidden');
+      onDismiss?.();
+    }, EXIT_DURATION_MS);
+  }, [phase, onDismiss, clearAllTimeouts]);
 
   // Main animation orchestrator
   useEffect(() => {
     if (visible) {
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
       clearAllTimeouts();
+      // Reload freshest config
+      const curConfig = loadCompanionConfig();
+      setConfig(curConfig);
+
       hasSpokenRef.current = false;
       setIsFrontSprite(false);
-      setPhase('walking_in');
-      triggerWebNotification();
+      setPhase('entering');
+      triggerWebNotification(curConfig.greetingText);
 
+      // Duration of entrance depending on animation style
+      const enterTime = animStyle === 'sparkle' ? 900 : ENTER_DURATION_MS;
 
-      // 1. Walk in completes -> Start turning to face the user
+      // 1. Entrance completes -> Turn / Face user
       const t1 = setTimeout(() => {
         setPhase('turning');
 
-        // Swap to front-facing sprite halfway through the 3D turn
+        // Swap to front-facing sprite halfway through
         const tSwap = setTimeout(() => {
           setIsFrontSprite(true);
         }, TURN_DURATION_MS / 2);
@@ -300,24 +241,30 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
           const tVoice = setTimeout(() => {
             if (!hasSpokenRef.current) {
               hasSpokenRef.current = true;
-              speakHydrationPrompt();
+              speakSweetVoice(curConfig.greetingText || character.defaultGreeting, {
+                pitch: curConfig.customPitch ?? 1.48,
+                rate: curConfig.customRate ?? 1.05,
+                volume: curConfig.customVolume ?? 0.90,
+                chimeStyle: curConfig.chimeStyle ?? 'crystalline',
+              });
             }
             setPhase('idle');
           }, OFFER_DELAY_MS);
           timeoutsRef.current.push(tVoice);
         }, TURN_DURATION_MS);
         timeoutsRef.current.push(t2);
-      }, WALK_IN_DURATION_MS);
+      }, enterTime);
       timeoutsRef.current.push(t1);
 
-      // Auto-dismiss safety timeout
+      // Safety auto-dismiss
       const tAuto = setTimeout(() => {
         triggerExit();
       }, AUTO_DISMISS_MS);
       timeoutsRef.current.push(tAuto);
     } else {
-      if (phase !== 'hidden' && phase !== 'walking_out' && phase !== 'turning_out') {
-        triggerExit();
+      clearAllTimeouts();
+      if (phase !== 'exiting') {
+        setPhase('hidden');
       }
     }
 
@@ -329,36 +276,7 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
     };
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Trigger smooth walk-away exit sequence
-  const triggerExit = useCallback(() => {
-    if (phase === 'walking_out' || phase === 'turning_out' || phase === 'hidden') return;
-    clearAllTimeouts();
-    setPhase('turning_out');
-
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-
-    // Turn back to side profile
-    const tSwap = setTimeout(() => {
-      setIsFrontSprite(false);
-    }, 180);
-    timeoutsRef.current.push(tSwap);
-
-    // After turn, walk out to offscreen right
-    const tWalkOut = setTimeout(() => {
-      setPhase('walking_out');
-
-      const tDone = setTimeout(() => {
-        setPhase('hidden');
-        onDismiss?.();
-      }, WALK_OUT_DURATION_MS);
-      timeoutsRef.current.push(tDone);
-    }, 320);
-    timeoutsRef.current.push(tWalkOut);
-  }, [phase, onDismiss, clearAllTimeouts]);
-
-  // User Actions
+  // Actions
   const handleDrink = () => {
     onDrinkWater?.();
     triggerExit();
@@ -369,34 +287,73 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
     triggerExit();
   };
 
-  // Keyboard shortcut listener (Escape to dismiss)
+  // Keyboard shortcut (Escape to close)
   useEffect(() => {
-    if (!visible || phase === 'hidden' || phase === 'walking_out') return;
-
+    if (!visible || phase === 'hidden' || phase === 'exiting') return;
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        triggerExit();
-      }
+      if (e.key === 'Escape') triggerExit();
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [visible, phase, triggerExit]);
 
-  if (!visible && phase === 'hidden') return null;
+  // HARD GUARD: never render when hidden or when visible is false and not exiting
+  if (phase === 'hidden') return null;
+  if (!visible && phase !== 'exiting') return null;
 
-  const isWalkingIn = phase === 'walking_in';
+  const isEntering = phase === 'entering';
   const isTurningIn = phase === 'turning';
   const isFacing = phase === 'facing';
   const isIdle = phase === 'idle';
-  const isTurningOut = phase === 'turning_out';
-  const isWalkingOut = phase === 'walking_out';
+  const isExiting = phase === 'exiting';
 
   const showDialogue = isFacing || isIdle;
-  const isExiting = isTurningOut || isWalkingOut;
 
-  // Active sprite: side walking sprite during walk, front sprite during greeting/idle
-  const activeSprite = isFrontSprite ? waterGirlFront : waterGirlWalk;
+  // Active sprite: Front sprite during facing/greeting, Walk sprite during entrance/exit
+  const activeSprite = isFrontSprite
+    ? character.frontSprite
+    : character.walkSprite || character.frontSprite;
+
+  // Choose entrance container animation based on selected style
+  let containerEntranceAnim = 'none';
+  if (isEntering) {
+    if (animStyle === 'glide') {
+      containerEntranceAnim = `ml-wro-walkInAcross ${ENTER_DURATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1) forwards`;
+    } else if (animStyle === 'bounce') {
+      containerEntranceAnim = `ml-wro-bounceInAcross ${ENTER_DURATION_MS}ms cubic-bezier(0.25, 1, 0.5, 1) forwards`;
+    } else if (animStyle === 'float') {
+      containerEntranceAnim = `ml-wro-floatInAcross ${ENTER_DURATION_MS}ms ease-out forwards`;
+    } else if (animStyle === 'sparkle') {
+      containerEntranceAnim = `ml-wro-sparklePopIn 850ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards`;
+    }
+  } else if (isExiting) {
+    containerEntranceAnim = `ml-wro-exitSmooth ${EXIT_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1) forwards`;
+  }
+
+  // Choose character sprite motion based on selected style
+  let spriteMotionAnim = 'none';
+  if (isEntering) {
+    if (animStyle === 'glide') {
+      spriteMotionAnim = 'ml-wro-walkingSteps 0.48s ease-in-out infinite';
+    } else if (animStyle === 'bounce') {
+      spriteMotionAnim = 'ml-wro-bounceHopSteps 0.42s ease-in-out infinite';
+    } else if (animStyle === 'float') {
+      spriteMotionAnim = 'ml-wro-floatingWaveSteps 1.8s ease-in-out infinite';
+    } else if (animStyle === 'sparkle') {
+      spriteMotionAnim = 'ml-wro-sparkleTwinkleSteps 0.8s ease-in-out infinite';
+    }
+  } else if (isTurningIn) {
+    spriteMotionAnim = `ml-wro-turnToFront ${TURN_DURATION_MS}ms ease-in-out forwards`;
+  } else if (isFacing) {
+    spriteMotionAnim = 'ml-wro-offerWaterForward 0.6s ease-out forwards';
+  } else if (isIdle) {
+    spriteMotionAnim =
+      animStyle === 'float'
+        ? 'ml-wro-floatingWaveSteps 2.4s ease-in-out infinite'
+        : 'ml-wro-livingIdle 3.2s ease-in-out infinite';
+  } else if (isExiting) {
+    spriteMotionAnim = 'ml-wro-walkingSteps 0.42s ease-in-out forwards';
+  }
 
   return (
     <div
@@ -411,7 +368,7 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
         overflow: 'hidden',
       }}
     >
-      {/* Click-away backdrop overlay */}
+      {/* Click-away backdrop */}
       <div
         onClick={triggerExit}
         style={{
@@ -423,80 +380,75 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
         }}
       />
 
-      {/* ───────── Character Motion Stage (Traversing the Viewport) ───────── */}
+      {/* ───────── Character Motion Stage ───────── */}
       <div
         style={{
           position: 'absolute',
-          bottom: '12px',
+          bottom: '16px',
           left: 0,
           display: 'flex',
           alignItems: 'flex-end',
-          gap: '14px',
+          gap: '16px',
           zIndex: 99999,
           pointerEvents: 'auto',
-          animation: isWalkingIn
-            ? `ml-wro-walkInAcross ${WALK_IN_DURATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1) forwards`
-            : isWalkingOut
-            ? `ml-wro-walkOutAcross ${WALK_OUT_DURATION_MS}ms cubic-bezier(0.4, 0, 0.7, 1) forwards`
-            : 'none',
+          animation: containerEntranceAnim,
           transform:
-            isTurningIn || isFacing || isIdle || isTurningOut
-              ? 'translateX(calc(50vw - 100px))'
+            !isEntering && !isExiting
+              ? 'translateX(calc(50vw - 110px))'
               : undefined,
         }}
       >
-        {/* ───────── Unified Speech Dialogue Card ───────── */}
+        {/* ───────── Speech Dialogue Card ───────── */}
         <div
           style={{
             position: 'relative',
-            width: '340px',
-            marginBottom: '42px',
+            width: '350px',
+            marginBottom: '46px',
             padding: '20px 22px 18px 22px',
-            background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 249, 255, 0.95) 100%)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            border: '1.5px solid rgba(186, 230, 253, 0.95)',
-            borderRadius: '22px',
-            boxShadow:
-              '0 20px 45px -10px rgba(14, 165, 233, 0.28), 0 6px 16px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(224, 242, 254, 0.8)',
+            background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%)',
+            backdropFilter: 'blur(18px)',
+            WebkitBackdropFilter: 'blur(18px)',
+            border: `1.5px solid ${character.themeColor}33`,
+            borderRadius: '24px',
+            boxShadow: `0 20px 45px -10px ${character.themeColor}40, 0 6px 18px rgba(0, 0, 0, 0.06)`,
             transformOrigin: 'bottom right',
             opacity: showDialogue ? 1 : 0,
             pointerEvents: showDialogue ? 'auto' : 'none',
             animation: isExiting
-              ? 'ml-wro-dialogueCollapse 0.25s ease-in forwards'
+              ? `ml-wro-dialogueCollapse ${EXIT_DURATION_MS}ms ease-in forwards`
               : showDialogue
               ? 'ml-wro-dialogueSpring 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards'
               : 'none',
             transition: 'opacity 0.2s',
           }}
         >
-          {/* Speech pointer tail pointing towards the companion */}
+          {/* Speech tail pointing to companion */}
           <div
             style={{
               position: 'absolute',
               right: '-11px',
-              bottom: '38px',
+              bottom: '42px',
               width: 0,
               height: 0,
               borderTop: '10px solid transparent',
               borderBottom: '10px solid transparent',
-              borderLeft: '12px solid rgba(186, 230, 253, 0.95)',
+              borderLeft: `12px solid ${character.themeColor}44`,
             }}
           />
           <div
             style={{
               position: 'absolute',
               right: '-9px',
-              bottom: '38px',
+              bottom: '42px',
               width: 0,
               height: 0,
               borderTop: '9px solid transparent',
               borderBottom: '9px solid transparent',
-              borderLeft: '11px solid #f0f9ff',
+              borderLeft: '11px solid #ffffff',
             }}
           />
 
-          {/* Top Pill & Close Button */}
+          {/* Top Pill & Close */}
           <div
             style={{
               display: 'flex',
@@ -512,22 +464,22 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
                 gap: '6px',
                 padding: '4px 10px',
                 borderRadius: '20px',
-                background: 'rgba(14, 165, 233, 0.12)',
-                color: '#0284c7',
+                background: character.badgeBg,
+                color: character.badgeColor,
                 fontSize: '11.5px',
                 fontWeight: 700,
                 letterSpacing: '0.02em',
               }}
             >
-              <FiDroplet style={{ fontSize: '13px' }} />
-              <span>Hydration Companion</span>
+              <FiHeart style={{ fontSize: '13px' }} />
+              <span>{character.name} ({character.title})</span>
             </div>
 
             <button
               onClick={triggerExit}
               aria-label="Dismiss water reminder"
               style={{
-                background: 'rgba(241, 245, 249, 0.8)',
+                background: 'rgba(241, 245, 249, 0.85)',
                 border: 'none',
                 borderRadius: '50%',
                 width: '24px',
@@ -544,7 +496,7 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
                 e.currentTarget.style.color = '#0f172a';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(241, 245, 249, 0.8)';
+                e.currentTarget.style.background = 'rgba(241, 245, 249, 0.85)';
                 e.currentTarget.style.color = '#64748b';
               }}
             >
@@ -552,20 +504,20 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
             </button>
           </div>
 
-          {/* Primary Header Message */}
+          {/* Primary Greeting Message */}
           <h4
             style={{
               margin: '0 0 6px 0',
               fontSize: '16.5px',
               fontWeight: 800,
-              color: '#0369a1',
+              color: character.themeColor,
               lineHeight: 1.35,
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
             }}
           >
-            Sunil, please drink your water! 💧
+            {config.greetingText || character.defaultGreeting}
           </h4>
 
           {/* Supporting Text */}
@@ -578,10 +530,10 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
               fontWeight: 500,
             }}
           >
-            You&apos;ve been coding for a while. Stay hydrated to keep your focus sharp and your energy high!
+            You&apos;ve been working hard! Take a refreshing sip now to recharge your energy and keep your mind crystal clear.
           </p>
 
-          {/* Action Buttons Row */}
+          {/* Action Buttons */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button
               onClick={handleDrink}
@@ -591,7 +543,7 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
                 fontSize: '12.5px',
                 fontWeight: 700,
                 color: '#ffffff',
-                background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)',
+                background: character.accentGradient,
                 border: 'none',
                 borderRadius: '12px',
                 cursor: 'pointer',
@@ -599,7 +551,7 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
-                boxShadow: '0 4px 14px rgba(14, 165, 233, 0.35)',
+                boxShadow: `0 4px 14px ${character.themeColor}55`,
                 animation: 'ml-wro-pulseGlow 2.5s ease-in-out infinite',
                 transition: 'transform 0.15s ease, filter 0.15s ease',
               }}
@@ -667,53 +619,40 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
             <div
               style={{
                 height: '100%',
-                background: 'linear-gradient(90deg, #0ea5e9, #38bdf8)',
+                background: character.accentGradient,
                 animation: `ml-wro-progressShrink ${AUTO_DISMISS_MS}ms linear forwards`,
-                animationDelay: `${WALK_IN_DURATION_MS + TURN_DURATION_MS}ms`,
+                animationDelay: `${ENTER_DURATION_MS + TURN_DURATION_MS}ms`,
               }}
             />
           </div>
         </div>
 
-        {/* ───────── Anime Girl Sprite Rig & Walking Animations ───────── */}
+        {/* ───────── Anime Character Sprite Rig ───────── */}
         <div
           style={{
             position: 'relative',
-            width: '185px',
+            width: '200px',
             flexShrink: 0,
             overflow: 'visible',
           }}
         >
           <div
             style={{
-              animation: isWalkingIn
-                ? 'ml-wro-walkingSteps 0.48s ease-in-out infinite'
-                : isTurningIn
-                ? `ml-wro-turnToFront ${TURN_DURATION_MS}ms ease-in-out forwards`
-                : isFacing
-                ? 'ml-wro-offerWaterForward 0.6s ease-out forwards'
-                : isIdle
-                ? 'ml-wro-livingIdle 3.2s ease-in-out infinite'
-                : isTurningOut
-                ? 'ml-wro-turnToRight 0.32s ease-in-out forwards'
-                : isWalkingOut
-                ? 'ml-wro-walkingSteps 0.48s ease-in-out infinite'
-                : 'none',
-              transform: isWalkingOut ? 'scaleX(-1)' : undefined,
+              animation: spriteMotionAnim,
+              transform: isExiting ? 'scaleX(-1)' : undefined,
               display: 'flex',
               justifyContent: 'center',
             }}
           >
             <img
               src={activeSprite}
-              alt="Anime Hydration Companion"
+              alt={character.name}
               style={{
                 width: '100%',
                 height: 'auto',
                 maxHeight: '345px',
                 objectFit: 'contain',
-                filter:
-                  'drop-shadow(0 14px 30px rgba(14, 165, 233, 0.28)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.08))',
+                filter: `drop-shadow(0 14px 30px ${character.themeColor}44) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.08))`,
                 userSelect: 'none',
                 WebkitUserDrag: 'none',
                 pointerEvents: 'none',
@@ -725,6 +664,4 @@ const WaterReminderOverlay = ({ visible, onDrinkWater, onRemindLater, onDismiss 
       </div>
     </div>
   );
-};
-
-export default WaterReminderOverlay;
+}

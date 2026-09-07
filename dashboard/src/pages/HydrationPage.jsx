@@ -36,7 +36,6 @@ import {
 import { Bar } from 'react-chartjs-2';
 import StatCard from '../components/StatCard';
 import Toast from '../components/Toast';
-import WaterReminderOverlay from '../components/WaterReminderOverlay';
 import { api } from '../services/api';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
@@ -49,9 +48,6 @@ export default function HydrationPage() {
   const [logging, setLogging] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [toasts, setToasts] = useState([]);
-  const [showOverlay, setShowOverlay] = useState(false);
-  const [isTestMode, setIsTestMode] = useState(false);
-  const overlayShownRef = useRef(false);
 
   // Config State
   const [config, setConfig] = useState({
@@ -201,37 +197,9 @@ export default function HydrationPage() {
   };
 
   const handleTestNotification = () => {
-    setIsTestMode(true);
-    setShowOverlay(true);
+    window.dispatchEvent(new CustomEvent('mindledger:trigger-water-overlay'));
+    addToast('info', 'Hydration companion preview launched on your screen!', 'Companion Preview');
   };
-
-  const handleOverlayDrink = async () => {
-    await handleDrinkWater(250, 'notification_button');
-  };
-
-  const handleOverlayRemindLater = async () => {
-    if (isTestMode) {
-      addToast(
-        'info',
-        `Hydration companion dismissed. Your next scheduled reminder remains at ~${nextReminder}.`,
-        'Test Dismissed'
-      );
-    } else {
-      await handleSnooze(10);
-    }
-  };
-
-  // Auto-show overlay when reminder is due (polled from status)
-  useEffect(() => {
-    if (status?.reminder_due && !overlayShownRef.current) {
-      overlayShownRef.current = true;
-      setIsTestMode(false);
-      setShowOverlay(true);
-    }
-    if (!status?.reminder_due) {
-      overlayShownRef.current = false;
-    }
-  }, [status?.reminder_due]);
 
   const handleSaveConfig = async () => {
     setSavingConfig(true);
@@ -844,13 +812,6 @@ export default function HydrationPage() {
         </div>
       </div>
     </section>
-
-    <WaterReminderOverlay
-      visible={showOverlay}
-      onDrinkWater={handleOverlayDrink}
-      onRemindLater={handleOverlayRemindLater}
-      onDismiss={() => setShowOverlay(false)}
-    />
     </>
   );
 }
