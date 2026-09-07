@@ -10,6 +10,7 @@ import YoutubePage from './pages/YoutubePage';
 import ProcessesPage from './pages/ProcessesPage';
 import BatteryPage from './pages/BatteryPage';
 import HydrationPage from './pages/HydrationPage';
+import CustomizePage from './pages/CustomizePage';
 import LimitsPage from './pages/LimitsPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
@@ -27,6 +28,7 @@ const TITLES = {
   processes: 'Process Supervisor',
   battery: 'Battery & Power',
   hydration: 'Hydration & Wellness',
+  customize: 'Companion Customization Studio',
   limits: 'App & Website Limits',
   reports: 'Reports',
   settings: 'Settings',
@@ -132,31 +134,25 @@ export default function App() {
       fetchDashboard(false);
     } catch (err) {
       console.warn('Hydration overlay drink failed:', err);
-    } finally {
-      setShowWaterOverlay(false);
-      overlayShownRef.current = false;
     }
   };
 
   const handleOverlayRemindLater = async () => {
     try {
       await api.snoozeWater(10);
+      fetchDashboard(false);
     } catch (err) {
       console.warn('Hydration overlay snooze failed:', err);
-    } finally {
-      setShowWaterOverlay(false);
-      overlayShownRef.current = false;
     }
   };
 
   const handleOverlayDismiss = async () => {
+    setShowWaterOverlay(false);
+    overlayShownRef.current = false;
     try {
       await api.dismissWater();
     } catch (err) {
-      console.warn('Hydration overlay dismiss failed:', err);
-    } finally {
-      setShowWaterOverlay(false);
-      overlayShownRef.current = false;
+      // ignore
     }
   };
 
@@ -183,6 +179,8 @@ export default function App() {
         return <BatteryPage />;
       case 'hydration':
         return <HydrationPage />;
+      case 'customize':
+        return <CustomizePage />;
       case 'limits':
         return <LimitsPage />;
       case 'reports':
